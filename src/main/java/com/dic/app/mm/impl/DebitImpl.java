@@ -2,6 +2,7 @@ package com.dic.app.mm.impl;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -52,7 +53,8 @@ public class DebitImpl implements DebitMng {
 		Integer period = Integer.valueOf(config.getPeriod());
 		// период - месяц назад
 		Integer periodBack = Integer.valueOf(config.getPeriodBack());
-
+		// начальная дата расчета
+		Date dt1 = config.getCurDt1();
 		// загрузить все финансовые операции по лиц.счету
 		// задолжность предыдущего периода - 1
 		List<SumRec> lstFlow = debUslDao.getDebitByLsk(lsk, periodBack);
@@ -77,8 +79,8 @@ public class DebitImpl implements DebitMng {
 */
 
 		List<SumDebRec> lst = lstUslOrg.stream()
-//				.filter(t-> t.get.equals("004") || t.equals("005"))
-				.flatMap(t -> genDebitUsl(t, lstFlow, genDt, period).stream())
+				.filter(t-> t.getUslId().equals("005") && t.getOrgId().equals(10))
+				.flatMap(t -> genDebitUsl(t, lstFlow, dt1, genDt, period).stream())
 				.collect(Collectors.toList());
 
 		log.info("Расчет задолженности - ОКОНЧАНИЕ!");
@@ -89,44 +91,59 @@ public class DebitImpl implements DebitMng {
 	 * @param uslOrg - услуга и организация
 	 * @param orgId - Id организации
 	 * @param lstFlow - финансовые операции за период
-	 * @param genDt - дата расчета
+	 * @param dt1 - начальная дата расчета
+	 * @param genDt - конечная дата расчета (дата на которую расчитать пеню)
 	 * @param perioid - текущий период
 	 * @return
 	 */
-	private List<SumDebRec> genDebitUsl(UslOrg u, List<SumRec> lstFlow, Date genDt, Integer period) {
-		log.info("Расчет задолженности по услуге uslId={}, организации orgId={}", u.getUslId(), u.getOrgId());
-
-/*		lstFlow.forEach(t-> {
-			log.info("FLOW: usl={}, org={}, mg={}, tp={}, summa={}", t.getUslId(), t.getOrgId, t.getMg(), t.getTp(), t.getSumma());
-		});
-*/
-		// задолженность предыдущего периода, текущее начисление, перерасчеты
-		List<SumDebRec> lstDeb = lstFlow.stream()
-				.filter(t-> Utl.in(t.getTp(), 1,2,5))
+	private List<SumDebRec> genDebitUsl(UslOrg u, List<SumRec> lstFlow, Date dt1, Date dt2, Integer period) {
+		List<SumDebRec> lstDeb = new ArrayList<SumDebRec>();
+		// расчет по дням
+		Calendar c = Calendar.getInstance();
+		for (c.setTime(dt1); !c.getTime().after(dt2); c.add(Calendar.DATE, 1)) {
+		Date genDt = c.getTime();
+		log.info("****** Расчет задолженности по услуге uslId={}, организации orgId={} на дату={}", u.getUslId(), u.getOrgId(), genDt);
+		// задолженность предыдущего периода, текущее начисление
+		lstDeb = lstFlow.stream()
+				.filter(t-> Utl.in(t.getTp(), 1,2))
 				.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
-				.map(t-> new SumDebRec(t.getSumma(), t.getSumma(), t.getMg())).collect(Collectors.toList());
-		// вычесть оплату долга и корректировки оплаты - для расчета долга, включая текущий день
+				.map(t-> new SumDebRec(t.getSumma(), t.getSumma(), t.getMg(), t.getTp()))
+				.collect(Collectors.toList());
+		// перерасчеты, включая текущий день
+		lstDeb.addAll(lstFlow.stream()
+				.filter(t-> Utl.in(t.getTp(), 5) && t.getDt().getTime() <= genDt.getTime())
+				.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
+				.map(t-> new SumDebRec(t.getSumma(), t.getSumma(), t.getMg(), t.getTp()))
+				.collect(Collectors.toList()));
+		// вычесть оплату долга и корректировки оплаты - для расчета долга, включая текущий день (Не включая для задолжности для расчета пени)
 		lstDeb.addAll(lstFlow.stream()
 				.filter(t-> Utl.in(t.getTp(), 3,6) && t.getDt().getTime() <= genDt.getTime())
 				.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
-				.map(t-> new SumDebRec(BigDecimal.ZERO, t.getSumma().multiply(new BigDecimal("-1")), t.getMg()))
+				.map(t-> new SumDebRec(
+						t.getDt().getTime() < genDt.getTime() || t.getTp().equals(6) ?  // (Не включая текущий день, для задолжности для расчета пени)
+																					    // если корректировки - взять любой день
+								t.getSumma().multiply(new BigDecimal("-1")) : BigDecimal.ZERO ,
+						t.getDt().getTime() <= genDt.getTime() || t.getTp().equals(6) ? // (включая текущий день, для обычной задолжности)
+																					    // если корректировки - взять любой день
+								t.getSumma().multiply(new BigDecimal("-1")) : BigDecimal.ZERO,
+						t.getMg(), t.getTp()))
 						.collect(Collectors.toList()));
-		// вычесть оплату долга и корректировки оплаты - для расчета пени, НЕ включая текущий день
-		lstDeb.addAll(lstFlow.stream()
-				.filter(t-> Utl.in(t.getTp(), 3,6) && t.getDt().getTime() < genDt.getTime())
-				.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
-				.map(t-> new SumDebRec(t.getSumma().multiply(new BigDecimal("-1")), BigDecimal.ZERO, t.getMg()))
-						.collect(Collectors.toList()));
-
 		// сгруппировать задолженности
 		GrpSum grpSum = new GrpSum(period);
 		lstDeb.forEach(t-> grpSum.addRec(t));
+		// свернуть долги (учесть переплаты предыдущих периодов)
+		grpSum.roll();
+
+
 
 		grpSum.getLst().forEach(t-> {
-			log.info("DEB: usl={}, org={}, mg={}, summa={}, summaDeb={}", u.getUslId(), u.getOrgId(), t.getMg(), t.getSumma(), t.getSummaDeb());
+			log.info("DEB: genDt={}, usl={}, org={}, mg={}, summa={}, summaDeb={}",
+					genDt, u.getUslId(), u.getOrgId(), t.getMg(), t.getSumma(), t.getSummaDeb());
 		});
 
+		}
 		return lstDeb;
+
 	}
 
 	/**
@@ -206,7 +223,21 @@ public class DebitImpl implements DebitMng {
 		GrpSum(Integer period) {
 			this.period = period;
 		};
-		public void addRec(SumDebRec rec) {
+
+		// свернуть долги (учесть переплаты предыдущих периодов)
+		private void roll() {
+			// отсортировать по периоду
+			List<SumDebRec> lstSorted = lst.stream().sorted((t1, t2) ->
+				t1.getMg().compareTo(t2.getMg())).collect(Collectors.toList());
+
+
+			for (SumDebRec t: lstSorted) {
+				log.info("Sort after: mg={}", t.getMg());
+			};
+
+		}
+
+		private void addRec(SumDebRec rec) {
 			if (rec.getMg() == null) {
 				// если mg не заполнено, установить - текущий период (например для начисления)
 				rec.setMg(period);
@@ -224,7 +255,32 @@ public class DebitImpl implements DebitMng {
 					foundRec.setSummaDeb(foundRec.getSummaDeb().add(rec.getSummaDeb()));
 				}
 			}
-			log.info("Добавлено: mg={}, summa={}, summaDeb={}", rec.getMg(), rec.getSumma(), rec.getSummaDeb());
+
+			String str = null;
+			String str2 = "Добавлено";
+			switch (rec.getTp()) {
+			case 1 :
+				str = "задолжность предыдущего периода";
+				break;
+			case 2 :
+				str = "текущее начисление";
+				break;
+			case 3 :
+				str = "оплата долга";
+				str2 = "Вычтено";
+				break;
+			case 4 :
+				str = "оплата пени (не считать в итог долга)";
+				break;
+			case 5 :
+				str = "перерасчет";
+				break;
+			case 6 :
+				str = "корректировка оплаты";
+				str2 = "Вычтено";
+				break;
+			}
+			log.info("{}: {}, mg={}, summa={}, summaDeb={}", str2, str, rec.getMg(), rec.getSumma(), rec.getSummaDeb());
 		}
 
 		public List<SumDebRec> getLst() {
