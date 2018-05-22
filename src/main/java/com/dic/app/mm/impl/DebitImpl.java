@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -224,16 +225,67 @@ public class DebitImpl implements DebitMng {
 			this.period = period;
 		};
 
-		// свернуть долги (учесть переплаты предыдущих периодов)
+		// свернуть задолженность (учесть переплаты предыдущих периодов)
 		private void roll() {
 			// отсортировать по периоду
 			List<SumDebRec> lstSorted = lst.stream().sorted((t1, t2) ->
 				t1.getMg().compareTo(t2.getMg())).collect(Collectors.toList());
 
+			lstSorted.forEach(t-> {
+				log.info("НЕсвернутые долги: mg={}, summa={}, summaDeb={}", t.getMg(), t.getSumma(), t.getSummaDeb());
+			});
 
-			for (SumDebRec t: lstSorted) {
-				log.info("Sort after: mg={}", t.getMg());
-			};
+			// свернуть задолженность
+			BigDecimal ovrPay = BigDecimal.ZERO;
+			BigDecimal ovrPayDeb = BigDecimal.ZERO;
+
+			Iterator<SumDebRec> itr = lstSorted.iterator();
+			while (itr.hasNext()) {
+				SumDebRec t = itr.next();
+				// Задолженность для расчета ПЕНИ
+				// взять сумму текущего периода, добавить переплату
+				BigDecimal summa = t.getSumma().add(ovrPay);
+				if (summa.compareTo(BigDecimal.ZERO) <= 0) {
+					// переплата или 0
+					if (itr.hasNext()) {
+						// перенести переплату в следующий период
+						ovrPay = summa;
+						t.setSumma(BigDecimal.ZERO);
+					} else {
+						// последний период, записать сумму с учетом переплаты
+						ovrPay = BigDecimal.ZERO;
+						t.setSumma(summa);
+					}
+				} else {
+					// остался долг, записать его
+					ovrPay = BigDecimal.ZERO;
+					t.setSumma(summa);
+				}
+
+				// Задолженность для отображения клиенту
+				// взять сумму текущего периода, добавить переплату
+				summa = t.getSummaDeb().add(ovrPayDeb);
+				if (summa.compareTo(BigDecimal.ZERO) <= 0) {
+					// переплата или 0
+					if (itr.hasNext()) {
+						// перенести переплату в следующий период
+						ovrPayDeb = summa;
+						t.setSummaDeb(BigDecimal.ZERO);
+					} else {
+						// последний период, записать сумму с учетом переплаты
+						ovrPayDeb = BigDecimal.ZERO;
+						t.setSummaDeb(summa);
+					}
+				} else {
+					// остался долг, записать его
+					ovrPayDeb = BigDecimal.ZERO;
+					t.setSummaDeb(summa);
+				}
+
+			}
+			lstSorted.forEach(t-> {
+				log.info("Свернутые долги: mg={}, summa={}, summaDeb={}", t.getMg(), t.getSumma(), t.getSummaDeb());
+			});
 
 		}
 
