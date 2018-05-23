@@ -36,7 +36,8 @@ public class TestWork {
 
 		log.info("Текущий период: dt1={}, dt2={}", config.getCurDt1(), config.getCurDt2());
 
-		debitMng.genDebit("00000084", Utl.getDateFromStr("15.04.2014"));
+		//log.info("days={}", Utl.daysBetween(Utl.getDateFromStr("22.05.2018"), Utl.getDateFromStr("23.05.2018")));
+		debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"));
 
 		log.info("Test end");
 	}
