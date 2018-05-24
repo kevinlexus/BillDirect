@@ -68,6 +68,7 @@ public class DebitMngImpl implements DebitMng {
 	@Override
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 	public void genDebitAll(String lsk, Date genDt) {
+		long startTime = System.currentTimeMillis();
 		log.info("Расчет задолженности - НАЧАЛО!");
 
 		// загрузить справочники
@@ -91,7 +92,9 @@ public class DebitMngImpl implements DebitMng {
 		Kart kart = em.find(Kart.class, lsk);
 		genDebit(kart, calcStore);
 
-		log.info("Расчет задолженности - ОКОНЧАНИЕ!");
+		long endTime = System.currentTimeMillis();
+		long totalTime = endTime - startTime;
+		log.info("Расчет задолженности - ОКОНЧАНИЕ! Время расчета={}", totalTime);
 	}
 
 
@@ -133,16 +136,17 @@ public class DebitMngImpl implements DebitMng {
 		});
 */
 
-		List<SumPenRec> lst = lstUslOrg.stream()
-				.filter(t-> t.getUslId().equals("005") && t.getOrgId().equals(10))
+		List<SumPenRec> lst = lstUslOrg.parallelStream()
+				//.filter(t-> t.getUslId().equals("005") && t.getOrgId().equals(10))
 				.flatMap(t -> genDebitUsl(kart, t, calcStore).stream())
 				.collect(Collectors.toList());
 
 		log.info("");
 		log.info("ИТОГОВАЯ задолжность и пеня");
 		lst.forEach(t-> {
-			log.info("период={}, долг={}, свернутый долг={}, пеня={} руб., дней просрочки={}",
-					t.getMg(), t.getSummaDeb(), t.getSummaRollDeb(), t.getPenya(), t.getDays());
+			log.info("uslId={}, orgId={}, период={}, долг={}, свернутый долг={}, пеня={} руб., дней просрочки={}",
+					t.getUslOrg().getUslId(), t.getUslOrg().getOrgId(), t.getMg(),
+					t.getSummaDeb(), t.getSummaRollDeb(), t.getPenya(), t.getDays());
 		});
 
 		log.info("Расчет задолженности по лиц.счету - ОКОНЧАНИЕ!");
@@ -167,7 +171,7 @@ public class DebitMngImpl implements DebitMng {
 		List<SumDebRec> lstPenAllDays = new ArrayList<SumDebRec>(30);
 		for (c.setTime(dt1); !c.getTime().after(dt2); c.add(Calendar.DATE, 1)) {
 			Date curDt = c.getTime();
-			log.info("****** Расчет задолженности по услуге uslId={}, организации orgId={} на дату={}", u.getUslId(), u.getOrgId(), curDt);
+			//log.info("****** Расчет задолженности по услуге uslId={}, организации orgId={} на дату={}", u.getUslId(), u.getOrgId(), curDt);
 			// задолженность предыдущего периода, текущее начисление
 			lstDeb = lstFlow.stream()
 					.filter(t-> Utl.in(t.getTp(), 1,2))
@@ -209,25 +213,26 @@ public class DebitMngImpl implements DebitMng {
 
 		}
 		// сгруппировать пеню
-		return getGroupingPenDeb(lstPenAllDays, dt2);
+		return getGroupingPenDeb(u, lstPenAllDays);
 
 	}
 
 
 	/**
 	 * Сгруппировать по периодам пеню, и долги на дату расчета
-	 * @param lstPen
+	 * @param uslOrg - услуга и организация
+	 * @param lst - долги по всем дням
 	 */
-	private List<SumPenRec> getGroupingPenDeb(List<SumDebRec> lst, Date genDt) {
+	private List<SumPenRec> getGroupingPenDeb(UslOrg uslOrg, List<SumDebRec> lst) {
 		// получить долги на последнюю дату
 		List<SumPenRec> lstDebAmnt =  lst.stream()
 				.filter(t-> t.getIsLastDay() == true)
-				.map(t-> new SumPenRec(t.getSummaDeb(), t.getSummaRollDeb(), null, t.getDays(), t.getMg()))
+				.map(t-> new SumPenRec(uslOrg, t.getSummaDeb(), t.getSummaRollDeb(), null, t.getDays(), t.getMg()))
 				.collect(Collectors.toList());
 
 		// сгруппировать начисленную пеню по периодам
 		lst.forEach(t-> {
-			addPen(lstDebAmnt, t.getMg(), t.getPenya(), t.getDays());
+			addPen(uslOrg, lstDebAmnt, t.getMg(), t.getPenya(), t.getDays());
 		});
 		// округлить начисленную пеню до копеек
 		lstDebAmnt.forEach(t-> {
@@ -239,12 +244,13 @@ public class DebitMngImpl implements DebitMng {
 
 	/**
 	 * добавить пеню по периоду в долги по последней дате
+	 * @param uslOrg - услуга и организация
 	 * @param lstDebAmnt - коллекция долгов
-	 * @param mg - период
+	 * @param mg - период долга
 	 * @param penya - начисленая пеня за день
 	 * @param days - дней просрочки (если не будет найден период в долгах, использовать данный параметр)
 	 */
-	private void addPen(List<SumPenRec> lstDebAmnt, Integer mg, BigDecimal penya, Integer days) {
+	private void addPen(UslOrg uslOrg, List<SumPenRec> lstDebAmnt, Integer mg, BigDecimal penya, Integer days) {
 		// найти запись долга с данным периодом
 		SumPenRec recDeb = lstDebAmnt.stream()
 				.filter(t-> t.getMg().equals(mg)).findFirst().orElse(null);
@@ -254,7 +260,7 @@ public class DebitMngImpl implements DebitMng {
 		} else {
 			// BigDecimal summaDeb, BigDecimal summaRollDeb, BigDecimal penya, Integer days, Integer mg)
 			// запись НЕ найдена, создать новую, сохранить значение пени
-			lstDebAmnt.add(new SumPenRec(null, null, penya, days, mg));
+			lstDebAmnt.add(new SumPenRec(uslOrg, null, null, penya, days, mg));
 		}
 	}
 

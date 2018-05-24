@@ -54,12 +54,12 @@ public class GenPen {
 		List<SumDebRec> lstSorted = lst.stream().sorted((t1, t2) ->
 			t1.getMg().compareTo(t2.getMg())).collect(Collectors.toList());
 
-		log.info("");
+/*		log.info("");
 		lstSorted.forEach(t-> {
 			log.info("НЕсвернутые долги: дата={} период={}", Utl.getStrFromDate(curDt, "dd.MM.yyyy"), t.getMg());
 			log.info("долг для пени={}, долг={}, свернутый долг={}",
 					t.getSumma(), t.getSummaDeb(), t.getSummaRollDeb());
-		});
+		});*/
 
 		// свернуть задолженность
 		BigDecimal ovrPay = BigDecimal.ZERO;
@@ -124,13 +124,13 @@ public class GenPen {
 			}
 
 		}
-		log.info("");
+/*		log.info("");
 		lstSorted.forEach(t-> {
 			log.info("СВЕРНУТЫЕ долги: дата={} период={}", Utl.getStrFromDate(curDt, "dd.MM.yyyy"), t.getMg());
 			log.info("долг для пени={}, долг={}, свернутый долг={}, пеня={}, дней просрочки={}, % пени={}",
 					t.getSumma(), t.getSummaDeb(), t.getSummaRollDeb(), t.getPenya(), t.getDays(), t.getProc());
 		});
-
+*/
 		return lstSorted;
 	}
 
@@ -200,7 +200,7 @@ public class GenPen {
 			}
 		}
 
-		String str = null;
+/*		String str = null;
 		String str2 = "Добавлено";
 		switch (rec.getTp()) {
 		case 1 :
@@ -225,7 +225,7 @@ public class GenPen {
 			break;
 		}
 		log.info("{}: {}, mg={}, summa={}, summaDeb={}, summaRollDeb={}",
-				str2, str, rec.getMg(), rec.getSumma(), rec.getSummaDeb(), rec.getSummaRollDeb());
+				str2, str, rec.getMg(), rec.getSumma(), rec.getSummaDeb(), rec.getSummaRollDeb());*/
 	}
 
 	public List<SumDebRec> getLst() {
