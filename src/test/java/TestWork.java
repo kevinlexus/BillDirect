@@ -5,6 +5,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.AutoConfigureTestData
 import org.springframework.boot.test.autoconfigure.orm.jpa.AutoConfigureTestDatabase.Replace;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.ApplicationContext;
+import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -35,17 +36,20 @@ public class TestWork {
 	private KartDAO kartDao;
 
     @Test
-	public void mainWork() {
+    @Rollback(false)
+    public void mainWork() {
 		log.info("Test start");
 
 		log.info("Текущий период: dt1={}, dt2={}", config.getCurDt1(), config.getCurDt2());
 
 		//log.info("days={}", Utl.daysBetween(Utl.getDateFromStr("22.05.2018"), Utl.getDateFromStr("23.05.2018")));
 
-		kartDao.getAll().forEach(t-> {
-			log.info("lsk={}", t.getLsk());
-			debitMng.genDebitAll(t.getLsk(), Utl.getDateFromStr("15.04.2014"));
-		});
+		debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"));
+
+		//kartDao.getAll().forEach(t-> {
+			//log.info("lsk={}", t.getLsk());
+//			debitMng.genDebitAll(t.getLsk(), Utl.getDateFromStr("15.04.2014"));
+		//});
 
 		log.info("Test end");
 	}

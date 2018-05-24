@@ -109,11 +109,13 @@ public class DebitMngImpl implements DebitMng {
 	public void genDebit(Kart kart, CalcStore calcStore) {
 		log.info("Расчет задолженности по лиц.счету - НАЧАЛО!");
 		String lsk = kart.getLsk();
+		// текущий период
+		Integer period = calcStore.getPeriod();
 		// период - месяц назад
 		Integer periodBack = calcStore.getPeriodBack();
 		// загрузить все финансовые операции по лиц.счету
-		// задолжность предыдущего периода - 1
-		List<SumRec> lstFlow = debUslDao.getDebitByLsk(lsk, periodBack);
+		// задолженность предыдущего периода - 1
+	/*	List<SumRec> lstFlow = debUslDao.getDebitByLsk(lsk, periodBack);
 		// текущее начисление - 2
 		lstFlow.addAll(chargeDao.getChargeByLsk(lsk));
 		// перерасчеты - 5
@@ -131,10 +133,6 @@ public class DebitMngImpl implements DebitMng {
 		List<UslOrg> lstUslOrg = lstFlow.stream()
 				.map(t-> new UslOrg(t.getUslId(), t.getOrgId()))
 				.distinct().collect(Collectors.toList());
-/*		lstUslOrg.forEach(t-> {
-			log.info("distinct usl={}, org={}", t.uslId, t.orgId);
-		});
-*/
 
 		List<SumPenRec> lst = lstUslOrg.parallelStream()
 				//.filter(t-> t.getUslId().equals("005") && t.getOrgId().equals(10))
@@ -148,8 +146,11 @@ public class DebitMngImpl implements DebitMng {
 					t.getUslOrg().getUslId(), t.getUslOrg().getOrgId(), t.getMg(),
 					t.getSummaDeb(), t.getSummaRollDeb(), t.getPenya(), t.getDays());
 		});
-
+*/
 		log.info("Расчет задолженности по лиц.счету - ОКОНЧАНИЕ!");
+
+		// удалить записи текущего периода
+		debUslDao.delByLskPeriod(lsk, period);
 	}
 
 	/**
