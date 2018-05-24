@@ -46,16 +46,19 @@ public class GenPen {
 	/**
 	 * свернуть задолженность (учесть переплаты предыдущих периодов)
 	 * и расчитать пеню
+	 * @param isLastDay - последний ли расчетный день? (для получения итогового долга)
+	 * @return
 	 */
-	public void rollDebForPen() {
+	public List<SumDebRec> getRolledDebPen(boolean isLastDay) {
 		// отсортировать по периоду
 		List<SumDebRec> lstSorted = lst.stream().sorted((t1, t2) ->
 			t1.getMg().compareTo(t2.getMg())).collect(Collectors.toList());
 
 		log.info("");
 		lstSorted.forEach(t-> {
-			log.info("НЕсвернутые долги: дата={} период={}, долг для пени={}, долг={}, свернутый долг={}",
-					Utl.getStrFromDate(curDt, "dd.MM.yyyy"), t.getMg(), t.getSumma(), t.getSummaDeb(), t.getSummaRollDeb());
+			log.info("НЕсвернутые долги: дата={} период={}", Utl.getStrFromDate(curDt, "dd.MM.yyyy"), t.getMg());
+			log.info("долг для пени={}, долг={}, свернутый долг={}",
+					t.getSumma(), t.getSummaDeb(), t.getSummaRollDeb());
 		});
 
 		// свернуть задолженность
@@ -65,6 +68,8 @@ public class GenPen {
 		Iterator<SumDebRec> itr = lstSorted.iterator();
 		while (itr.hasNext()) {
 			SumDebRec t = itr.next();
+			// пометить текущий день, является ли последним расчетным днём
+			t.setIsLastDay(isLastDay);
 			// Задолженность для расчета ПЕНИ
 			// взять сумму текущего периода, добавить переплату
 			BigDecimal summa = t.getSumma().add(ovrPay);
@@ -84,11 +89,18 @@ public class GenPen {
 				ovrPay = BigDecimal.ZERO;
 				t.setSumma(summa);
 
-				// рассчитать пеню и сохранить
-				Pen pen = getPen(summa, t.getMg());
-				t.setPenya(pen.penya);
-				// кол-во дней просрочки
-				t.setDays(pen.days);
+				// если установлена дата ограничения пени, не считать пеню, начиная с этой даты
+				if (kart.getPnDt() == null || curDt.getTime() < kart.getPnDt().getTime()) {
+					// рассчитать пеню и сохранить
+					Pen pen = getPen(summa, t.getMg());
+					if (pen != null) {
+						t.setPenya(pen.penya);
+						// кол-во дней просрочки
+						t.setDays(pen.days);
+						// % расчета пени
+						t.setProc(pen.proc);
+					}
+				}
 			}
 
 			// Задолженность для отображения клиенту
@@ -114,11 +126,12 @@ public class GenPen {
 		}
 		log.info("");
 		lstSorted.forEach(t-> {
-			log.info("СВЕРНУТЫЕ долги: дата={} период={}, долг для пени={}, долг={}, "
-					+ "свернутый долг={}, пеня={}, дней просрочки={}, % расчета пени={}",
-					Utl.getStrFromDate(curDt, "dd.MM.yyyy"), t.getMg(), t.getSumma(),
-					t.getSummaDeb(), t.getSummaRollDeb(), t.getPenya(), t.getDays(), t.getProc());
+			log.info("СВЕРНУТЫЕ долги: дата={} период={}", Utl.getStrFromDate(curDt, "dd.MM.yyyy"), t.getMg());
+			log.info("долг для пени={}, долг={}, свернутый долг={}, пеня={}, дней просрочки={}, % пени={}",
+					t.getSumma(), t.getSummaDeb(), t.getSummaRollDeb(), t.getPenya(), t.getDays(), t.getProc());
 		});
+
+		return lstSorted;
 	}
 
 	/**
@@ -128,7 +141,7 @@ public class GenPen {
 	 */
 	class Pen {
 		// кол-во дней просрочки
-		int days;
+		int days=0;
 		// рассчитанная пеня
 		BigDecimal penya;
 		// % по которому рассчитана пеня (информационно)
@@ -136,7 +149,8 @@ public class GenPen {
 	}
 	/**
 	 * Рассчитать пеню
-	 * @param summa
+	 * @param summa - долг
+	 * @param mg - период долга
 	 */
 	private Pen getPen(BigDecimal summa, Integer mg) {
 		SprPenUsl sprPenUsl = calcStore.getLstSprPenUsl().stream()
@@ -145,20 +159,27 @@ public class GenPen {
 				.findFirst().orElse(null);
 		// вернуть кол-во дней между датой расчета пени и датой начала пени по справочнику
 		int days = Utl.daysBetween(sprPenUsl.getDt(), curDt);
-		log.info(" spr={}, cur={}, days={}", sprPenUsl.getDt(), curDt, days);
-		StavrUsl stavrUsl = calcStore.getLstStavrUsl().stream()
-				.filter(t-> t.getUsl().getId().equals(uslOrg.getUslId())) // фильтр по услуге
-				.filter(t-> days >= t.getDays1().intValue() && days <= t.getDays2().intValue()) // фильтр по кол-ву дней долга
-				.filter(t-> Utl.between(curDt, t.getDt1(), t.getDt2())) // фильтр по дате расчета в справочнике
-				.findFirst().orElse(null);
-		// рассчет пени = долг * процент/100
-		Pen pen = new Pen();
-		pen.proc = stavrUsl.getProc();
-		pen.penya = summa.multiply(pen.proc).divide(new BigDecimal(100));
-		pen.days = days;
-		return pen;
+		if (days > 0) {
+			// пеня возможна, если есть кол-во дней долга
+			//log.info(" spr={}, cur={}, days={}", sprPenUsl.getDt(), curDt, days);
+			StavrUsl stavrUsl = calcStore.getLstStavrUsl().stream()
+					.filter(t-> t.getUsl().getId().equals(uslOrg.getUslId())) // фильтр по услуге
+					.filter(t-> days >= t.getDays1().intValue() && days <= t.getDays2().intValue()) // фильтр по кол-ву дней долга
+					.filter(t-> Utl.between(curDt, t.getDt1(), t.getDt2())) // фильтр по дате расчета в справочнике
+					.findFirst().orElse(null);
+			// рассчет пени = долг * процент/100
+			Pen pen = new Pen();
+			pen.proc = stavrUsl.getProc();
+			pen.penya = summa.multiply(pen.proc).divide(new BigDecimal(100));
+			pen.days = days;
+			return pen;
+		} else {
+			// нет пени
+			return null;
+		}
 	}
 
+	// добавление и группировка финансовой операции, для получения сгруппированной задолжности по периоду
 	public void addRec(SumDebRec rec) {
 		if (rec.getMg() == null) {
 			// если mg не заполнено, установить - текущий период (например для начисления)
