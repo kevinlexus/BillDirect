@@ -31,7 +31,10 @@ import com.dic.bill.dto.SumDebRec;
 import com.dic.bill.dto.SumPenRec;
 import com.dic.bill.dto.SumRec;
 import com.dic.bill.dto.UslOrg;
+import com.dic.bill.model.scott.DebPenUsl;
 import com.dic.bill.model.scott.Kart;
+import com.dic.bill.model.scott.Org;
+import com.dic.bill.model.scott.Usl;
 import com.ric.bill.Utl;
 
 import lombok.extern.slf4j.Slf4j;
@@ -115,7 +118,7 @@ public class DebitMngImpl implements DebitMng {
 		Integer periodBack = calcStore.getPeriodBack();
 		// загрузить все финансовые операции по лиц.счету
 		// задолженность предыдущего периода - 1
-	/*	List<SumRec> lstFlow = debUslDao.getDebitByLsk(lsk, periodBack);
+		List<SumRec> lstFlow = debUslDao.getDebitByLsk(lsk, periodBack);
 		// текущее начисление - 2
 		lstFlow.addAll(chargeDao.getChargeByLsk(lsk));
 		// перерасчеты - 5
@@ -140,17 +143,35 @@ public class DebitMngImpl implements DebitMng {
 				.collect(Collectors.toList());
 
 		log.info("");
+		// удалить записи текущего периода
+		debUslDao.delByLskPeriod(lsk, period);
+
+		// сохранить расчет
 		log.info("ИТОГОВАЯ задолжность и пеня");
 		lst.forEach(t-> {
 			log.info("uslId={}, orgId={}, период={}, долг={}, свернутый долг={}, пеня={} руб., дней просрочки={}",
 					t.getUslOrg().getUslId(), t.getUslOrg().getOrgId(), t.getMg(),
 					t.getSummaDeb(), t.getSummaRollDeb(), t.getPenya(), t.getDays());
+			// сохранить задолжность
+			DebPenUsl debPenUsl = DebPenUsl.builder()
+								.withKart(kart)
+								.withUsl(em.find(Usl.class, t.getUslOrg().getUslId()))
+								.withOrg(em.find(Org.class, t.getUslOrg().getOrgId()))
+								.withSumma(t.getSummaDeb())
+								.withSummaRolled(t.getSummaRollDeb())
+								.withPenyaCur(t.getPenya())
+								.withPenya(new BigDecimal("7777777777.77"))
+								.withDays(t.getDays())
+								.withMg(t.getMg())
+								.withPeriod(period)
+								.build();
+			em.persist(debPenUsl);
+
 		});
-*/
+
+
 		log.info("Расчет задолженности по лиц.счету - ОКОНЧАНИЕ!");
 
-		// удалить записи текущего периода
-		debUslDao.delByLskPeriod(lsk, period);
 	}
 
 	/**
