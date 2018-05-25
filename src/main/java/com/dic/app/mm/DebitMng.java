@@ -7,7 +7,7 @@ import com.dic.bill.model.scott.Kart;
 
 public interface DebitMng {
 
-	public void genDebitAll(String lsk, Date genDt);
+	public void genDebitAll(String lsk, Date genDt, Integer debugLvl);
 	public void genDebit(Kart kart, CalcStore calcStore);
 
 }

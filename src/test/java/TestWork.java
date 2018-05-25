@@ -44,12 +44,12 @@ public class TestWork {
 
 		//log.info("days={}", Utl.daysBetween(Utl.getDateFromStr("22.05.2018"), Utl.getDateFromStr("23.05.2018")));
 
-		debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"));
+		//debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"), 0);
 
-		//kartDao.getAll().forEach(t-> {
-			//log.info("lsk={}", t.getLsk());
-//			debitMng.genDebitAll(t.getLsk(), Utl.getDateFromStr("15.04.2014"));
-		//});
+		kartDao.getAll().forEach(t-> {
+			log.info("lsk={}", t.getLsk());
+			debitMng.genDebitAll(t.getLsk(), Utl.getDateFromStr("15.04.2014"), 0);
+		});
 
 		log.info("Test end");
 	}
