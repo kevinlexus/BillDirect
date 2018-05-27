@@ -14,6 +14,7 @@ import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.SprPenUsl;
 import com.dic.bill.model.scott.StavrUsl;
 import com.ric.cmn.Utl;
+import com.ric.cmn.excp.ErrorWhileChrgPen;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,8 +49,9 @@ public class GenPen {
 	 * и расчитать пеню
 	 * @param isLastDay - последний ли расчетный день? (для получения итогового долга)
 	 * @return
+	 * @throws ErrorWhileChrgPen
 	 */
-	public List<SumDebRec> getRolledDebPen(boolean isLastDay) {
+	public List<SumDebRec> getRolledDebPen(boolean isLastDay) throws ErrorWhileChrgPen {
 		// отсортировать по периоду
 		List<SumDebRec> lstSorted = lst.stream().sorted((t1, t2) ->
 			t1.getMg().compareTo(t2.getMg())).collect(Collectors.toList());
@@ -159,13 +161,18 @@ public class GenPen {
 	 * Рассчитать пеню
 	 * @param summa - долг
 	 * @param mg - период долга
+	 * @throws ErrorWhileChrgPen
 	 */
-	private Pen getPen(BigDecimal summa, Integer mg) {
+	private Pen getPen(BigDecimal summa, Integer mg) throws ErrorWhileChrgPen {
 		SprPenUsl sprPenUsl = calcStore.getLstSprPenUsl().stream()
 				.filter(t-> t.getUsl().getId().equals(uslOrg.getUslId()) && t.getMg().equals(mg)) // фильтр по услуге и периоду
 				.filter(t-> t.getUk().equals(kart.getUk())) // фильтр по УК
 				.findFirst().orElse(null);
 		// вернуть кол-во дней между датой расчета пени и датой начала пени по справочнику
+		if (sprPenUsl == null) {
+			throw new ErrorWhileChrgPen(
+					"ОШИБКА во время начисления пени по лс="+kart.getLsk()+", возможно не настроен справочник C_SPR_PEN_USL!");
+		}
 		int days = Utl.daysBetween(sprPenUsl.getDt(), curDt);
 		if (days > 0) {
 			// пеня возможна, если есть кол-во дней долга

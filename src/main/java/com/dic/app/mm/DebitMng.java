@@ -1,13 +1,13 @@
 package com.dic.app.mm;
 
 import java.util.Date;
+import java.util.concurrent.Future;
 
 import com.dic.bill.dto.CalcStore;
-import com.dic.bill.model.scott.Kart;
+import com.ric.cmn.CommonResult;
 
 public interface DebitMng {
 
-	public void genDebitAll(String lsk, Date genDt, Integer debugLvl);
-	public void genDebit(Kart kart, CalcStore calcStore);
-
+	void genDebitAll(String lsk, Date genDt, Integer debugLvl);
+	Future<CommonResult> genDebit(String lsk, CalcStore calcStore);
 }

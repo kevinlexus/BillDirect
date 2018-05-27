@@ -11,6 +11,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import com.dic.app.AppConfig;
 import com.dic.app.mm.DebitMng;
+import com.dic.app.mm.ThreadMng;
 import com.dic.bill.Config;
 import com.dic.bill.dao.KartDAO;
 import com.ric.cmn.Utl;
@@ -30,6 +31,8 @@ public class TestWork {
 	@Autowired
 	private Config config;
 	@Autowired
+	private ThreadMng threadMng;
+	@Autowired
 	private DebitMng debitMng;
 
 	@Autowired
@@ -42,15 +45,20 @@ public class TestWork {
 
 		log.info("Текущий период: dt1={}, dt2={}", config.getCurDt1(), config.getCurDt2());
 
-		//log.info("days={}", Utl.daysBetween(Utl.getDateFromStr("22.05.2018"), Utl.getDateFromStr("23.05.2018")));
+		log.info("days={}", Utl.daysBetween(Utl.getDateFromStr("22.05.2018"), Utl.getDateFromStr("23.05.2018")));
 
-		//debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"), 0);
+		debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"), 0);
 
-		kartDao.getAll().forEach(t-> {
-			log.info("lsk={}", t.getLsk());
-			debitMng.genDebitAll(t.getLsk(), Utl.getDateFromStr("15.04.2014"), 0);
+		//threadMng.invokeThreads(10, lstItem);
+
+/*		kartDao.getAll()
+			.stream()
+			.filter(t-> Integer.valueOf(t.getLsk()) >= 84 && Integer.valueOf(t.getLsk()) <=90  )
+			.forEach(t-> {
+				log.info("lsk={}", t.getLsk());
+				debitMng.genDebitAll(t.getLsk(), Utl.getDateFromStr("15.04.2014"), 0);
 		});
-
+*/
 		log.info("Test end");
 	}
 

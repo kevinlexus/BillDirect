@@ -2,7 +2,7 @@
 <configuration>
   <timestamp key="myTimestamp" datePattern="yyyy-MM-dd"/>
   <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-            <file>${user.home}/BillWeb${myTimestamp}.log</file>
+            <file>${user.home}/BillDirect${myTimestamp}.log</file>
             <append>true</append>
             <encoder>
                 <pattern>%d{dd-MM-yyyy HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
@@ -17,9 +17,9 @@
     </encoder>
   </appender>
 
-  <!-- <logger name="org.hibernate.type" level="ERROR" /> 
-  <logger name="org.hibernate" level="DEBUG" />
-   -->
+<!--   <logger name="org.hibernate.type" level="TRACE" /> 
+  <logger name="org.hibernate" level="ERROR" />
+ -->  
   
   <logger name="org.hibernate.engine.loading.internal.CollectionLoadContext" level="ERROR"/>
   <logger name="com.ric" level="INFO"/>

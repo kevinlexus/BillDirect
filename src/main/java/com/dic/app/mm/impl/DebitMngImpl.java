@@ -3,47 +3,52 @@ package com.dic.app.mm.impl;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dic.app.mm.DebitMng;
-import com.dic.app.mm.GenPen;
+import com.dic.app.mm.DebitThrMng;
+import com.dic.app.mm.ThreadMng;
 import com.dic.bill.Config;
 import com.dic.bill.dao.ChargeDAO;
 import com.dic.bill.dao.CorrectPayDAO;
 import com.dic.bill.dao.DebUslDAO;
+import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dao.KwtpDayDAO;
 import com.dic.bill.dao.PenUslCorrDAO;
 import com.dic.bill.dao.SprPenUslDAO;
 import com.dic.bill.dao.StavrUslDAO;
 import com.dic.bill.dao.VchangeDetDAO;
 import com.dic.bill.dto.CalcStore;
+import com.dic.bill.dto.CalcStoreLocal;
 import com.dic.bill.dto.SumDebRec;
 import com.dic.bill.dto.SumPenRec;
-import com.dic.bill.dto.SumRec;
 import com.dic.bill.dto.UslOrg;
 import com.dic.bill.model.scott.DebPenUsl;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.Org;
 import com.dic.bill.model.scott.Usl;
-import com.ric.bill.Utl;
+import com.ric.cmn.CommonResult;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
+@Scope("prototype")
 public class DebitMngImpl implements DebitMng {
 
 	@Autowired
@@ -64,7 +69,14 @@ public class DebitMngImpl implements DebitMng {
 	private StavrUslDAO stavrUslDao;
 	@Autowired
 	private PenUslCorrDAO penUslCorrDao;
-    @PersistenceContext
+	@Autowired
+	private KartDAO kartDao;
+	@Autowired
+	private ThreadMng threadMng;
+	@Autowired
+	private DebitThrMng debitThrMng;
+
+	@PersistenceContext
     private EntityManager em;
 
 
@@ -100,8 +112,11 @@ public class DebitMngImpl implements DebitMng {
 		calcStore.setLstStavrUsl(stavrUslDao.findAll());
 
 		// вызвать расчет задолженности и пени
-		Kart kart = em.find(Kart.class, lsk);
-		genDebit(kart, calcStore);
+		//genDebit(kart, calcStore);
+		// получить список лицевых счетов
+		List<String> lstItem = kartDao.getAll().stream().map(t->t.getLsk()).collect(Collectors.toList());
+		// вызвать в потоках
+		threadMng.invokeThreads(calcStore, 5, lstItem);
 
 		long endTime = System.currentTimeMillis();
 		long totalTime = endTime - startTime;
@@ -115,38 +130,41 @@ public class DebitMngImpl implements DebitMng {
 	 * @param calcStore - хранилище справочников
 	 * @param genDt - дата расчета
 	 */
+	@Async
 	@Override
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW)
-	public void genDebit(Kart kart, CalcStore calcStore) {
+	public Future<CommonResult> genDebit(String lsk, CalcStore calcStore) {
 		log.info("Расчет задолженности по лиц.счету - НАЧАЛО!");
-		String lsk = kart.getLsk();
+		Kart kart = em.find(Kart.class, lsk);
+		//String lsk = kart.getLsk();
 		// текущий период
 		Integer period = calcStore.getPeriod();
 		// период - месяц назад
 		Integer periodBack = calcStore.getPeriodBack();
 
+		CalcStoreLocal localStore = new CalcStoreLocal();
 		// ЗАГРУЗИТЬ все финансовые операции по лиц.счету
 		// задолженность предыдущего периода (здесь же заполнены поля по вх.сальдо по пене) - 1
-		List<SumRec> lstFlow = debUslDao.getDebitByLsk(lsk, periodBack);
+		localStore.setLstDebFlow(debUslDao.getDebitByLsk(lsk, periodBack));
 		// текущее начисление - 2
-		lstFlow.addAll(chargeDao.getChargeByLsk(lsk));
+		localStore.setLstChrgFlow(chargeDao.getChargeByLsk(lsk));
 		// перерасчеты - 5
-		lstFlow.addAll(vchangeDetDao.getVchangeDetByLsk(lsk));
+		localStore.setLstChngFlow(vchangeDetDao.getVchangeDetByLsk(lsk));
 		// оплата долга - 3
-		lstFlow.addAll(kwtpDayDao.getKwtpDaySumByLsk(lsk));
+		localStore.setLstPayFlow(kwtpDayDao.getKwtpDaySumByLsk(lsk));
 		// оплата пени - 4
-		lstFlow.addAll(kwtpDayDao.getKwtpDayPenByLsk(lsk));
+		localStore.setLstPayPenFlow(kwtpDayDao.getKwtpDayPenByLsk(lsk));
 		// корректировки оплаты - 6
-		lstFlow.addAll(correctPayDao.getCorrectPayByLsk(lsk));
-		// корректировки пени - 7
-		lstFlow.addAll(penUslCorrDao.getPenUslCorrByLsk(lsk));
+		localStore.setLstPayCorrFlow(correctPayDao.getCorrectPayByLsk(lsk));
+		// корректировки начисления пени - 7
+		localStore.setLstPenChrgCorrFlow(penUslCorrDao.getPenUslCorrByLsk(lsk));
 
-		calcStore.setLstFlow(lstFlow);
+		//localStore.setLstFlow(lstFlow);
 
+		// создать список уникальных элементов услуга+организация
+		localStore.createUniqUslOrg();
 		// получить список уникальных элементов услуга+организация
-		List<UslOrg> lstUslOrg = lstFlow.stream()
-				.map(t-> new UslOrg(t.getUslId(), t.getOrgId()))
-				.distinct().collect(Collectors.toList());
+		List<UslOrg> lstUslOrg = localStore.getUniqUslOrg();
 
 		// обработать каждый элемент услуга+организация
 		List<SumPenRec> lst = null;
@@ -156,7 +174,7 @@ public class DebitMngImpl implements DebitMng {
 			.flatMap(t -> {
 				try {
 					// РАСЧЕТ задолжности и пени по услуге
-					return genDebitUsl(kart, t, calcStore).stream();
+					return debitThrMng.genDebitUsl(kart, t, calcStore, localStore).stream();
 				} catch (ErrorWhileChrgPen e) {
 					e.printStackTrace();
 					throw new UncheckedIOException("ОШИБКА в процессе начисления пени по лc.="+lsk, null);
@@ -164,6 +182,13 @@ public class DebitMngImpl implements DebitMng {
 			})
 			.collect(Collectors.toList());
 
+/*		if (1==1) {
+			CommonResult res = new CommonResult(kart.getLsk(), 1111111111);
+			return new AsyncResult<CommonResult>(res);
+		}
+*/
+
+		log.info("del lsk={}, period={}", lsk, period);
 		// удалить записи текущего периода
 		debUslDao.delByLskPeriod(lsk, period);
 
@@ -196,91 +221,15 @@ public class DebitMngImpl implements DebitMng {
 								.withPeriod(period)
 								.build();
 			em.persist(debPenUsl);
-
 		});
 
 		log.info("Расчет задолженности по лиц.счету - ОКОНЧАНИЕ!");
-	}
 
-	/**
-	 * Расчет задолжности и пени по услуге
-	 * @param kart - лицевой счет
-	 * @param u - услуга и организация
-	 * @param calcStore - хранилище параметров и справочников
-	 * @return
-	 * @throws ErrorWhileChrgPen
-	 */
-	private List<SumPenRec> genDebitUsl(Kart kart, UslOrg u, CalcStore calcStore) throws ErrorWhileChrgPen {
-		// дата начала расчета
-		Date dt1 = calcStore.getDt1();
-		// дата окончания расчета
-		Date dt2 = calcStore.getGenDt();
-		List<SumRec> lstFlow = calcStore.getLstFlow();
-		List<SumDebRec> lstDeb = new ArrayList<SumDebRec>();
-		// РАСЧЕТ по дням
-		Calendar c = Calendar.getInstance();
-		List<SumDebRec> lstPenAllDays = new ArrayList<SumDebRec>(30);
-		for (c.setTime(dt1); !c.getTime().after(dt2); c.add(Calendar.DATE, 1)) {
-			Date curDt = c.getTime();
-			// является ли текущий день последним расчетным?
-			boolean isLastDay = curDt.equals(dt2);
 
-			// ЗАГРУЗИТЬ из общей коллекции выбранные финансовые операции на ТЕКУЩУЮ дату расчета curDt
-			// задолженность предыдущего периода, текущее начисление
-			lstDeb = lstFlow.stream()
-					.filter(t-> Utl.in(t.getTp(), 1, 2))
-					.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
-					.map(t-> new SumDebRec(t.getSumma(), t.getSumma(), null, null, t.getMg(), t.getTp()))
-					.collect(Collectors.toList());
-			// перерасчеты, включая текущий день
-			lstDeb.addAll(lstFlow.stream()
-					.filter(t-> Utl.in(t.getTp(), 5) && t.getDt().getTime() <= curDt.getTime())
-					.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
-					.map(t-> new SumDebRec(t.getSumma(), t.getSumma(), null, null, t.getMg(), t.getTp()))
-					.collect(Collectors.toList()));
-			if (isLastDay) {
-				// АКТУАЛЬНО только для последнего дня расчета:
-				// вх.сальдо по пене
-				lstDeb.addAll(lstFlow.stream()
-						.filter(t-> Utl.in(t.getTp(), 1))
-						.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
-						.map(t-> new SumDebRec(null, null, t.getPenya(), null, t.getMg(), t.getTp()))
-						.collect(Collectors.toList()));
-				// корректировки пени
-				lstDeb.addAll(lstFlow.stream()
-						.filter(t-> Utl.in(t.getTp(), 7))
-						.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
-						.map(t-> new SumDebRec(null, null, null, t.getPenya(), t.getMg(), t.getTp()))
-						.collect(Collectors.toList()));
-			}
-			// вычесть оплату долга и корректировки оплаты - для расчета долга, включая текущий день (Не включая для задолжности для расчета пени)
-			lstDeb.addAll(lstFlow.stream()
-					.filter(t-> Utl.in(t.getTp(), 3,6) && t.getDt().getTime() <= curDt.getTime())
-					.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
-					.map(t-> new SumDebRec(
-							t.getDt().getTime() < curDt.getTime() || t.getTp().equals(6) ?  // (Не включая текущий день, для задолжности для расчета пени)
-																						    // если корректировки - взять любой день
-									t.getSumma().multiply(new BigDecimal("-1")) : BigDecimal.ZERO ,
-							t.getDt().getTime() <= curDt.getTime() || t.getTp().equals(6) ? // (включая текущий день, для обычной задолжности)
-																						    // если корректировки - взять любой день
-									t.getSumma().multiply(new BigDecimal("-1")) : BigDecimal.ZERO,
-							null, null,
-							t.getMg(), t.getTp()))
-							.collect(Collectors.toList()));
-			// объект расчета пени
-			GenPen genPen = new GenPen(kart, u, curDt, calcStore);
-			// добавить и сгруппировать все финансовые операции по состоянию на текущий день
-			lstDeb.forEach(t-> genPen.addRec(t));
-			// свернуть долги (учесть переплаты предыдущих периодов),
-			// рассчитать пеню на определенный день, добавить в общую коллекцию по всем дням
-			lstPenAllDays.addAll(genPen.getRolledDebPen(isLastDay));
-
-		}
-		// сгруппировать пеню и вернуть
-		return getGroupingPenDeb(u, lstPenAllDays);
+		CommonResult res = new CommonResult(kart.getLsk(), 1111111111);
+		return new AsyncResult<CommonResult>(res);
 
 	}
-
 
 	/**
 	 * Сгруппировать по периодам пеню, и долги на дату расчета
@@ -332,8 +281,5 @@ public class DebitMngImpl implements DebitMng {
 			throw new ErrorWhileChrgPen("Не найдена запись долга в процессе сохранения значения пени!");
 		}
 	}
-
-
-
 
 }
