@@ -33,12 +33,12 @@
 
 	<dependencies>
 
-<!-- https://mvnrepository.com/artifact/org.jooq/jool-java-8 -->
-<dependency>
-    <groupId>org.jooq</groupId>
-    <artifactId>jool-java-8</artifactId>
-    <version>0.9.13</version>
-</dependency>
+		<!-- https://mvnrepository.com/artifact/org.jooq/jool-java-8 -->
+		<dependency>
+		    <groupId>org.jooq</groupId>
+		    <artifactId>jool-java-8</artifactId>
+		    <version>0.9.13</version>
+		</dependency>
 
 		<!-- DWC -->
 		<dependency>
@@ -98,39 +98,32 @@
 			<scope>test</scope>
 		</dependency>
 
-		<!-- Не удалять! ДОБАВЛЕНО ДЛЯ CACHE LEVEL 2 -->
-		<dependency>
-		   <groupId>org.hibernate</groupId>
-		   <artifactId>hibernate-entitymanager</artifactId>
-		</dependency>
-
-		<!-- Не удалять! ДОБАВЛЕНО ДЛЯ CACHE LEVEL 2 -->
-		<dependency>
-            <groupId>org.hibernate</groupId>
-            <artifactId>hibernate-ehcache</artifactId>
-             <exclusions>
-                <exclusion>
-                    <groupId>net.sf.ehcache</groupId>
-                    <artifactId>ehcache-core</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
- 		<dependency>
-	      <groupId>org.ehcache</groupId>
-	      <artifactId>ehcache</artifactId>
-      </dependency>
-
-		<dependency>
-	      <groupId>javax.cache</groupId>
-	      <artifactId>cache-api</artifactId>
-  	    </dependency>
-
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-cache</artifactId> 
+    </dependency>
+    
+  <dependency>
+    <groupId>org.ehcache</groupId>
+    <artifactId>ehcache</artifactId>
+    <version>3.0.0</version> 
+  </dependency>
+        
+  <dependency>
+    <groupId>javax.cache</groupId>
+    <artifactId>cache-api</artifactId>
+  </dependency>
 
 	</dependencies>
 

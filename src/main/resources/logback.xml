@@ -23,7 +23,7 @@
   <logger name="org.hibernate.engine.loading.internal.CollectionLoadContext" level="ERROR"/>
   <logger name="com.ric" level="INFO"/>
   <logger name="org.apache.xml.security.Init" level="INFO"/> <!-- не работает почему то -->
-  <logger name="org.ehcache" level="INFO"/>
+  <logger name="org.ehcache" level="TRACE"/>
   <logger name="org.hibernate.stat" level="DEBUG"/>
   <logger name="org.thymeleaf" level="ERROR"/>
 

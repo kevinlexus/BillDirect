@@ -46,21 +46,17 @@ public class DebitThrMngImpl implements DebitThrMng {
 		Date dt1 = calcStore.getDt1();
 		// дата окончания расчета
 		Date dt2 = calcStore.getGenDt();
-		//List<SumRec> lstFlow = calcStore.getLstFlow();
-		List<SumDebRec> lstDeb = new ArrayList<SumDebRec>();
+		List<SumDebRec> lstDeb = new ArrayList<SumDebRec>(50);
 		// РАСЧЕТ по дням
 		Calendar c = Calendar.getInstance();
-		List<SumDebRec> lstPenAllDays = new ArrayList<SumDebRec>(30);
+		List<SumDebRec> lstPenAllDays = new ArrayList<SumDebRec>(100);
 		for (c.setTime(dt1); !c.getTime().after(dt2); c.add(Calendar.DATE, 1)) {
 			Date curDt = c.getTime();
 			// является ли текущий день последним расчетным?
 			boolean isLastDay = curDt.equals(dt2);
 
-//			(BigDecimal summa, BigDecimal summaDeb, BigDecimal penyaIn,
-//					BigDecimal penyaCorr, Integer mg, Integer tp)
-
-			// ЗАГРУЗИТЬ из общей коллекции выбранные финансовые операции на ТЕКУЩУЮ дату расчета curDt
-			// задолженность предыдущего периода
+			// ЗАГРУЗИТЬ выбранные финансовые операции на ТЕКУЩУЮ дату расчета curDt
+			// задолженность предыдущего периода (вх.сальдо)
 			lstDeb = localStore.getLstDebFlow().stream()
 					.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
 					.map(t->
@@ -82,6 +78,29 @@ public class DebitThrMngImpl implements DebitThrMng {
 					.map(t-> new SumDebRec(null, null, null, null, null, null,
 							t.getSumma(), t.getSumma(), null, null, t.getMg(), t.getTp()))
 					.collect(Collectors.toList()));
+			// вычесть оплату долга - для расчета долга, включая текущий день (Не включая для задолжности для расчета пени)
+			lstDeb.addAll(localStore.getLstPayFlow().stream()
+					.filter(t-> t.getDt().getTime() <= curDt.getTime())
+					.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
+					.map(t-> new SumDebRec(null, null, null, t.getSumma(), null, null,
+							t.getDt().getTime() < curDt.getTime() ?  // (Не включая текущий день, для задолжности для расчета пени)
+									t.getSumma().multiply(new BigDecimal("-1")) : BigDecimal.ZERO ,
+							t.getDt().getTime() <= curDt.getTime() ? // (включая текущий день, для обычной задолжности)
+									t.getSumma().multiply(new BigDecimal("-1")) : BigDecimal.ZERO,
+							null, null,
+							t.getMg(), t.getTp()))
+							.collect(Collectors.toList()));
+			// вычесть корректировки оплаты - для расчета долга, включая текущий день
+			lstDeb.addAll(localStore.getLstPayCorrFlow().stream()
+					.filter(t-> t.getDt().getTime() <= curDt.getTime())
+					.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
+					.map(t-> new SumDebRec(null, null, t.getSumma(), null, null, null,
+							t.getSumma().multiply(new BigDecimal("-1")) ,
+							t.getSumma().multiply(new BigDecimal("-1")),
+							null, null,
+							t.getMg(), t.getTp()))
+							.collect(Collectors.toList()));
+
 			if (isLastDay) {
 				// АКТУАЛЬНО только для последнего дня расчета:
 				// вх.сальдо по пене
@@ -90,6 +109,7 @@ public class DebitThrMngImpl implements DebitThrMng {
 						.map(t-> new SumDebRec(null, null, null, null, null, null, null, null,
 								t.getPenOut(), null, t.getMg(), t.getTp()))
 						.collect(Collectors.toList()));
+
 				// корректировки начисления пени
 				lstDeb.addAll(localStore.getLstPenChrgCorrFlow().stream()
 						.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
@@ -111,28 +131,7 @@ public class DebitThrMngImpl implements DebitThrMng {
 								null, null, null, null, null, t.getMg(), t.getTp()))
 						.collect(Collectors.toList()));
 			}
-			// вычесть оплату долга - для расчета долга, включая текущий день (Не включая для задолжности для расчета пени)
-			lstDeb.addAll(localStore.getLstPayFlow().stream()
-					.filter(t-> t.getDt().getTime() <= curDt.getTime())
-					.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
-					.map(t-> new SumDebRec(null, null, null, t.getSumma(), null, null,
-							t.getDt().getTime() < curDt.getTime() ?  // (Не включая текущий день, для задолжности для расчета пени)
-									t.getSumma().multiply(new BigDecimal("-1")) : BigDecimal.ZERO ,
-							t.getDt().getTime() <= curDt.getTime() ? // (включая текущий день, для обычной задолжности)
-									t.getSumma().multiply(new BigDecimal("-1")) : BigDecimal.ZERO,
-							null, null,
-							t.getMg(), t.getTp()))
-							.collect(Collectors.toList()));
-			// вычесть корректировки оплаты - для расчета долга, включая текущий день (Не включая для задолжности для расчета пени)
-			lstDeb.addAll(localStore.getLstPayCorrFlow().stream()
-					.filter(t-> t.getDt().getTime() <= curDt.getTime())
-					.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
-					.map(t-> new SumDebRec(null, null, t.getSumma(), null, null, null,
-							t.getSumma().multiply(new BigDecimal("-1")) ,
-							t.getSumma().multiply(new BigDecimal("-1")),
-							null, null,
-							t.getMg(), t.getTp()))
-							.collect(Collectors.toList()));
+
 			// объект расчета пени
 			GenPen genPen = new GenPen(kart, u, curDt, calcStore);
 			// добавить и сгруппировать все финансовые операции, по состоянию на текущий день
@@ -140,16 +139,6 @@ public class DebitThrMngImpl implements DebitThrMng {
 			// свернуть долги (учесть переплаты предыдущих периодов),
 			// рассчитать пеню на определенный день, добавить в общую коллекцию по всем дням
 			lstPenAllDays.addAll(genPen.getRolledDebPen(isLastDay));
-
-			/*			log.info("date={}", curDt);
-
-			lstPenAllDays.forEach(t->
-			{
-				log.info("tp={}, mg={}, вх={}", t.getTp(), t.getMg(), t.getDebIn());
-			});
-*/
-
-
 		}
 		// сгруппировать пеню и вернуть
 		return getGroupingPenDeb(u, lstPenAllDays);

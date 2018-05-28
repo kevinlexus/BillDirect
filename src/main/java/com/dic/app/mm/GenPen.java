@@ -45,6 +45,23 @@ public class GenPen {
 	};
 
 	/**
+	 * Справочник начала действия пени... была попытка сделать на нём @Cacheable
+	 * но не получилось. Нужно было бы тогда перенести его в public метод другого бина,
+	 * да и GenPen тогда пришлось бы тоже сделать @Service... что по архитектурным причинам не просто... TODO
+	 * Подумать!
+	 * @param mg
+	 * @param uslId
+	 * @param ukId
+	 * @return
+	 */
+	private SprPenUsl getSprPenUsl(Integer mg, String uslId, Integer ukId) {
+		return calcStore.getLstSprPenUsl().stream()
+				.filter(t-> t.getUsl().getId().equals(uslId/*uslOrg.getUslId()*/) && t.getMg().equals(mg)) // фильтр по услуге и периоду
+				.filter(t-> t.getUk().getId().equals(ukId/*kart.getUk()*/)) // фильтр по УК
+				.findFirst().orElse(null);
+	}
+
+	/**
 	 * свернуть задолженность (учесть переплаты предыдущих периодов)
 	 * и расчитать пеню
 	 * @param isLastDay - последний ли расчетный день? (для получения итогового долга)
@@ -75,10 +92,6 @@ public class GenPen {
 			// Задолженность для расчета ПЕНИ
 			// взять сумму текущего периода, добавить переплату
 			BigDecimal summa = t.getSumma().add(ovrPay);
-			if (summa==null) {
-				int a=1;
-				a++;
-			}
 			if (summa.compareTo(BigDecimal.ZERO) <= 0) {
 				// переплата или 0
 				if (itr.hasNext()) {
@@ -168,10 +181,7 @@ public class GenPen {
 	 * @throws ErrorWhileChrgPen
 	 */
 	private Pen getPen(BigDecimal summa, Integer mg) throws ErrorWhileChrgPen {
-		SprPenUsl sprPenUsl = calcStore.getLstSprPenUsl().stream()
-				.filter(t-> t.getUsl().getId().equals(uslOrg.getUslId()) && t.getMg().equals(mg)) // фильтр по услуге и периоду
-				.filter(t-> t.getUk().equals(kart.getUk())) // фильтр по УК
-				.findFirst().orElse(null);
+		SprPenUsl sprPenUsl = getSprPenUsl(mg, uslOrg.getUslId(), kart.getUk().getId() );
 		// вернуть кол-во дней между датой расчета пени и датой начала пени по справочнику
 		if (sprPenUsl == null) {
 			throw new ErrorWhileChrgPen(
@@ -197,6 +207,8 @@ public class GenPen {
 			return null;
 		}
 	}
+
+
 
 	// добавление и группировка финансовой операции, для получения сгруппированной задолжности по периоду
 	public void addRec(SumDebRec rec, Boolean isLastDay) {
@@ -274,5 +286,6 @@ public class GenPen {
 	public List<SumDebRec> getLst() {
 		return lst;
 	}
+
 
 }

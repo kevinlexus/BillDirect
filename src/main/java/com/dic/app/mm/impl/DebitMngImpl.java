@@ -84,7 +84,8 @@ public class DebitMngImpl implements DebitMng {
 	@PersistenceContext
     private EntityManager em;
 
-	public static Future<CommonResult> reverseStr(PrepThread reverse, String lsk){
+	// Метод лямбда, для выполнения внутри сервиса потоков
+	public static Future<CommonResult> reverseStr(PrepThread<String> reverse, String lsk){
 		  return reverse.myStringFunction(lsk);
 	}
 
@@ -104,8 +105,6 @@ public class DebitMngImpl implements DebitMng {
 		CalcStore calcStore = new CalcStore();
 		// уровень отладки
 		calcStore.setDebugLvl(debugLvl);
-		// лиц.счет
-		//calcStore.setLsk(lsk);
 		// начальная дата расчета
 		calcStore.setDt1(config.getCurDt1());
 		// дата расчета пени
@@ -119,8 +118,9 @@ public class DebitMngImpl implements DebitMng {
 		// справочник ставок рефинансирования
 		calcStore.setLstStavrUsl(stavrUslDao.findAll());
 
-		// вызвать расчет задолженности и пени
-		//genDebit(kart, calcStore);
+		calcStore.getLstSprPenUsl().size();
+		calcStore.getLstStavrUsl().size();
+
 		// получить список лицевых счетов
 		List<String> lstItem;
 		lstItem = kartDao.getAll()
@@ -138,12 +138,13 @@ public class DebitMngImpl implements DebitMng {
 
 		// будет выполнено позже, в создании потока
 		PrepThread<String> reverse = (item) -> {
+			// сервис расчета задолженности и пени
 			DebitMng debitMng = ctx.getBean(DebitMng.class);
 			return debitMng.genDebit(item, calcStore);
 		};
 
 		// вызвать в потоках
-		threadMng.invokeThreads(reverse, calcStore, 5, lstItem);
+		threadMng.invokeThreads(reverse, calcStore, 1, lstItem);
 
 		long endTime = System.currentTimeMillis();
 		long totalTime = endTime - startTime;
@@ -187,8 +188,6 @@ public class DebitMngImpl implements DebitMng {
 		// корректировки начисления пени - 7
 		localStore.setLstPenChrgCorrFlow(penUslCorrDao.getPenUslCorrByLsk(lsk));
 
-		//localStore.setLstFlow(lstFlow);
-
 		// создать список уникальных элементов услуга+организация
 		localStore.createUniqUslOrg();
 		// получить список уникальных элементов услуга+организация
@@ -212,7 +211,7 @@ public class DebitMngImpl implements DebitMng {
 
 		// удалить записи текущего периода
 		debPenUslDao.delByLskPeriod(lsk, period);
-		debPenUslTempDao.delByIter(11111111);
+		debPenUslTempDao.delByIter(11111111); //TODO
 
 		// СОХРАНИТЬ расчет
 		if (calcStore.getDebugLvl().equals(1)) {
@@ -241,7 +240,6 @@ public class DebitMngImpl implements DebitMng {
 								.withPeriod(period)
 								.build();
 			em.persist(debPenUsl);
-//			log.info("######### пеня вх={}", t.getPenyaIn());
 
 			// сохранить задолжность для отчета
 			DebPenUslTemp debPenUslTemp = DebPenUslTemp.builder()
@@ -262,7 +260,7 @@ public class DebitMngImpl implements DebitMng {
 					.withDays(t.getDays())
 
 					.withMg(t.getMg())
-					.withIter(11111111)
+					.withIter(11111111) //TODO
 					.build();
 			em.persist(debPenUslTemp);
 		});
@@ -276,5 +274,6 @@ public class DebitMngImpl implements DebitMng {
 		return new AsyncResult<CommonResult>(res);
 
 	}
+
 
 }

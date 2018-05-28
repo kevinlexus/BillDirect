@@ -34,6 +34,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
     @PersistenceContext
     private EntityManager em;
 
+
 	/**
 	 * Вызвать выполнение потоков распределения объемов/ начисления
 	 * @param reqConfig - конфиг запроса
