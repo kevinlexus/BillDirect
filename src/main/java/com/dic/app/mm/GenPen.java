@@ -60,7 +60,7 @@ public class GenPen {
 		lstSorted.forEach(t-> {
 			log.info("НЕсвернутые долги: дата={} период={}", Utl.getStrFromDate(curDt, "dd.MM.yyyy"), t.getMg());
 			log.info("долг для пени={}, долг={}, свернутый долг={}",
-					t.getSumma(), t.getSummaDeb(), t.getSummaRollDeb());
+					t.getSumma(), t.getSummaDeb(), t.getDebRolled());
 		});*/
 
 		// свернуть задолженность
@@ -75,6 +75,10 @@ public class GenPen {
 			// Задолженность для расчета ПЕНИ
 			// взять сумму текущего периода, добавить переплату
 			BigDecimal summa = t.getSumma().add(ovrPay);
+			if (summa==null) {
+				int a=1;
+				a++;
+			}
 			if (summa.compareTo(BigDecimal.ZERO) <= 0) {
 				// переплата или 0
 				if (itr.hasNext()) {
@@ -97,7 +101,7 @@ public class GenPen {
 					Pen pen = getPen(summa, t.getMg());
 					if (pen != null) {
 						// сохранить текущую пеню
-						t.setPenyaCur(pen.penya);
+						t.setPenyaChrg(pen.penya);
 						// кол-во дней просрочки
 						t.setDays(pen.days);
 						// % расчета пени
@@ -110,22 +114,22 @@ public class GenPen {
 				// Актуально для последнего расчетного дня
 				// Задолженность для отображения клиенту (свернутая)
 				// взять сумму текущего периода, добавить переплату
-				summa = t.getSummaRollDeb().add(ovrPayDeb);
+				summa = t.getDebRolled().add(ovrPayDeb);
 				if (summa.compareTo(BigDecimal.ZERO) <= 0) {
 					// переплата или 0
 					if (itr.hasNext()) {
 						// перенести переплату в следующий период
 						ovrPayDeb = summa;
-						t.setSummaRollDeb(BigDecimal.ZERO);
+						t.setDebRolled(BigDecimal.ZERO);
 					} else {
 						// последний период, записать сумму с учетом переплаты
 						ovrPayDeb = BigDecimal.ZERO;
-						t.setSummaRollDeb(summa);
+						t.setDebRolled(summa);
 					}
 				} else {
 					// остался долг, записать его
 					ovrPayDeb = BigDecimal.ZERO;
-					t.setSummaRollDeb(summa);
+					t.setDebRolled(summa);
 				}
 			}
 
@@ -136,8 +140,8 @@ public class GenPen {
 				log.info("СВЕРНУТЫЕ долги: дата={} период={}", Utl.getStrFromDate(curDt, "dd.MM.yyyy"), t.getMg());
 				log.info("долг для пени={}, долг={}, свернутый долг={}, пеня вх.сал.={}, "
 						+ "пеня тек.={}, корр.пени={}, дней просрочки={}, % пени={}",
-						t.getSumma(), t.getSummaDeb(), t.getSummaRollDeb(), t.getPenyaIn(),
-						t.getPenyaCur(), t.getPenyaCorr(), t.getDays(), t.getProc());
+						t.getSumma(), t.getDebOut(), t.getDebRolled(), t.getPenyaIn(),
+						t.getPenyaChrg(), t.getPenyaCorr(), t.getDays(), t.getProc());
 			});
 		}
 
@@ -195,7 +199,8 @@ public class GenPen {
 	}
 
 	// добавление и группировка финансовой операции, для получения сгруппированной задолжности по периоду
-	public void addRec(SumDebRec rec) {
+	public void addRec(SumDebRec rec, Boolean isLastDay) {
+
 		if (rec.getMg() == null) {
 			// если mg не заполнено, установить - текущий период (например для начисления)
 			rec.setMg(calcStore.getPeriod());
@@ -212,13 +217,28 @@ public class GenPen {
 				// для долга для расчета пени
 				foundRec.setSumma(foundRec.getSumma().add(rec.getSumma()));
 				// для долга как он есть в базе
-				foundRec.setSummaDeb(foundRec.getSummaDeb().add(rec.getSummaDeb()));
-				// для долга свернутого долга
-				foundRec.setSummaRollDeb(foundRec.getSummaRollDeb().add(rec.getSummaRollDeb()));
-				// вх.сальдо по пене
-				foundRec.setPenyaIn(foundRec.getPenyaIn().add(rec.getPenyaIn()));
-				// корректировки по пене
-				foundRec.setPenyaCorr(foundRec.getPenyaCorr().add(rec.getPenyaCorr()));
+				foundRec.setDebOut(foundRec.getDebOut().add(rec.getDebOut()));
+				// для свернутого долга
+				foundRec.setDebRolled(foundRec.getDebRolled().add(rec.getDebRolled()));
+				// для отчета
+				if (isLastDay) {
+					// вх.сальдо по задолженности
+					foundRec.setDebIn(foundRec.getDebIn().add(rec.getDebIn()));
+					// вх.сальдо по пене
+					foundRec.setPenyaIn(foundRec.getPenyaIn().add(rec.getPenyaIn()));
+					// оплата пени
+					foundRec.setPenyaPay(foundRec.getPenyaPay().add(rec.getPenyaPay()));
+					// начисление
+					foundRec.setChrg(foundRec.getChrg().add(rec.getChrg()));
+					// перерасчеты
+					foundRec.setChng(foundRec.getChng().add(rec.getChng()));
+					// корректировки по пене
+					foundRec.setPenyaCorr(foundRec.getPenyaCorr().add(rec.getPenyaCorr()));
+					// оплата задолженности
+					foundRec.setDebPay(foundRec.getDebPay().add(rec.getDebPay()));
+					// корректировки оплаты
+					foundRec.setPayCorr(foundRec.getPayCorr().add(rec.getPayCorr()));
+				}
 			}
 		}
 
@@ -248,7 +268,7 @@ public class GenPen {
 			break;
 		}
 		log.info("{}: {}, mg={}, summa={}, summaDeb={}, summaRollDeb={}",
-				str2, str, rec.getMg(), rec.getSumma(), rec.getSummaDeb(), rec.getSummaRollDeb());*/
+				str2, str, rec.getMg(), rec.getSumma(), rec.getSummaDeb(), rec.getDebRolled());*/
 	}
 
 	public List<SumDebRec> getLst() {

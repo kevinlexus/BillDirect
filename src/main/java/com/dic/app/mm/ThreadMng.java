@@ -4,8 +4,10 @@ import java.util.List;
 
 import com.dic.bill.dto.CalcStore;
 
-public interface ThreadMng {
+public interface ThreadMng<T> {
 
-	void invokeThreads(CalcStore calcStore, int cntThreads, List<String> lstItem);
+	void invokeThreads(PrepThread<T> reverse, CalcStore calcStore, int cntThreads, List<T> lstItem);
+
+	//void invokeThreads(CalcStore calcStore, int cntThreads, List<T> lstItem);
 
 }

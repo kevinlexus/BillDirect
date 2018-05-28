@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 
-import com.dic.app.mm.DebitMng;
+import com.dic.app.mm.PrepThread;
 import com.dic.app.mm.ThreadMng;
 import com.dic.bill.dto.CalcStore;
 import com.ric.cmn.CommonResult;
@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Service
-public class ThreadMngImpl implements ThreadMng {
+public class ThreadMngImpl<T> implements ThreadMng<T> {
 
 	@Autowired
 	private ApplicationContext ctx;
@@ -41,7 +41,7 @@ public class ThreadMngImpl implements ThreadMng {
 	 * @param lstItem - список Id на обработку
 	 */
 	@Override
-	public void invokeThreads(CalcStore calcStore, int cntThreads, List<String> lstItem) {
+	public void invokeThreads(PrepThread<T> reverse, CalcStore calcStore, int cntThreads, List<T> lstItem) {
 		long startTime = System.currentTimeMillis();
 
 		List<Future<CommonResult>> frl = new ArrayList<Future<CommonResult>>(cntThreads);
@@ -49,7 +49,7 @@ public class ThreadMngImpl implements ThreadMng {
 			frl.add(null);
 		}
 		// проверить окончание всех потоков и запуск новых потоков
-		String itemWork = null;
+		T itemWork = null;
 		boolean isStop = false;
 		while (!isStop) {
 			//log.info("========================================== Ожидание выполнения потоков ===========");
@@ -68,13 +68,13 @@ public class ThreadMngImpl implements ThreadMng {
 						// создать новый поток
 						//ChrgServThr chrgServThr = ctx.getBean(ChrgServThr.class);
 						//fut = chrgServThr.chrgAndSaveLsk(reqConfig, itemWork.getId());
-						DebitMng debitMng = ctx.getBean(DebitMng.class);
-						fut = debitMng.genDebit(itemWork, calcStore);
+/*						DebitMng debitMng = ctx.getBean(DebitMng.class);
+						fut = debitMng.genDebit((String)itemWork, calcStore);
+*/
 
-						log.info("================================ Начат поток начисления для лс={} ==================", itemWork);
+						fut = reverse.myStringFunction(itemWork);
+						//log.info("================================ Начат поток начисления для лс={} ==================", itemWork);
 						frl.set(i, fut);
-					} else {
-						log.info("================================ НЕ НАЙДЕН ЭЛЕМЕНТ! ==================");
 					}
 				} else if (!fut.isDone()) {
 					//log.info("========= Поток НЕ завершен! лс={}", fut.get().getLsk());
@@ -85,7 +85,7 @@ public class ThreadMngImpl implements ThreadMng {
 						if (fut.get().getErr() == 1) {
 							log.error("================================ ОШИБКА ПОЛУЧЕНА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА начисления для лс={} ==================", fut.get().getErr());
 						} else {
-							log.info("================================ Успешно завершен поток начисления для лс={} ==================", fut.get().getLsk());
+							//log.info("================================ Успешно завершен поток начисления для лс={} ==================", fut.get().getLsk());
 						}
 					} catch (InterruptedException | ExecutionException e1) {
 						e1.printStackTrace();
@@ -119,9 +119,9 @@ public class ThreadMngImpl implements ThreadMng {
 	}
 
 	// получить следующий объект, для расчета в потоках
-	private String getNextItem(List<String> lstItem) {
-		Iterator<String> itr = lstItem.iterator();
-		String item = null;
+	private T getNextItem(List<T> lstItem) {
+		Iterator<T> itr = lstItem.iterator();
+		T item = null;
 		if (itr.hasNext()) {
 			item  = itr.next();
 			itr.remove();
@@ -129,6 +129,8 @@ public class ThreadMngImpl implements ThreadMng {
 
 		return item;
 	}
+
+
 
 
 }

@@ -13,6 +13,7 @@ import com.dic.app.AppConfig;
 import com.dic.app.mm.DebitMng;
 import com.dic.app.mm.ThreadMng;
 import com.dic.bill.Config;
+import com.dic.bill.dao.DebPenUslDAO;
 import com.dic.bill.dao.KartDAO;
 import com.ric.cmn.Utl;
 
@@ -38,18 +39,22 @@ public class TestWork {
 	@Autowired
 	private KartDAO kartDao;
 
+	@Autowired
+	private DebPenUslDAO debPenUslDao;
+
     @Test
     @Rollback(false)
+    //@Repeat(value = 100)
     public void mainWork() {
 		log.info("Test start");
+
 
 		log.info("Текущий период: dt1={}, dt2={}", config.getCurDt1(), config.getCurDt2());
 
 		log.info("days={}", Utl.daysBetween(Utl.getDateFromStr("22.05.2018"), Utl.getDateFromStr("23.05.2018")));
 
-		debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"), 0);
-
-		//threadMng.invokeThreads(10, lstItem);
+		//debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"), 0);
+		debitMng.genDebitAll(null, Utl.getDateFromStr("15.04.2014"), 0);
 
 /*		kartDao.getAll()
 			.stream()
