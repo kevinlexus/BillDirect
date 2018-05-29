@@ -1,7 +1,6 @@
 package com.dic.app.mm.impl;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -166,14 +165,14 @@ public class DebitThrMngImpl implements DebitThrMng {
 		for (SumDebRec t :lst) {
 			addPen(uslOrg, lstDebAmnt, t.getMg(), t.getPenyaChrg(), t.getDays());
 		}
-		lstDebAmnt.forEach(t-> {
+		//lstDebAmnt.forEach(t-> {
 			// округлить начисленную пеню до копеек, сохранить, добавить корректировки
-			t.setPenyaChrg(t.getPenyaChrg().setScale(2, RoundingMode.HALF_UP).add(t.getPenyaCorr()));
+			// t.setPenyaChrg(t.getPenyaChrg().setScale(2, RoundingMode.HALF_UP).add(t.getPenyaCorr()));
 			// установить исходящее сальдо по пене = вх.сальдо + начисление + корректировки - оплата
 //			log.info("ПЕНЯ вх={}", t.getPenyaIn());
-			t.setPenyaOut(t.getPenyaIn().add(t.getPenyaChrg())
-					.add(t.getPenyaCorr()).subtract(t.getPenyaPay()));
-		});
+			//t.setPenyaOut(t.getPenyaIn().add(t.getPenyaChrg())
+			//		.add(t.getPenyaCorr()).subtract(t.getPenyaPay()));
+		//});
 
 		return lstDebAmnt;
 	}

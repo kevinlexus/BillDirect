@@ -1,3 +1,6 @@
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +18,10 @@ import com.dic.app.mm.ThreadMng;
 import com.dic.bill.Config;
 import com.dic.bill.dao.DebPenUslDAO;
 import com.dic.bill.dao.KartDAO;
+import com.dic.bill.dao.RedirPayDAO;
+import com.dic.bill.model.scott.SessionDirect;
 import com.ric.cmn.Utl;
+import com.ric.cmn.excp.ErrorWhileChrgPen;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -41,22 +47,29 @@ public class TestWork {
 
 	@Autowired
 	private DebPenUslDAO debPenUslDao;
+	@Autowired
+	private RedirPayDAO redirPayDao;
+	@PersistenceContext
+    private EntityManager em;
 
     @Test
     @Rollback(false)
     //@Repeat(value = 100)
-    public void mainWork() {
+    public void mainWork() throws ErrorWhileChrgPen {
 		log.info("Test start");
 
 
 		log.info("Текущий период: dt1={}, dt2={}", config.getCurDt1(), config.getCurDt2());
 
-		log.info("days={}", Utl.daysBetween(Utl.getDateFromStr("22.05.2018"), Utl.getDateFromStr("23.05.2018")));
+		SessionDirect sessionDirect = em.find(SessionDirect.class, 4735);
+		debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"), 0, sessionDirect);
 
-		//debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"), 0);
-		//debitMng.genDebitAll(null, Utl.getDateFromStr("15.04.2014"), 0);
+		//debitMng.genDebitAll(null, Utl.getDateFromStr("15.04.2014"), 0, null);
 
-/*		kartDao.getAll()
+/*		redirPayDao.getRedirPayOrd(0, "002", "003", -1).forEach(t->{
+			log.info("redir.id={}", t.getId());
+		});
+*//*		kartDao.getAll()
 			.stream()
 			.filter(t-> Integer.valueOf(t.getLsk()) >= 84 && Integer.valueOf(t.getLsk()) <=90  )
 			.forEach(t-> {

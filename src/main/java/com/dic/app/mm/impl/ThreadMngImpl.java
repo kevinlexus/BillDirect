@@ -40,9 +40,11 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 	 * @param reqConfig - конфиг запроса
 	 * @param cntThreads - кол-во потоков
 	 * @param lstItem - список Id на обработку
+	 * @throws ExecutionException
+	 * @throws InterruptedException
 	 */
 	@Override
-	public void invokeThreads(PrepThread<T> reverse, CalcStore calcStore, int cntThreads, List<T> lstItem) {
+	public void invokeThreads(PrepThread<T> reverse, CalcStore calcStore, int cntThreads, List<T> lstItem) throws InterruptedException, ExecutionException {
 		long startTime = System.currentTimeMillis();
 
 		List<Future<CommonResult>> frl = new ArrayList<Future<CommonResult>>(cntThreads);
@@ -67,12 +69,6 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 					itemWork = getNextItem(lstItem);
 					if (itemWork != null) {
 						// создать новый поток
-						//ChrgServThr chrgServThr = ctx.getBean(ChrgServThr.class);
-						//fut = chrgServThr.chrgAndSaveLsk(reqConfig, itemWork.getId());
-/*						DebitMng debitMng = ctx.getBean(DebitMng.class);
-						fut = debitMng.genDebit((String)itemWork, calcStore);
-*/
-
 						fut = reverse.myStringFunction(itemWork);
 						//log.info("================================ Начат поток начисления для лс={} ==================", itemWork);
 						frl.set(i, fut);
@@ -82,19 +78,19 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 					//log.info("..................................... CHK1");
 				} else {
 					//log.info("------------------------------------- CHK2");
-					try {
+					//try {
 						if (fut.get().getErr() == 1) {
-							log.error("================================ ОШИБКА ПОЛУЧЕНА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА начисления для лс={} ==================", fut.get().getErr());
+							log.error("================================ ОШИБКА ПОЛУЧЕНА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА для лс={} ==================", fut.get().getErr());
 						} else {
 							//log.info("================================ Успешно завершен поток начисления для лс={} ==================", fut.get().getLsk());
 						}
-					} catch (InterruptedException | ExecutionException e1) {
+					/*} catch (InterruptedException | ExecutionException e1) {
 						e1.printStackTrace();
 						log.error("ОШИБКА ВО ВРЕМЯ ВЫПОЛНЕНИЯ ПОТОКА!", e1);
-					} finally {
+					} finally {*/
 						// очистить переменную потока
 						frl.set(i, null);
-					}
+					//}
 
 				}
 

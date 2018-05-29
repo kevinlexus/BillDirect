@@ -1,8 +1,11 @@
 package com.dic.app.mm.impl;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
@@ -41,6 +44,7 @@ import com.dic.bill.model.scott.DebPenUsl;
 import com.dic.bill.model.scott.DebPenUslTemp;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.Org;
+import com.dic.bill.model.scott.SessionDirect;
 import com.dic.bill.model.scott.Usl;
 import com.ric.cmn.CommonResult;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
@@ -94,12 +98,15 @@ public class DebitMngImpl implements DebitMng {
 	 * @param lsk - лиц.счет, если отсутствует - весь фонд
 	 * @param genDt - дата расчета
 	 * @param debugLvl - уровень отладочной информации (0-нет, 1-отобразить)
+	 * @param iter - номер итерации расчета (чтобы потом выбрать из таблицы для отчета)
+	 * @param sessionId - Id сессии
+	 * @throws ErrorWhileChrgPen
 	 */
 	@Override
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
-	public void genDebitAll(String lsk, Date genDt, Integer debugLvl) {
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor=Exception.class)
+	public void genDebitAll(String lsk, Date genDt, Integer debugLvl, SessionDirect sessionDirect) throws ErrorWhileChrgPen {
 		long startTime = System.currentTimeMillis();
-		log.info("Расчет задолженности - НАЧАЛО!");
+		log.info("НАЧАЛО расчета задолженности");
 
 		// загрузить справочники
 		CalcStore calcStore = new CalcStore();
@@ -125,13 +132,17 @@ public class DebitMngImpl implements DebitMng {
 		List<String> lstItem;
 		lstItem = kartDao.getAll()
 				.stream().map(t->t.getLsk()).collect(Collectors.toList());
-
+		// тип выполнения (0 - по одному лс, вывести отчет в C_DEBPEN_USL_TEMP,
+		//				   1 - вывести исх сальдо)
+		int tp;
 		if (lsk == null) {
 			// по всем лиц.счетам
+			tp = 0;
 			lstItem = kartDao.getAll()
 					.stream().map(t->t.getLsk()).collect(Collectors.toList());
  		} else {
  			// по одному лиц.счету
+			tp = 1;
  			lstItem = new ArrayList<String>(0);
  			lstItem.add(lsk);
  		}
@@ -140,15 +151,19 @@ public class DebitMngImpl implements DebitMng {
 		PrepThread<String> reverse = (item) -> {
 			// сервис расчета задолженности и пени
 			DebitMng debitMng = ctx.getBean(DebitMng.class);
-			return debitMng.genDebit(item, calcStore);
+			return debitMng.genDebit(item, calcStore, tp, sessionDirect);
 		};
 
 		// вызвать в потоках
-		threadMng.invokeThreads(reverse, calcStore, 1, lstItem);
+		try {
+			threadMng.invokeThreads(reverse, calcStore, 5, lstItem);
+		} catch (InterruptedException | ExecutionException e) {
+			throw new ErrorWhileChrgPen("ОШИБКА во время расчета задолженности и пени!");
+		}
 
 		long endTime = System.currentTimeMillis();
 		long totalTime = endTime - startTime;
-		log.info("Расчет задолженности - ОКОНЧАНИЕ! Общее время расчета={}", totalTime);
+		log.info("ОКОНЧАНИЕ расчета задолженности - Общее время расчета={}", totalTime);
 	}
 
 
@@ -157,13 +172,16 @@ public class DebitMngImpl implements DebitMng {
 	 * @param lsk - лиц.счет
 	 * @param calcStore - хранилище справочников
 	 * @param genDt - дата расчета
+	 * @param tp - тип вызова:  0 - создание выходного отчета в C_DEBPEN_USL_TEMP
+	 * 							1 - запись исходящего сальдо в C_DEBPEN_USL
+	 * @param sessionId - Id сессии
 	 */
 	@Async
 	@Override
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW)
-	public Future<CommonResult> genDebit(String lsk, CalcStore calcStore) {
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
+	public Future<CommonResult> genDebit(String lsk, CalcStore calcStore, Integer tp, SessionDirect sessionDirect) {
 		long startTime = System.currentTimeMillis();
-		log.info("Расчет задолженности по лиц.счету - НАЧАЛО!");
+		log.info("НАЧАЛО расчета задолженности по лиц.счету {}", lsk);
 		Kart kart = em.find(Kart.class, lsk);
 		//String lsk = kart.getLsk();
 		// текущий период
@@ -209,68 +227,77 @@ public class DebitMngImpl implements DebitMng {
 			})
 			.collect(Collectors.toList());
 
-		// удалить записи текущего периода
-		debPenUslDao.delByLskPeriod(lsk, period);
-		debPenUslTempDao.delByIter(11111111); //TODO
-
 		// СОХРАНИТЬ расчет
 		if (calcStore.getDebugLvl().equals(1)) {
 			log.info("");
 			log.info("ИТОГОВАЯ задолжность и пеня");
 		}
 
+		// удалить записи текущего периода
+		if (tp == 0) {
+			debPenUslDao.delByLskPeriod(lsk, period);
+		} else if (tp == 1) {
+			debPenUslTempDao.delByIter(sessionDirect.getId());
+		}
 
-		lst.forEach(t-> {
+		for (SumPenRec t : lst) {
+			BigDecimal penyaOut =  t.getPenyaIn().add(
+					t.getPenyaChrg().setScale(2, RoundingMode.HALF_UP) // округлить начисленную пеню
+					).add(t.getPenyaCorr() 							   // прибавить корректировки
+							).subtract(t.getPenyaPay() 				   // отнять оплату
+									);
 			if (calcStore.getDebugLvl().equals(1)) {
 				log.info("uslId={}, orgId={}, период={}, долг={}, свернутый долг={}, "
 						+ "пеня вх.={}, пеня тек.={} руб., корр.пени={}, пеня исх.={}, дней просрочки(на дату расчета)={}",
 						t.getUslOrg().getUslId(), t.getUslOrg().getOrgId(), t.getMg(),
 						t.getDebOut(), t.getDebRolled(), t.getPenyaIn(),
-						t.getPenyaChrg(), t.getPenyaCorr(), t.getPenyaOut(),
+						t.getPenyaChrg(), t.getPenyaCorr(), penyaOut,
 						t.getDays());
 			}
-			// сохранить задолжность
-			DebPenUsl debPenUsl = DebPenUsl.builder()
-								.withKart(kart)
-								.withUsl(em.find(Usl.class, t.getUslOrg().getUslId()))
-								.withOrg(em.find(Org.class, t.getUslOrg().getOrgId()))
-								.withDebOut(t.getDebOut())
-								.withPenOut(t.getPenyaOut())
-								.withMg(t.getMg())
-								.withPeriod(period)
-								.build();
-			em.persist(debPenUsl);
 
-			// сохранить задолжность для отчета
-			DebPenUslTemp debPenUslTemp = DebPenUslTemp.builder()
-					.withUsl(em.find(Usl.class, t.getUslOrg().getUslId()))
-					.withOrg(em.find(Org.class, t.getUslOrg().getOrgId()))
-					.withDebIn(t.getDebIn())
-					.withDebOut(t.getDebOut())
-					.withDebRolled(t.getDebRolled())
-					.withChrg(t.getChrg())
-					.withChng(t.getChng())
-					.withDebPay(t.getDebPay())
-					.withPayCorr(t.getPayCorr())
-					.withPenIn(t.getPenyaIn())
-					.withPenOut(t.getPenyaOut())
-					.withPenChrg(t.getPenyaChrg())
-					.withPenCorr(t.getPenyaCorr())
-					.withPenPay(t.getPenyaPay())
-					.withDays(t.getDays())
-
-					.withMg(t.getMg())
-					.withIter(11111111) //TODO
-					.build();
-			em.persist(debPenUslTemp);
-		});
-
+			if (tp == 0) {
+				// сохранить задолжность
+				DebPenUsl debPenUsl = DebPenUsl.builder()
+									.withKart(kart)
+									.withUsl(em.find(Usl.class, t.getUslOrg().getUslId()))
+									.withOrg(em.find(Org.class, t.getUslOrg().getOrgId()))
+									.withDebOut(t.getDebOut())
+									.withPenOut(penyaOut)
+									.withMg(t.getMg())
+									.withPeriod(period)
+									.build();
+				em.persist(debPenUsl);
+			} else if (tp == 1) {
+				// сохранить задолжность для отчета
+				DebPenUslTemp debPenUslTemp = DebPenUslTemp.builder()
+						.withUsl(em.find(Usl.class, t.getUslOrg().getUslId()))
+						.withOrg(em.find(Org.class, t.getUslOrg().getOrgId()))
+						.withDebIn(t.getDebIn())
+						.withDebOut(t.getDebOut())
+						.withDebRolled(t.getDebRolled())
+						.withChrg(t.getChrg())
+						.withChng(t.getChng())
+						.withDebPay(t.getDebPay())
+						.withPayCorr(t.getPayCorr())
+						.withPenIn(t.getPenyaIn())
+						.withPenOut(penyaOut)
+						.withPenChrg(t.getPenyaChrg().setScale(2, RoundingMode.HALF_UP) // округлить начисленную пеню
+								)
+						.withPenCorr(t.getPenyaCorr())
+						.withPenPay(t.getPenyaPay())
+						.withDays(t.getDays())
+						.withMg(t.getMg())
+						.withSessionDirect(sessionDirect)
+						.build();
+				em.persist(debPenUslTemp);
+			}
+		}
 
 
 		CommonResult res = new CommonResult(kart.getLsk(), 1111111111);
 		long endTime = System.currentTimeMillis();
 		long totalTime = endTime - startTime;
-		log.info("Расчет задолженности по лиц.счету - ОКОНЧАНИЕ! Время расчета={} мс", totalTime);
+		log.info("ОКОНЧАНИЕ расчета задолженности по лиц.счету {}! Время расчета={} мс", lsk, totalTime);
 		return new AsyncResult<CommonResult>(res);
 
 	}
