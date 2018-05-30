@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.dic.app.mm.DebitMng;
 import com.dic.app.mm.DebitThrMng;
 import com.dic.app.mm.PrepThread;
+import com.dic.app.mm.ReferenceMng;
 import com.dic.app.mm.ThreadMng;
 import com.dic.bill.Config;
 import com.dic.bill.dao.ChargeDAO;
@@ -76,6 +77,8 @@ public class DebitMngImpl implements DebitMng {
 	private StavrUslDAO stavrUslDao;
 	@Autowired
 	private PenUslCorrDAO penUslCorrDao;
+	@Autowired
+	private ReferenceMng refMng;
 	@Autowired
 	private KartDAO kartDao;
 	@Autowired
@@ -158,6 +161,7 @@ public class DebitMngImpl implements DebitMng {
 		try {
 			threadMng.invokeThreads(reverse, calcStore, 5, lstItem);
 		} catch (InterruptedException | ExecutionException e) {
+			e.printStackTrace();
 			throw new ErrorWhileChrgPen("ОШИБКА во время расчета задолженности и пени!");
 		}
 
@@ -240,7 +244,11 @@ public class DebitMngImpl implements DebitMng {
 			debPenUslTempDao.delByIter(sessionDirect.getId());
 		}
 
+		// перенаправить пеню на услугу и организацию по справочнику REDIR_PAY
+		redirectPen(kart, lst);
+
 		for (SumPenRec t : lst) {
+			log.info("org={}, In={}", t.getUslOrg().getOrgId(), t.getPenyaIn());
 			BigDecimal penyaOut =  t.getPenyaIn().add(
 					t.getPenyaChrg().setScale(2, RoundingMode.HALF_UP) // округлить начисленную пеню
 					).add(t.getPenyaCorr() 							   // прибавить корректировки
@@ -300,6 +308,60 @@ public class DebitMngImpl implements DebitMng {
 		log.info("ОКОНЧАНИЕ расчета задолженности по лиц.счету {}! Время расчета={} мс", lsk, totalTime);
 		return new AsyncResult<CommonResult>(res);
 
+	}
+
+	/**
+	 * перенаправить пеню на услугу и организацию по справочнику REDIR_PAY
+	 * @param kart - лицевой счет
+	 * @param lst - входящая коллекция долгов и пени
+	 */
+	private void redirectPen(Kart kart, List<SumPenRec> lst) {
+		// произвести перенаправление начисления пени, по справочнику
+		ArrayList<SumPenRec> lstAdd = new ArrayList<SumPenRec>();
+		for (SumPenRec t : lst) {
+			String uslId = t.getUslOrg().getUslId();
+			Integer orgId = t.getUslOrg().getOrgId();
+			if (uslId.equals("005")) {
+				log.info("check");
+			}
+			UslOrg uo = refMng.getUslOrgRedirect(t.getUslOrg(), kart, 0);
+			if (!uo.getUslId().equals(uslId)
+					|| !uo.getOrgId().equals(orgId)) {
+				// выполнить переброску, если услуга или организация - другие
+				SumPenRec rec = lst.stream().filter(d->
+						   d.getUslOrg().getUslId().equals(uo.getUslId())
+						&& d.getUslOrg().getOrgId().equals(uo.getOrgId()))
+						.filter(d -> d.getMg().equals(t.getMg())) // тот же период
+						.findFirst().orElse(null);
+				if (rec == null) {
+					// строка с долгом и пенёй не найдена по данному периоду, создать
+					SumPenRec sumPenRec = SumPenRec.builder()
+							.withChng(BigDecimal.ZERO)
+							.withChrg(BigDecimal.ZERO)
+							.withDebIn(BigDecimal.ZERO)
+							.withDebOut(BigDecimal.ZERO)
+							.withDebPay(BigDecimal.ZERO)
+							.withDebRolled(BigDecimal.ZERO)
+							.withPayCorr(BigDecimal.ZERO)
+							.withPenyaChrg(t.getPenyaChrg())
+							.withPenyaCorr(BigDecimal.ZERO)
+							.withPenyaIn(BigDecimal.ZERO)
+							.withPenyaPay(BigDecimal.ZERO)
+							.withDays(0)
+							.withMg(t.getMg())
+							.withUslOrg(uo)
+							.build();
+					lstAdd.add(sumPenRec);
+				} else {
+					// строка найдена
+					rec.setPenyaChrg(rec.getPenyaChrg().add(t.getPenyaChrg()));
+				}
+				t.setPenyaChrg(BigDecimal.ZERO);
+				log.info("Перенаправление пени сумма={}", t.getPenyaChrg());
+			}
+		}
+		// добавить новые записи перенаправленых сумм (если они будут)
+		lst.addAll(lstAdd);
 	}
 
 
