@@ -110,14 +110,14 @@ public class DebitThrMngImpl implements DebitThrMng {
 								t.getPenOut(), null, t.getMg(), t.getTp()))
 						.collect(Collectors.toList()));
 
-				/*localStore.getLstDebPenFlow().stream()
+/*				localStore.getLstDebPenFlow().stream()
 				.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
 				.forEach(t->{
 							log.info("ВХОДЯЩЕЕ сальдо по пене mg={}, usl={} org={}, сумма={}", t.getMg(), t.getUslId(), t.getOrgId(), t.getPenOut());
 
 						});
-*/
-				// корректировки начисления пени
+
+*/				// корректировки начисления пени
 				lstDeb.addAll(localStore.getLstPenChrgCorrFlow().stream()
 						.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
 						.map(t-> new SumDebRec(null, null, null, null, null, null, null, null, null,

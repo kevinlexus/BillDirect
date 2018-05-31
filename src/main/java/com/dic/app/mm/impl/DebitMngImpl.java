@@ -325,25 +325,50 @@ public class DebitMngImpl implements DebitMng {
 				isCreate = true;
 			}
 		}
-
+		//log.info("usl={}, org={} debIn={}", t.getUslOrg().getUslId(),
+		//		t.getUslOrg().getOrgId(), t.getPenyaIn());
 		if (isCreate) {
 			// создать запись нового периода
-			Deb deb = Deb.builder()
-					.withUsl(em.find(Usl.class, t.getUslOrg().getUslId()))
-					.withOrg(em.find(Org.class, t.getUslOrg().getOrgId()))
-					.withDebIn(t.getDebIn())
-					.withDebOut(t.getDebOut())
-					.withDebRolled(t.getDebRolled())
-					.withChrg(t.getChrg())
-					.withChng(t.getChng())
-					.withDebPay(t.getDebPay())
-					.withPayCorr(t.getPayCorr())
-					.withKart(kart)
-					.withMgFrom(calcStore.getPeriod())
-					.withMgTo(calcStore.getPeriod())
-					.withMg(t.getMg())
-					.build();
-			em.persist(deb);
+			if (t.getDebIn().compareTo(BigDecimal.ZERO) != 0
+						|| t.getDebOut().compareTo(BigDecimal.ZERO) != 0
+						|| t.getDebRolled().compareTo(BigDecimal.ZERO) != 0
+						|| t.getChrg().compareTo(BigDecimal.ZERO) != 0
+						|| t.getChng().compareTo(BigDecimal.ZERO) != 0
+						|| t.getDebPay().compareTo(BigDecimal.ZERO) != 0
+						|| t.getPayCorr().compareTo(BigDecimal.ZERO) != 0
+					) {
+				// если хотя бы одно поле != 0
+				Usl usl = em.find(Usl.class, t.getUslOrg().getUslId());
+				if (usl == null) {
+					// так как внутри потока, то только RuntimeException
+					throw new RuntimeException("Ошибка при сохранении записей долгов,"
+							+ " некорректные данные в таблице SCOTT.DEB!"
+							+ " Не найдена услуга с кодом usl="+t.getUslOrg().getUslId());
+				}
+				Org org = em.find(Org.class, t.getUslOrg().getOrgId());
+				if (org == null) {
+					// так как внутри потока, то только RuntimeException
+					throw new RuntimeException("Ошибка при сохранении записей долгов,"
+							+ " некорректные данные в таблице SCOTT.DEB!"
+							+ " Не найдена организация с кодом org="+t.getUslOrg().getOrgId());
+				}
+				Deb deb = Deb.builder()
+						.withUsl(usl)
+						.withOrg(org)
+						.withDebIn(t.getDebIn())
+						.withDebOut(t.getDebOut())
+						.withDebRolled(t.getDebRolled())
+						.withChrg(t.getChrg())
+						.withChng(t.getChng())
+						.withDebPay(t.getDebPay())
+						.withPayCorr(t.getPayCorr())
+						.withKart(kart)
+						.withMgFrom(calcStore.getPeriod())
+						.withMgTo(calcStore.getPeriod())
+						.withMg(t.getMg())
+						.build();
+				em.persist(deb);
+			}
 		}
 		// сбросить флаг создания новой записи
 		isCreate = false;
@@ -377,22 +402,52 @@ public class DebitMngImpl implements DebitMng {
 		}
 
 		if (isCreate) {
+
 			// создать запись нового периода
-			Pen pen = Pen.builder()
-					.withUsl(em.find(Usl.class, t.getUslOrg().getUslId()))
-					.withOrg(em.find(Org.class, t.getUslOrg().getOrgId()))
-					.withPenIn(t.getPenyaIn())
-					.withPenOut(penyaOut)
-					.withPenChrg(penChrgRound)
-					.withPenCorr(t.getPenyaCorr())
-					.withPenPay(t.getPenyaPay())
-					.withDays(t.getDays())
-					.withKart(kart)
-					.withMgFrom(calcStore.getPeriod())
-					.withMgTo(calcStore.getPeriod())
-					.withMg(t.getMg())
-					.build();
-			em.persist(pen);
+			if (t.getPenyaIn().compareTo(BigDecimal.ZERO) != 0
+					|| penyaOut.compareTo(BigDecimal.ZERO) != 0
+					|| penChrgRound.compareTo(BigDecimal.ZERO) != 0
+					|| t.getPenyaCorr().compareTo(BigDecimal.ZERO) != 0
+					|| t.getPenyaPay().compareTo(BigDecimal.ZERO) != 0
+					|| !t.getDays().equals(0)
+					|| t.getPenyaCorr().compareTo(BigDecimal.ZERO) != 0
+				) {
+				// если хотя бы одно поле != 0
+/*				log.info("ПРОВЕРКА uslId={}, orgId={}, период={}",
+						t.getUslOrg().getUslId(), t.getUslOrg().getOrgId(), t.getMg());
+*/				//log.info("CREATE usl={}, org={}", t.getUslOrg().getUslId(),
+				//		t.getUslOrg().getOrgId());
+				Usl usl = em.find(Usl.class, t.getUslOrg().getUslId());
+				if (usl == null) {
+					// так как внутри потока, то только RuntimeException
+					throw new RuntimeException("Ошибка при сохранении записей пени,"
+							+ " некорректные данные в таблице SCOTT.PEN!"
+							+ " Не найдена услуга с кодом usl="+t.getUslOrg().getUslId());
+				}
+				Org org = em.find(Org.class, t.getUslOrg().getOrgId());
+				if (org == null) {
+					// так как внутри потока, то только RuntimeException
+					throw new RuntimeException("Ошибка при сохранении записей пени,"
+							+ " некорректные данные в таблице SCOTT.PEN!"
+							+ " Не найдена организация с кодом org="+t.getUslOrg().getOrgId());
+				}
+
+				Pen pen = Pen.builder()
+						.withUsl(usl)
+						.withOrg(org)
+						.withPenIn(t.getPenyaIn())
+						.withPenOut(penyaOut)
+						.withPenChrg(penChrgRound)
+						.withPenCorr(t.getPenyaCorr())
+						.withPenPay(t.getPenyaPay())
+						.withDays(t.getDays())
+						.withKart(kart)
+						.withMgFrom(calcStore.getPeriod())
+						.withMgTo(calcStore.getPeriod())
+						.withMg(t.getMg())
+						.build();
+				em.persist(pen);
+			}
 		}
 	}
 
@@ -439,8 +494,8 @@ public class DebitMngImpl implements DebitMng {
 					// строка найдена
 					rec.setPenyaChrg(rec.getPenyaChrg().add(t.getPenyaChrg()));
 				}
-				log.info("Перенаправление пени сумма={}", t.getPenyaChrg());
-				t.setPenyaChrg(BigDecimal.ZERO);
+				//log.info("Перенаправление пени сумма={}", t.getPenyaChrg());
+				//t.setPenyaChrg(BigDecimal.ZERO);
 			}
 		}
 		// добавить новые записи перенаправленых сумм (если они будут)

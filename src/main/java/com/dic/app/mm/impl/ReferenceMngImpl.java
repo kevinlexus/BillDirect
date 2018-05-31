@@ -47,22 +47,22 @@ public class ReferenceMngImpl implements ReferenceMng {
 		for (RedirPay t : lst) {
 				if (t.getUslDst() != null) {
 					// перенаправить услугу
-					log.info("пеня перенаправлена, услуга {}->{}",
+/*					log.info("пеня перенаправлена, услуга {}->{}",
 							uslOrg.getUslId(), t.getUslDst().getId());
-					uo.setUslId(t.getUslDst().getId());
+*/					uo.setUslId(t.getUslDst().getId());
 				}
 				if (t.getOrgDstId() != null) {
 					if (t.getOrgDstId().equals(-1)) {
 						// перенаправить на организацию, обслуживающую фонд
-						log.info("пеня перенаправлена, организация {}->УК {}",
+/*						log.info("пеня перенаправлена, организация {}->УК {}",
 								uslOrg.getOrgId(), kart.getUk().getId());
-						uo.setOrgId(kart.getUk().getId());
+*/						uo.setOrgId(kart.getUk().getId());
 					} else {
 						// перенаправить на организацию
 						uo.setOrgId(t.getOrgDstId());
-						log.info("пеня перенаправлена, организация {}->{}",
+/*						log.info("пеня перенаправлена, организация {}->{}",
 								uslOrg.getOrgId(), t.getOrgDstId());
-					}
+*/					}
 				}
 				if (uo.getUslId() != null &&
 						uo.getOrgId() != null) {

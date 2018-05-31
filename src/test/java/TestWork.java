@@ -65,9 +65,9 @@ public class TestWork {
 	//	log.info("deb={}", deb);
 
 		SessionDirect sessionDirect = em.find(SessionDirect.class, 4735);
-		debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"), 0, sessionDirect);
+		//debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"), 0, sessionDirect);
 
-		//debitMng.genDebitAll(null, Utl.getDateFromStr("15.04.2014"), 0, null);
+		debitMng.genDebitAll(null, Utl.getDateFromStr("15.04.2014"), 0, null);
 
 /*		redirPayDao.getRedirPayOrd(0, "002", "003", -1).forEach(t->{
 			log.info("redir.id={}", t.getId());
