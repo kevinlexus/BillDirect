@@ -41,6 +41,7 @@ public class DebitThrMngImpl implements DebitThrMng {
 	 */
 	@Override
 	public List<SumPenRec> genDebitUsl(Kart kart, UslOrg u, CalcStore calcStore, CalcStoreLocal localStore) throws ErrorWhileChrgPen {
+		//log.info("usl= {}, org= {}", u.getUslId(), u.getOrgId());
 		// дата начала расчета
 		Date dt1 = calcStore.getDt1();
 		// дата окончания расчета
@@ -55,7 +56,7 @@ public class DebitThrMngImpl implements DebitThrMng {
 			boolean isLastDay = curDt.equals(dt2);
 
 			// ЗАГРУЗИТЬ выбранные финансовые операции на ТЕКУЩУЮ дату расчета curDt
-			// задолженность предыдущего периода (вх.сальдо)
+			// долги предыдущего периода (вх.сальдо)
 			lstDeb = localStore.getLstDebFlow().stream()
 					.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
 					.map(t->
@@ -103,12 +104,19 @@ public class DebitThrMngImpl implements DebitThrMng {
 			if (isLastDay) {
 				// АКТУАЛЬНО только для последнего дня расчета:
 				// вх.сальдо по пене
-				lstDeb.addAll(localStore.getLstDebFlow().stream()
+				lstDeb.addAll(localStore.getLstDebPenFlow().stream()
 						.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
 						.map(t-> new SumDebRec(null, null, null, null, null, null, null, null,
 								t.getPenOut(), null, t.getMg(), t.getTp()))
 						.collect(Collectors.toList()));
 
+				/*localStore.getLstDebPenFlow().stream()
+				.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
+				.forEach(t->{
+							log.info("ВХОДЯЩЕЕ сальдо по пене mg={}, usl={} org={}, сумма={}", t.getMg(), t.getUslId(), t.getOrgId(), t.getPenOut());
+
+						});
+*/
 				// корректировки начисления пени
 				lstDeb.addAll(localStore.getLstPenChrgCorrFlow().stream()
 						.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))

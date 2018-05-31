@@ -29,25 +29,27 @@ import com.dic.app.mm.ThreadMng;
 import com.dic.bill.Config;
 import com.dic.bill.dao.ChargeDAO;
 import com.dic.bill.dao.CorrectPayDAO;
-import com.dic.bill.dao.DebPenUslDAO;
-import com.dic.bill.dao.DebPenUslTempDAO;
+import com.dic.bill.dao.DebDAO;
 import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dao.KwtpDayDAO;
+import com.dic.bill.dao.PenDAO;
 import com.dic.bill.dao.PenUslCorrDAO;
 import com.dic.bill.dao.SprPenUslDAO;
 import com.dic.bill.dao.StavrUslDAO;
 import com.dic.bill.dao.VchangeDetDAO;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.CalcStoreLocal;
+import com.dic.bill.dto.SumDebPenRec;
 import com.dic.bill.dto.SumPenRec;
 import com.dic.bill.dto.UslOrg;
-import com.dic.bill.model.scott.DebPenUsl;
-import com.dic.bill.model.scott.DebPenUslTemp;
+import com.dic.bill.model.scott.Deb;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.Org;
+import com.dic.bill.model.scott.Pen;
 import com.dic.bill.model.scott.SessionDirect;
 import com.dic.bill.model.scott.Usl;
 import com.ric.cmn.CommonResult;
+import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
 
 import lombok.extern.slf4j.Slf4j;
@@ -60,9 +62,9 @@ public class DebitMngImpl implements DebitMng {
 	@Autowired
 	private Config config;
 	@Autowired
-	private DebPenUslDAO debPenUslDao;
+	private DebDAO debDao;
 	@Autowired
-	private DebPenUslTempDAO debPenUslTempDao;
+	private PenDAO penDao;
 	@Autowired
 	private ChargeDAO chargeDao;
 	@Autowired
@@ -196,7 +198,16 @@ public class DebitMngImpl implements DebitMng {
 		CalcStoreLocal localStore = new CalcStoreLocal();
 		// ЗАГРУЗИТЬ все финансовые операции по лиц.счету
 		// задолженность предыдущего периода (здесь же заполнены поля по вх.сальдо по пене) - 1
-		localStore.setLstDebFlow(debPenUslDao.getDebitByLsk(lsk, periodBack));
+		localStore.setLstDebFlow(debDao.getDebitByLsk(lsk, periodBack));
+
+/*		penDao.getPenByLsk(lsk, periodBack).stream()
+		.forEach(t->{
+					log.info("ВХОДЯЩЕЕ сальдо по пене mg={}, usl={} org={}, сумма={}", t.getMg(), t.getUslId(), t.getOrgId(), t.getPenOut());
+
+				});
+
+*/		// задолженность по пене (вх.сальдо) - 8
+		localStore.setLstDebPenFlow(penDao.getPenByLsk(lsk, periodBack));
 		// текущее начисление - 2
 		localStore.setLstChrgFlow(chargeDao.getChargeByLsk(lsk));
 		// перерасчеты - 5
@@ -237,77 +248,152 @@ public class DebitMngImpl implements DebitMng {
 			log.info("ИТОГОВАЯ задолжность и пеня");
 		}
 
-		// удалить записи текущего периода
-		if (tp == 0) {
-			debPenUslDao.delByLskPeriod(lsk, period);
-		} else if (tp == 1) {
-			debPenUslTempDao.delByIter(sessionDirect.getId());
-		}
 
 		// перенаправить пеню на услугу и организацию по справочнику REDIR_PAY
 		redirectPen(kart, lst);
 
-		for (SumPenRec t : lst) {
-			log.info("org={}, In={}", t.getUslOrg().getOrgId(), t.getPenyaIn());
-			BigDecimal penyaOut =  t.getPenyaIn().add(
-					t.getPenyaChrg().setScale(2, RoundingMode.HALF_UP) // округлить начисленную пеню
-					).add(t.getPenyaCorr() 							   // прибавить корректировки
-							).subtract(t.getPenyaPay() 				   // отнять оплату
-									);
-			if (calcStore.getDebugLvl().equals(1)) {
-				log.info("uslId={}, orgId={}, период={}, долг={}, свернутый долг={}, "
-						+ "пеня вх.={}, пеня тек.={} руб., корр.пени={}, пеня исх.={}, дней просрочки(на дату расчета)={}",
-						t.getUslOrg().getUslId(), t.getUslOrg().getOrgId(), t.getMg(),
-						t.getDebOut(), t.getDebRolled(), t.getPenyaIn(),
-						t.getPenyaChrg(), t.getPenyaCorr(), penyaOut,
-						t.getDays());
-			}
+		// удалить записи текущего периода, если они были созданы
+		debDao.delByLskPeriod(lsk, period);
+		penDao.delByLskPeriod(lsk, period);
+		// обновить mgTo записей, если они были расширены до текущего периода
+		debDao.updByLskPeriod(lsk, period, periodBack);
+		penDao.updByLskPeriod(lsk, period, periodBack);
 
-			if (tp == 0) {
-				// сохранить задолжность
-				DebPenUsl debPenUsl = DebPenUsl.builder()
-									.withKart(kart)
-									.withUsl(em.find(Usl.class, t.getUslOrg().getUslId()))
-									.withOrg(em.find(Org.class, t.getUslOrg().getOrgId()))
-									.withDebOut(t.getDebOut())
-									.withPenOut(penyaOut)
-									.withMg(t.getMg())
-									.withPeriod(period)
-									.build();
-				em.persist(debPenUsl);
-			} else if (tp == 1) {
-				// сохранить задолжность для отчета
-				DebPenUslTemp debPenUslTemp = DebPenUslTemp.builder()
-						.withUsl(em.find(Usl.class, t.getUslOrg().getUslId()))
-						.withOrg(em.find(Org.class, t.getUslOrg().getOrgId()))
-						.withDebIn(t.getDebIn())
-						.withDebOut(t.getDebOut())
-						.withDebRolled(t.getDebRolled())
-						.withChrg(t.getChrg())
-						.withChng(t.getChng())
-						.withDebPay(t.getDebPay())
-						.withPayCorr(t.getPayCorr())
-						.withPenIn(t.getPenyaIn())
-						.withPenOut(penyaOut)
-						.withPenChrg(t.getPenyaChrg().setScale(2, RoundingMode.HALF_UP) // округлить начисленную пеню
-								)
-						.withPenCorr(t.getPenyaCorr())
-						.withPenPay(t.getPenyaPay())
-						.withDays(t.getDays())
-						.withMg(t.getMg())
-						.withSessionDirect(sessionDirect)
-						.build();
-				em.persist(debPenUslTemp);
-			}
+		for (SumPenRec t : lst) {
+				// сохранить расчет
+				save(calcStore, kart, localStore, t);
 		}
 
 
-		CommonResult res = new CommonResult(kart.getLsk(), 1111111111);
+		CommonResult res = new CommonResult(kart.getLsk(), 1111111111); // TODO 111111
 		long endTime = System.currentTimeMillis();
 		long totalTime = endTime - startTime;
 		log.info("ОКОНЧАНИЕ расчета задолженности по лиц.счету {}! Время расчета={} мс", lsk, totalTime);
 		return new AsyncResult<CommonResult>(res);
 
+	}
+
+	/**
+	 * Сохранить расчет
+	 * @param calcStore - хранилище справочников
+	 * @param kart - лиц.счет
+	 * @param localStore - локальное хранилище финансовых операций по лиц.счету
+	 * @param t - рассчитанная строка
+	 */
+	private void save(CalcStore calcStore, Kart kart, CalcStoreLocal localStore, SumPenRec t) {
+		BigDecimal penChrgRound = t.getPenyaChrg().setScale(2, RoundingMode.HALF_UP); // округлить начисленную пеню
+		BigDecimal penyaOut =  t.getPenyaIn().add(penChrgRound).add(t.getPenyaCorr() 							   // прибавить корректировки
+						).subtract(t.getPenyaPay() 				   // отнять оплату
+								);
+		// флаг создания новой записи
+		boolean isCreate = false;
+		if (calcStore.getDebugLvl().equals(1)) {
+			log.info("uslId={}, orgId={}, период={}, долг={}, свернутый долг={}, "
+					+ "пеня вх.={}, пеня тек.={} руб., корр.пени={}, пеня исх.={}, дней просрочки(на дату расчета)={}",
+					t.getUslOrg().getUslId(), t.getUslOrg().getOrgId(), t.getMg(),
+					t.getDebOut(), t.getDebRolled(), t.getPenyaIn(),
+					t.getPenyaChrg(), t.getPenyaCorr(), penyaOut,
+					t.getDays());
+		}
+
+		// найти запись долгов предыдущего периода
+		SumDebPenRec foundDeb = localStore.getLstDebFlow().stream()
+			.filter(d-> d.getUslId().equals(t.getUslOrg().getUslId()))
+			.filter(d-> d.getOrgId().equals(t.getUslOrg().getOrgId()))
+			.filter(d-> d.getMg().equals(t.getMg()))
+			.findFirst().orElse(null);
+		if (foundDeb == null) {
+			// не найдена, создать новую запись
+			isCreate = true;
+		} else {
+			// найдена, проверить равенство по полям
+			if (Utl.isEqual(t.getDebIn(), foundDeb.getDebIn())
+				&& Utl.isEqual(t.getDebOut(), foundDeb.getDebOut())
+				&& Utl.isEqual(t.getDebRolled(), foundDeb.getDebRolled())
+				&& Utl.isEqual(t.getChrg(), foundDeb.getChrg())
+				&& Utl.isEqual(t.getChng(), foundDeb.getChng())
+				&& Utl.isEqual(t.getDebPay(), foundDeb.getDebPay())
+				&& Utl.isEqual(t.getPayCorr(), foundDeb.getPayCorr())
+					) {
+				// равны, расширить период
+				//log.info("найти id={}", foundDeb.getId());
+				Deb deb = em.find(Deb.class, foundDeb.getId());
+				//log.info("найти deb={}", deb);
+				deb.setMgTo(calcStore.getPeriod());
+			} else {
+				// не равны, создать запись нового периода
+				isCreate = true;
+			}
+		}
+
+		if (isCreate) {
+			// создать запись нового периода
+			Deb deb = Deb.builder()
+					.withUsl(em.find(Usl.class, t.getUslOrg().getUslId()))
+					.withOrg(em.find(Org.class, t.getUslOrg().getOrgId()))
+					.withDebIn(t.getDebIn())
+					.withDebOut(t.getDebOut())
+					.withDebRolled(t.getDebRolled())
+					.withChrg(t.getChrg())
+					.withChng(t.getChng())
+					.withDebPay(t.getDebPay())
+					.withPayCorr(t.getPayCorr())
+					.withKart(kart)
+					.withMgFrom(calcStore.getPeriod())
+					.withMgTo(calcStore.getPeriod())
+					.withMg(t.getMg())
+					.build();
+			em.persist(deb);
+		}
+		// сбросить флаг создания новой записи
+		isCreate = false;
+
+		// найти запись пени предыдущего периода
+		SumDebPenRec foundPen = localStore.getLstDebPenFlow().stream()
+			.filter(d-> d.getUslId().equals(t.getUslOrg().getUslId()))
+			.filter(d-> d.getOrgId().equals(t.getUslOrg().getOrgId()))
+			.filter(d-> d.getMg().equals(t.getMg()))
+			.findFirst().orElse(null);
+		if (foundPen == null) {
+			// не найдена, создать новую запись
+			isCreate = true;
+		} else {
+			// найдена, проверить равенство по полям
+			if (Utl.isEqual(t.getPenyaIn(), foundPen.getPenIn())
+				&& Utl.isEqual(penyaOut, foundPen.getPenOut())
+				&& Utl.isEqual(penChrgRound, foundPen.getPenChrg())
+				&& Utl.isEqual(t.getPenyaCorr(), foundPen.getPenCorr())
+				&& Utl.isEqual(t.getPenyaPay(), foundPen.getPenPay())
+				&& Utl.isEqual(t.getDays(), foundPen.getDays())
+					) {
+				// равны, расширить период
+				Pen pen = em.find(Pen.class, foundPen.getId());
+				pen.setMgTo(calcStore.getPeriod());
+			} else {
+				// не равны, создать запись нового периода
+				isCreate = true;
+			}
+
+		}
+
+		if (isCreate) {
+			// создать запись нового периода
+			Pen pen = Pen.builder()
+					.withUsl(em.find(Usl.class, t.getUslOrg().getUslId()))
+					.withOrg(em.find(Org.class, t.getUslOrg().getOrgId()))
+					.withPenIn(t.getPenyaIn())
+					.withPenOut(penyaOut)
+					.withPenChrg(penChrgRound)
+					.withPenCorr(t.getPenyaCorr())
+					.withPenPay(t.getPenyaPay())
+					.withDays(t.getDays())
+					.withKart(kart)
+					.withMgFrom(calcStore.getPeriod())
+					.withMgTo(calcStore.getPeriod())
+					.withMg(t.getMg())
+					.build();
+			em.persist(pen);
+		}
 	}
 
 	/**
@@ -321,9 +407,6 @@ public class DebitMngImpl implements DebitMng {
 		for (SumPenRec t : lst) {
 			String uslId = t.getUslOrg().getUslId();
 			Integer orgId = t.getUslOrg().getOrgId();
-			if (uslId.equals("005")) {
-				log.info("check");
-			}
 			UslOrg uo = refMng.getUslOrgRedirect(t.getUslOrg(), kart, 0);
 			if (!uo.getUslId().equals(uslId)
 					|| !uo.getOrgId().equals(orgId)) {
@@ -356,8 +439,8 @@ public class DebitMngImpl implements DebitMng {
 					// строка найдена
 					rec.setPenyaChrg(rec.getPenyaChrg().add(t.getPenyaChrg()));
 				}
-				t.setPenyaChrg(BigDecimal.ZERO);
 				log.info("Перенаправление пени сумма={}", t.getPenyaChrg());
+				t.setPenyaChrg(BigDecimal.ZERO);
 			}
 		}
 		// добавить новые записи перенаправленых сумм (если они будут)

@@ -10,7 +10,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import com.dic.app.AppConfig;
 import com.dic.bill.dao.ChargeDAO;
 import com.dic.bill.dao.CorrectPayDAO;
-import com.dic.bill.dao.DebPenUslDAO;
+import com.dic.bill.dao.DebDAO;
 import com.dic.bill.dao.KwtpDayDAO;
 import com.dic.bill.dao.VchangeDetDAO;
 
@@ -25,7 +25,7 @@ public class TestDAO {
 
 
 	@Autowired
-	private DebPenUslDAO debUslDao;
+	private DebDAO debUslDao;
 	@Autowired
 	private ChargeDAO chargeDao;
 	@Autowired

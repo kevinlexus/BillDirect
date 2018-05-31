@@ -16,7 +16,7 @@ import com.dic.app.AppConfig;
 import com.dic.app.mm.DebitMng;
 import com.dic.app.mm.ThreadMng;
 import com.dic.bill.Config;
-import com.dic.bill.dao.DebPenUslDAO;
+import com.dic.bill.dao.DebDAO;
 import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dao.RedirPayDAO;
 import com.dic.bill.model.scott.SessionDirect;
@@ -46,7 +46,7 @@ public class TestWork {
 	private KartDAO kartDao;
 
 	@Autowired
-	private DebPenUslDAO debPenUslDao;
+	private DebDAO debPenUslDao;
 	@Autowired
 	private RedirPayDAO redirPayDao;
 	@PersistenceContext
@@ -60,6 +60,9 @@ public class TestWork {
 
 
 		log.info("Текущий период: dt1={}, dt2={}", config.getCurDt1(), config.getCurDt2());
+
+	//	Deb deb = em.find(Deb.class, 131521L);
+	//	log.info("deb={}", deb);
 
 		SessionDirect sessionDirect = em.find(SessionDirect.class, 4735);
 		debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"), 0, sessionDirect);
