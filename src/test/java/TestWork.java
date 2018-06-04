@@ -15,10 +15,11 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import com.dic.app.AppConfig;
 import com.dic.app.mm.DebitMng;
 import com.dic.app.mm.ThreadMng;
-import com.dic.bill.Config;
+import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.DebDAO;
 import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dao.RedirPayDAO;
+import com.dic.bill.mm.Config;
 import com.dic.bill.model.scott.SessionDirect;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
@@ -63,11 +64,18 @@ public class TestWork {
 
 	//	Deb deb = em.find(Deb.class, 131521L);
 	//	log.info("deb={}", deb);
+		//log.info("TEST={}", Utl.between2("077", "080", "026"));
 
 		SessionDirect sessionDirect = em.find(SessionDirect.class, 4735);
-		//debitMng.genDebitAll("00000084", Utl.getDateFromStr("15.04.2014"), 0, sessionDirect);
+		//debitMng.genDebitAll("00000185", Utl.getDateFromStr("15.04.2014"), 0, sessionDirect);
+		// конфиг запроса
+		RequestConfig reqConf =
+				RequestConfig.builder()
+				.withRqn(config.incNextReqNum()) // уникальный номер запроса
+				.withSessionDirect(sessionDirect) // сессия Директ
+				.build();
 
-		debitMng.genDebitAll(null, Utl.getDateFromStr("15.04.2014"), 0, null);
+		debitMng.genDebitAll(null, Utl.getDateFromStr("15.04.2014"), 0, reqConf);
 
 /*		redirPayDao.getRedirPayOrd(0, "002", "003", -1).forEach(t->{
 			log.info("redir.id={}", t.getId());

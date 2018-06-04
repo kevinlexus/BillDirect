@@ -20,6 +20,7 @@ import com.dic.bill.dto.SumDebRec;
 import com.dic.bill.dto.SumPenRec;
 import com.dic.bill.dto.UslOrg;
 import com.dic.bill.model.scott.Kart;
+import com.dic.bill.model.scott.Usl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
 
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +47,9 @@ public class DebitThrMngImpl implements DebitThrMng {
 		Date dt1 = calcStore.getDt1();
 		// дата окончания расчета
 		Date dt2 = calcStore.getGenDt();
+		// загрузить услугу
+		Usl usl = em.find(Usl.class, u.getUslId());
+
 		List<SumDebRec> lstDeb = new ArrayList<SumDebRec>(50);
 		// РАСЧЕТ по дням
 		Calendar c = Calendar.getInstance();
@@ -140,7 +144,7 @@ public class DebitThrMngImpl implements DebitThrMng {
 			}
 
 			// объект расчета пени
-			GenPen genPen = new GenPen(kart, u, curDt, calcStore);
+			GenPen genPen = new GenPen(kart, u, usl, curDt, calcStore);
 			// добавить и сгруппировать все финансовые операции, по состоянию на текущий день
 			lstDeb.forEach(t-> genPen.addRec(t, isLastDay));
 			// свернуть долги (учесть переплаты предыдущих периодов),

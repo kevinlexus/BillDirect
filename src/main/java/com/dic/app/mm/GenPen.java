@@ -11,8 +11,9 @@ import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.SumDebRec;
 import com.dic.bill.dto.UslOrg;
 import com.dic.bill.model.scott.Kart;
-import com.dic.bill.model.scott.SprPenUsl;
-import com.dic.bill.model.scott.StavrUsl;
+import com.dic.bill.model.scott.PenDt;
+import com.dic.bill.model.scott.PenRef;
+import com.dic.bill.model.scott.Usl;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
 
@@ -29,19 +30,30 @@ public class GenPen {
 	private CalcStore calcStore;
 	// текущие услуга и организация
 	private UslOrg uslOrg;
-	// текущий рассчитываемая дата
+	// текущая рассчитываемая дата
 	private Date curDt;
 	// лицевой счет
 	private Kart kart;
 
 	// сгруппированные задолженности
 	List<SumDebRec> lst = new ArrayList<SumDebRec>();
+	// услуга
+	private Usl usl;
 
-	public GenPen(Kart kart, UslOrg uslOrg, Date curDt, CalcStore calcStore) {
+	/**
+	 * Конструктор
+	 * @param kart - лиц.счет
+	 * @param uslOrg - услуга + организация
+	 * @param usl - услуга (возникла необходимость получить еще и типы услуг, поэтому ввел usl)
+	 * @param curDt - рассчетная дата
+	 * @param calcStore - хранилище справочников
+	 */
+	public GenPen(Kart kart, UslOrg uslOrg, Usl usl, Date curDt, CalcStore calcStore) {
 		this.calcStore = calcStore;
 		this.uslOrg = uslOrg;
 		this.curDt = curDt;
 		this.kart = kart;
+		this.usl = usl;
 	};
 
 	/**
@@ -54,10 +66,10 @@ public class GenPen {
 	 * @param ukId
 	 * @return
 	 */
-	private SprPenUsl getSprPenUsl(Integer mg, String uslId, Integer ukId) {
-		return calcStore.getLstSprPenUsl().stream()
-				.filter(t-> t.getUsl().getId().equals(uslId/*uslOrg.getUslId()*/) && t.getMg().equals(mg)) // фильтр по услуге и периоду
-				.filter(t-> t.getUk().getId().equals(ukId/*kart.getUk()*/)) // фильтр по УК
+	private PenDt getPenDt(Integer mg, Usl usl, Kart kart) {
+		return calcStore.getLstPenDt().stream()
+				.filter(t-> t.getUslTpPen().equals(usl.getTpPenDt()) && t.getMg().equals(mg)) // фильтр по типу услуги и периоду
+				.filter(t-> Utl.between2(kart.getUk().getReu(), t.getReuFrom(), t.getReuTo())) // фильтр по УК
 				.findFirst().orElse(null);
 	}
 
@@ -181,24 +193,25 @@ public class GenPen {
 	 * @throws ErrorWhileChrgPen
 	 */
 	private Pen getPen(BigDecimal summa, Integer mg) throws ErrorWhileChrgPen {
-		SprPenUsl sprPenUsl = getSprPenUsl(mg, uslOrg.getUslId(), kart.getUk().getId() );
+		PenDt penDt = getPenDt(mg,  usl,  kart);
 		// вернуть кол-во дней между датой расчета пени и датой начала пени по справочнику
-		if (sprPenUsl == null) {
+		if (penDt == null) {
 			throw new ErrorWhileChrgPen(
-					"ОШИБКА во время начисления пени по лс="+kart.getLsk()+", возможно не настроен справочник C_SPR_PEN_USL!");
+					"ОШИБКА во время начисления пени по лс="+kart.getLsk()+", возможно не настроен справочник C_SPR_PEN_USL!"
+					+ "Попытка найти элемент: mg="+mg+", usl.tp_pen_dt="+usl.getTpPenDt()+", kart.reu="+kart.getUk().getReu());
 		}
-		int days = Utl.daysBetween(sprPenUsl.getDt(), curDt);
+		int days = Utl.daysBetween(penDt.getDt(), curDt);
 		if (days > 0) {
 			// пеня возможна, если есть кол-во дней долга
 			//log.info(" spr={}, cur={}, days={}", sprPenUsl.getDt(), curDt, days);
-			StavrUsl stavrUsl = calcStore.getLstStavrUsl().stream()
-					.filter(t-> t.getUsl().getId().equals(uslOrg.getUslId())) // фильтр по услуге
+			PenRef penRef = calcStore.getLstPenRef().stream()
+					.filter(t-> t.getUslTpRef().equals(usl.getTpPenRef())) // фильтр по типу услуги
 					.filter(t-> days >= t.getDays1().intValue() && days <= t.getDays2().intValue()) // фильтр по кол-ву дней долга
 					.filter(t-> Utl.between(curDt, t.getDt1(), t.getDt2())) // фильтр по дате расчета в справочнике
 					.findFirst().orElse(null);
 			// рассчет пени = долг * процент/100
 			Pen pen = new Pen();
-			pen.proc = stavrUsl.getProc();
+			pen.proc = penRef.getProc();
 			pen.penya = summa.multiply(pen.proc).divide(new BigDecimal(100));
 			pen.days = days;
 			return pen;

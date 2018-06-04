@@ -12,6 +12,7 @@ import com.dic.bill.dao.ChargeDAO;
 import com.dic.bill.dao.CorrectPayDAO;
 import com.dic.bill.dao.DebDAO;
 import com.dic.bill.dao.KwtpDayDAO;
+import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dao.VchangeDetDAO;
 
 import lombok.extern.slf4j.Slf4j;
@@ -34,11 +35,13 @@ public class TestDAO {
 	private KwtpDayDAO kwtpDayDao;
 	@Autowired
 	private CorrectPayDAO correctPayDao;
+	@Autowired
+	private SaldoUslDAO saldoUslDao;
 
 	@Test
 	public void mainWork() {
 		log.info("Test Start!");
-
+/*
 		log.info("Test Debit");
 		debUslDao.getDebitByLsk("00000084", 201403).forEach(t-> {
 			log.info("Debit: usl={}, org={}, summa={}, mg={}, dt={}, tp={}",
@@ -74,7 +77,21 @@ public class TestDAO {
 			log.info("CorrectPay: usl={}, org={}, summa={}, mg={}, dt={}, tp={}",
 					t.getUslId(), t.getOrgId(), t.getDebOut(), t.getMg(), t.getDt(), t.getTp());
 		});
+*/
+		log.info("Test VchargePay");
+		saldoUslDao.getVchargePayByLsk("00000085", 201403).forEach(t-> {
+			log.info("VchargePay: mg={}, summa={}", t.getMg(), t.getSumma());
+		});
 
+		log.info("Test ChargeNabor");
+		saldoUslDao.getChargeNaborByLsk("00000085", 201403).forEach(t-> {
+			log.info("ChargeNabor: uslId={}, orgId={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
+		});
+
+		log.info("Test SaldoUsl");
+		saldoUslDao.getSaldoUslByLsk("00000085", 201403).forEach(t-> {
+			log.info("SaldoUsl: uslId={}, orgId={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
+		});
 		log.info("Test End!");
 	}
 

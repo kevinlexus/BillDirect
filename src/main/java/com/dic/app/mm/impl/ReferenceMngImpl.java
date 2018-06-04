@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import com.dic.app.mm.ReferenceMng;
@@ -33,6 +34,7 @@ public class ReferenceMngImpl implements ReferenceMng {
 	 * @param tp - тип обработки 1-оплата, 0 - пеня
 	 */
 	@Override
+	@Cacheable(cacheNames="ReferenceMng.getUslOrgRedirect", key="{#uslOrg.getUslId(), #uslOrg.getOrgId(), #kart.getLsk(), #tp}" )
 	public UslOrg getUslOrgRedirect(UslOrg uslOrg, Kart kart, Integer tp) {
 		UslOrg uo = new UslOrg(null, null);
 		List<RedirPay> lst = redirPayDao.findAll().stream()

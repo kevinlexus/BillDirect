@@ -23,6 +23,7 @@ public interface AchargeDAO extends JpaRepository<Acharge, Integer> {
 	 * @param orgId - Id организации, по которой выбирается начисление (для обработки справочника №1 (доп.услуг) или №51 (коммун.услуг))
 	 * @return
 	 */
+	 // МОЖЕТ НЕ РАБОТАТЬ КАК НАДО, СМОТРИ ПРИМЕР НИЖЕ!
 	@Query(value = "select t2.id as \"ulistId\", sum(t2.summa) as \"summa\", sum(t2.vol) as \"vol\", sum(price) as \"price\" from ( "
 			+ "select u.id, s.grp, sum(t.summa) as summa, sum(t.testOpl) as vol, min(t.testCena) as price "
 		+ "from scott.a_charge2 t "
@@ -36,6 +37,15 @@ public interface AchargeDAO extends JpaRepository<Acharge, Integer> {
 		+ "group by t2.id", nativeQuery = true) <-- Native Query
 	List<SumChrgRec> getChrgGrp(String lsk, Integer period, Integer orgId);
 }
+// Еще пример с NativeQuery (Важно наличие и кол-во полей в Projection!)
+// Не обязательно писать \" в имени полей! Главное порядок расположения!
+// Так как hibernate проверяет поля в алфавитном порядке ->> orgId, uslId, summa!
+	@Query(value = "select n.org as orgId, t.summa_it as summa, t.usl_id as uslId from SCOTT.ARCH_CHARGES t "
+			+ "left join SCOTT.A_NABOR2 n on t.lsk = n.lsk and t.usl_id=n.usl " +
+			"	and t.mg between n.mgFrom and n.mgTo " +
+			"	where t.mg=:period" +
+			"	and t.lsk=:lsk", nativeQuery = true)
+
 
 // JpaRepostiory DAO - Запрос по параметру:
 	@Query("select t from User t where t.cd = :cd")
@@ -118,7 +128,7 @@ public class VchangeDet implements java.io.Serializable  {
 
 	List<String> lstUslId = lstFlow.stream().map(t-> t.getUslId()).distinct().collect(Collectors.toList());
 
-// Итерация итератором с удалением элемента
+// Итерация итератором с удалением элемента (но без добавления!)
 	Iterator<ResultSet> itr = lst.iterator();
 	while (itr.hasNext()) {
 		ResultSet t = itr.next();
@@ -129,6 +139,17 @@ public class VchangeDet implements java.io.Serializable  {
 			break;
 		}
 	}
+// Итерация и ДОБАВЛЕНИЕ элемента в тот же список ListIterator
+
+	ListIterator<SumPenRec> itr = lst.listIterator();
+	while (itr.hasNext()) {
+		SumPenRec t = itr.next();
+		itr.add(sumPenRec);
+	}
+
+// Просуммировать все BigDecimal
+BigDecimal amnt = lst.stream().
+	reduce(BigDecimal.ZERO, BigDecimal::add);
 
 
 // Создать коллекцию другого объекта из stream 
@@ -192,6 +213,17 @@ public interface ThreadMng<T> {
 
 ////////////////////////////////////////////////////////////
 
+// Работа c кэшем
+@Cacheable(cacheNames="MeterLogMngImpl.getKart", key="{#rqn, #mLog.getId()}" )
+@Override
+public Kart getKart(int rqn, MLogs mLog) {
+	return mDao.getKart(rqn, mLog);
+}
+
+// Удалить элементы кэша
+	@CacheEvict(value = {"TarifMngImpl.getOrg", "KartMngImpl.getOrg"},
+	 allEntries = true)
+	public Future<Result> chrgLsk(RequestConfig reqConfig, Kart kart,
 
 
 	

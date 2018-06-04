@@ -25,11 +25,7 @@ public class CacheService {
 		@Override
 	    public void customize(CacheManager cacheManager)
 	    {
-	      cacheManager.createCache("GenPen.getSprPenUsl", new MutableConfiguration<>()
-		  	        .setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(new Duration(TimeUnit.SECONDS, 600)))
-		  	        .setStoreByValue(false)
-		  	        .setStatisticsEnabled(true));
-	      cacheManager.createCache("rrr1", new MutableConfiguration<>()
+	      cacheManager.createCache("ReferenceMng.getUslOrgRedirect", new MutableConfiguration<>()
 		  	        .setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(new Duration(TimeUnit.SECONDS, 600)))
 		  	        .setStoreByValue(true)
 		  	        .setStatisticsEnabled(true));
