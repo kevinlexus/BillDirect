@@ -13,6 +13,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import com.dic.app.AppConfig;
 import com.dic.app.mm.MigrateMng;
+import com.ric.cmn.excp.ErrorWhileDistDeb;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,7 +35,12 @@ public class TestMigration {
     public void mainTestMigration() {
 		log.info("Test start");
 
-		migrateMng.migrateDeb("00000085", 201403);
+		try {
+			migrateMng.migrateDeb("00000085", 201403);
+		} catch (ErrorWhileDistDeb e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
 		log.info("Test end");
 	}

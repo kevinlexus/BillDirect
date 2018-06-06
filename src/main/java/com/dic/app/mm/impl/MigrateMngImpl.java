@@ -13,13 +13,21 @@ import javax.persistence.PersistenceContext;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.dic.app.mm.MigrateMng;
+import com.dic.bill.dao.DebDAO;
 import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dto.SumDebMgRec;
 import com.dic.bill.dto.SumDebUslMgRec;
 import com.dic.bill.dto.SumRecMg;
 import com.dic.bill.dto.SumUslOrgRec;
+import com.dic.bill.model.scott.Deb;
+import com.dic.bill.model.scott.Kart;
+import com.dic.bill.model.scott.Org;
+import com.dic.bill.model.scott.Usl;
+import com.ric.cmn.excp.ErrorWhileDistDeb;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,43 +44,398 @@ public class MigrateMngImpl implements MigrateMng {
     private EntityManager em;
 	@Autowired
 	private SaldoUslDAO saldoUslDao;
+	@Autowired
+	private DebDAO debDao;
 
 	/**
 	 * Перенести данные из таблиц Директ, в систему учета долгов
 	 * по услуге, организации, периоду
 	 * @param lsk - лицевой счет
 	 * @param period - как правило предыдущий период, относительно текущего
+	 * @throws ErrorWhileDistDeb
 	 */
 	@Override
-	public void migrateDeb(String lsk, Integer period) {
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor=Exception.class)
+	public void migrateDeb(String lsk, Integer period) throws ErrorWhileDistDeb {
 
-		// свернуть задолженность, учитывая переплату
-		List<SumDebMgRec> lstDeb = getRolledDeb(lsk, period);
+		// получить задолженность
+		List<SumDebMgRec> lstDeb = getDeb(lsk, period);
 
 		// получить исходящее сальдо предыдущего периода
 		List<SumDebUslMgRec> lstSal = getSal(lsk, period);
 		log.info("Итого Сальдо={}", lstSal.stream().map(t-> t.getSumma()).reduce(BigDecimal.ZERO, BigDecimal::add));
 
-		lstDeb.stream()
-		.forEach(t-> {
-				log.info("mg={}, summa={}", t.getMg(), t.getSumma());
-			});
-		log.info("Итого Долг={}", lstDeb.stream().map(t-> t.getSumma()).reduce(BigDecimal.ZERO, BigDecimal::add));
 
 		// получить начисление по услугам и орг., по всем периодам задолжности
 		List<SumDebUslMgRec> lstChrg = getChrg(lsk, lstDeb, lstSal);
+		// распечатать долг
+		//printDeb(lstDeb);
+		// распечатать начисление
+		//printChrg(lstChrg);
+
+		// РАСПРЕДЕЛЕНИЕ
+		// результат распределения
+		List<SumDebUslMgRec> lstDebResult = new ArrayList<SumDebUslMgRec>();
+
+		// получить тип долга
+		int debTp = getDebTp(lstDeb);
+		if (debTp==1 || debTp==-1) {
+			// только задолженности или только переплаты
+
+			// распределить сперва все положительные или отрицательные числа
+			// зависит от типа задолженности
+			int sign = debTp;
+			log.info("*** РАСПРЕДЕЛИТЬ долги одного знака, по sign={}", sign);
+			boolean res = distDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true, false);
+
+			if (!res) {
+				// не удалось распределить, распределить принудительно
+				// добавив нужный период в строку с весом 1.00 руб, в начисления
+				addSurrogateChrg(lstDeb, lstSal, lstChrg, sign);
+				// вызвать еще раз распределение, не устанавливая веса
+				res = distDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, false, false);
+			}
+		} else if (debTp==0) {
+			// смешанные долги
+			log.info("*** РАСПРЕДЕЛИТЬ смешанные суммы долги и перплаты");
+
+			// распечатать долг
+			printSal(lstSal, lstDebResult);
+			printDeb(lstDeb);
+
+			// распределить сперва все ДОЛГИ
+			int sign = 1;
+			log.info("*** РАСПРЕДЕЛИТЬ сперва ДОЛГИ");
+			boolean res = distDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true, false);
+			// распечатать долг
+			printDeb(lstDeb);
+			printSal(lstSal, lstDebResult);
+
+			if (!res) {
+				// не удалось распределить, распределить принудительно
+				// добавив нужный период в строку с весом 1.00 руб, в начисления
+				addSurrogateChrg(lstDeb, lstSal, lstChrg, sign);
+				// вызвать еще раз распределение, не устанавливая веса
+				log.info("*** НЕ УДАЛОСЬ РАСПРЕДЕЛИТЬ ДОЛГИ до конца, повтор!");
+				res = distDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, false, false);
+				// распечатать долг
+				printDeb(lstDeb);
+				printSal(lstSal, lstDebResult);
+			}
+
+			// распределить все ПЕРЕПЛАТЫ
+			sign = -1;
+			log.info("*** РАСПРЕДЕЛИТЬ ПЕРЕПЛАТЫ");
+			res = distDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true, false);
+			// распечатать долг
+			printDeb(lstDeb);
+			printSal(lstSal, lstDebResult);
+
+			if (!res) {
+				// не удалось распределить, распределить принудительно
+				// добавив нужный период в строку с весом 1.00 руб, в начисления
+				addSurrogateChrg(lstDeb, lstSal, lstChrg, sign);
+				// вызвать еще раз распределение, не устанавливая веса
+				log.info("*** НЕ УДАЛОСЬ РАСПРЕДЕЛИТЬ ПЕРЕПЛАТУ до конца, повтор!");
+				res = distDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, false, false);
+				// распечатать долг
+				printDeb(lstDeb);
+				printSal(lstSal, lstDebResult);
+			}
+		}
+
+		// проверить наличие нераспределённых сумм в сальдо
+		List<SumDebUslMgRec> lstSalNd = lstSal.stream()
+			.filter(t-> t.getSumma().compareTo(BigDecimal.ZERO) > 0) // ненулевые суммы
+			.collect(Collectors.toList());
+
+		lstSalNd.forEach(t-> {
+				log.info("Найдена нераспределенная сумма в САЛЬДО, по uslId={}, orgId={}, summa= {}, sign={}",
+								t.getUslId(), t.getOrgId(),	t.getSumma(), t.getSign());
+			});
+		long cntSal = lstSalNd.size();
+
+		// проверить наличие нераспределённых сумм в долгах
+		List<SumDebMgRec> lstDebNd = lstDeb.stream()
+			.filter(t-> t.getSumma().compareTo(BigDecimal.ZERO) > 0) // ненулевые суммы
+			.collect(Collectors.toList());
+
+		lstDebNd.forEach(t-> {
+			log.info("Найдена нераспределенная сумма в ДОЛГАХ, по mg={}, summa= {}, sign={}",
+							t.getMg(),	t.getSumma(), t.getSign());
+		});
+		long cntDeb = lstDebNd.size();
+
+		if (cntSal == 0L && cntDeb != 0L) {
+			// сальдо распределено, долги не распределены
+			// вызвать принудительное распределение
+			// положительных сумм
+			log.info("*** РАСПРЕДЕЛИТЬ ДОЛГИ финально");
+			boolean res = distDeb(lstDeb, lstSal, lstChrg, lstDebResult, 1, true, true);
+			// отрицательных сумм
+			res = distDeb(lstDeb, lstSal, lstChrg, lstDebResult, -1, true, true);
+
+		} else if (cntSal != 0L && cntDeb == 0L) {
+
+			log.info("*** РАСПРЕДЕЛИТЬ САЛЬДО финально");
+			// сальдо не распределено, долги распределены
+			// найти нераспределённые положительные суммы по сальдо
+			for (SumDebUslMgRec t : lstSalNd.stream().filter(t-> t.getSign()==1).collect(Collectors.toList())) {
+
+				// получить последний период из итоговых долгов
+				SumDebUslMgRec lastResult = lstDebResult.stream()
+						.filter(d->d.getUslId().equals(t.getUslId()))
+						.filter(d->d.getOrgId().equals(t.getOrgId()))
+						.filter(d->d.getMg().equals(period))
+						.findFirst().orElse(null);
+				if (lastResult != null) {
+					// найден последний период - источника
+					// поставить сумму
+					lastResult.setSumma(
+							lastResult.getSumma().add(t.getSumma())
+							);
+				} else {
+					// не найден последний период
+					// поставить сумму
+					lstDebResult.add(SumDebUslMgRec.builder()
+							.withMg(period)
+							.withUslId(t.getUslId())
+							.withOrgId(t.getOrgId())
+							.withSumma(t.getSumma())
+							.build());
+				}
+			}
+
+			// найти нераспределённые отрицательные суммы
+			for (SumDebUslMgRec t : lstSalNd.stream().filter(e-> e.getSign()==-1).collect(Collectors.toList())) {
+				// получить последний период из итоговых долгов
+				SumDebUslMgRec lastResult = lstDebResult.stream()
+						.filter(d->d.getUslId().equals(t.getUslId()))
+						.filter(d->d.getOrgId().equals(t.getOrgId()))
+						.filter(d->d.getMg().equals(period))
+						.findFirst().orElse(null);
+				if (lastResult != null) {
+					// найден последний период - источника
+					// снять сумму
+					lastResult.setSumma(
+							lastResult.getSumma().subtract(t.getSumma())
+							);
+				} else {
+					// не найден последний период
+					// снять сумму
+					lstDebResult.add(SumDebUslMgRec.builder()
+							.withMg(period)
+							.withUslId(t.getUslId())
+							.withOrgId(t.getOrgId())
+							.withSumma(t.getSumma().multiply(new BigDecimal("-1")))
+							.build());
+				}
+
+			}
+
+
+		} else if (cntSal != 0L && cntDeb != 0L) {
+			// сальдо не распределено, долги не распределены
+			throw new ErrorWhileDistDeb("ОШИБКА распределения задолженности в лс="+lsk);
+		}
+
+		printDeb(lstDeb);
+		printSal(lstSal, lstDebResult);
+
+		// удалить предыдущее распределение
+		debDao.delByLskPeriod(lsk, period);
+		// сохранить распределённые задолженности
+		Kart kart = em.find(Kart.class, lsk);
+		for (SumDebUslMgRec t : lstDebResult) {
+			Usl usl = em.find(Usl.class, t.getUslId());
+			if (usl==null) {
+				throw new ErrorWhileDistDeb("ОШИБКА сохранения задолженности, не найдена услуга usl="+t.getUslId());
+			}
+			Org org = em.find(Org.class, t.getOrgId());
+			if (org==null) {
+				throw new ErrorWhileDistDeb("ОШИБКА сохранения задолженности, не найдена организация org="+t.getOrgId());
+			}
+			// сохранить новое
+			Deb deb = Deb.builder()
+				.withKart(kart)
+				.withDebOut(t.getSumma())
+				.withMg(t.getMg())
+				.withUsl(usl)
+				.withOrg(org)
+				.withMgFrom(period)
+				.withMgTo(period)
+				.build();
+			em.persist(deb);
+		}
+
+		log.info("Распределение выполнено!");
+
+	}
+
+
+	/**
+	 * Переставить сальдо
+	 * @param period
+	 * @param lstDebResult
+	 * @param t
+	 * @param summa
+	 */
+	private void swapSal(Integer period, List<SumDebUslMgRec> lstDebResult,
+			SumDebUslMgRec src, SumDebUslMgRec dst, BigDecimal summa) {
+		// получить последний период из итоговых долгов
+		Integer lastSrcPeriod = lstDebResult.stream()
+				.filter(d->d.getUslId().equals(src.getUslId()))
+				.filter(d->d.getOrgId().equals(src.getOrgId()))
+				.map(d->d.getMg())
+			    .reduce(Integer::max).orElse(null);
+		if (lastSrcPeriod != null) {
+			// найден последний период - источника
+			SumDebUslMgRec lastResult = lstDebResult.stream()
+					.filter(d->d.getUslId().equals(src.getUslId()))
+					.filter(d->d.getOrgId().equals(src.getOrgId()))
+					.filter(d->d.getMg().equals(lastSrcPeriod))
+					.findFirst().orElse(null);
+			// снять сумму
+			lastResult.setSumma(
+					lastResult.getSumma().subtract(summa)
+					);
+		} else {
+			// не найден последний период
+			// снять сумму
+			lstDebResult.add(SumDebUslMgRec.builder()
+					.withMg(lastSrcPeriod)
+					.withUslId(src.getUslId())
+					.withOrgId(src.getOrgId())
+					.withSumma(summa.multiply(new BigDecimal("-1")))
+					.build());
+		}
+
+		// найти сальдо назначения
+		SumDebUslMgRec lastDstResult = lstDebResult.stream()
+				.filter(d->d.getUslId().equals(dst.getUslId()))
+				.filter(d->d.getOrgId().equals(dst.getOrgId()))
+				.filter(d->d.getMg().equals(lastSrcPeriod))
+				.findFirst().orElse(null);
+
+		if (lastDstResult != null) {
+			// найден последний период - назначения
+			// поставить сумму
+			lastDstResult.setSumma(
+					lastDstResult.getSumma().add(summa)
+					);
+		} else {
+			// не найден последний период
+			// поставить сумму
+			lstDebResult.add(SumDebUslMgRec.builder()
+					.withMg(lastSrcPeriod)
+					.withUslId(dst.getUslId())
+					.withOrgId(dst.getOrgId())
+					.withSumma(summa)
+					.build());
+		}
+
+
+	}
+
+
+	/**
+	 * Распечатать начисление
+	 * @param lstChrg
+	 */
+	private void printChrg(List<SumDebUslMgRec> lstChrg) {
 		lstChrg.forEach(t-> {
 			log.info("Начисление: mg={}, usl={}, org={}, summa={}, weigth={}",
 					t.getMg(), t.getUslId(), t.getOrgId(), t.getSumma(), t.getWeigth());
 		});
-		log.info("Итого Weigth={}", lstChrg.stream().map(t-> t.getWeigth()).reduce(BigDecimal.ZERO, BigDecimal::add));
+	}
 
 
-		// Распределить долг
-		// вначале положительные суммы
+	/**
+	 * Распечатать задолженность
+	 * @param lstDeb
+	 */
+	private void printDeb(List<SumDebMgRec> lstDeb) {
+		lstDeb.stream()
+		.forEach(t-> {
+				log.info("Долг: mg={}, summa={}, sign={}", t.getMg(), t.getSumma(), t.getSign());
+			});
+		log.info("Итого Долг={}", lstDeb.stream().map(t-> t.getSumma()).reduce(BigDecimal.ZERO, BigDecimal::add));
+	}
 
-		// результат распределения
-		List<SumDebUslMgRec> lstDebResult = new ArrayList<SumDebUslMgRec>();
+	/**
+	 * Распечатать сальдо
+	 * @param lstDeb
+	 */
+	private void printSal(List<SumDebUslMgRec> lstSal,
+			List<SumDebUslMgRec> lstDebResult) {
+		lstSal.stream()
+		.forEach(t-> {
+				log.info("Сальдо: usl={}, org={}, summa={}, sign={}",
+						t.getUslId(), t.getOrgId(), t.getSumma(), t.getSign());
+			});
+		lstDebResult.stream()
+		.forEach(t-> {
+				log.info("Результат: usl={}, org={}, summa={}",
+						t.getUslId(), t.getOrgId(), t.getSumma());
+			});
+	}
+
+	/**
+	 * Подготовить сурргогатную строку начисления
+	 * @param lstDeb - долги
+	 * @param lstSal - сальдо
+	 * @param lstChrg - начисление
+	 * @param sign - знак долга
+	 */
+	private void addSurrogateChrg(List<SumDebMgRec> lstDeb, List<SumDebUslMgRec> lstSal, List<SumDebUslMgRec> lstChrg,
+			int sign) {
+		// добавить нужный период в строку начисления
+		// найти все не распределенные долги
+		lstDeb.stream()
+			.filter(t-> t.getSumma().compareTo(BigDecimal.ZERO) > 0) // ненулевые
+			.filter(t-> t.getSign().equals(sign) ) // знак долга
+			.forEach(d-> {
+				// найти записи с нераспределёнными долгами, в сальдо
+				lstSal.stream()
+					.filter(t-> t.getSumma().compareTo(BigDecimal.ZERO) > 0) // ненулевое
+					.filter(t -> t.getSign().equals(sign)) // знак сальдо
+					.forEach(t-> {
+						// вес 1 руб., чтоб быстрее распределялось
+						BigDecimal weigth = new BigDecimal("1.00");
+						// добавить суррогатную запись начисления, чтоб распределялось
+						log.info("В начисление добавлена суррогатная запись: mg={}, usl={}, org={}, weigth={}",
+								d.getMg(), t.getUslId(), t.getOrgId(), weigth);
+						lstChrg.add(SumDebUslMgRec.builder()
+								.withMg(d.getMg())
+								.withUslId(t.getUslId())
+								.withOrgId(t.getOrgId())
+								.withWeigth(weigth)
+								.withIsSurrogate(true)
+								.build()
+								);
+					});
+
+			});
+	}
+
+
+	/**
+	 * Распределить по долгам
+	 * @param lstDeb - долги по периодам
+	 * @param lstSal - сальдо по усл.+орг.
+	 * @param lstChrg - начисления по периодам
+	 * @param lstDebResult - результат
+	 * @param sign - знак распределения
+	 * @param isSetWeigths - повторно установить веса?
+	 * @param isForced - принудительное? (не будет смотреть на сальдо)
+	 * @return
+	 */
+	private boolean distDeb(List<SumDebMgRec> lstDeb, List<SumDebUslMgRec> lstSal, List<SumDebUslMgRec> lstChrg,
+			List<SumDebUslMgRec> lstDebResult, int sign, boolean isSetWeigths, boolean isForced) {
+		if (isSetWeigths) {
+			// установить веса по начислению
+			setWeigths(lstSal, lstChrg, sign);
+		}
 		// продолжать цикл распределение?
 		boolean isContinue = true;
 		// не может распределиться?
@@ -82,12 +445,14 @@ public class MigrateMngImpl implements MigrateMng {
 			BigDecimal sumDistAmnt = BigDecimal.ZERO;
 			// перебирать долги
 			for (SumDebMgRec t : lstDeb.stream()
-						.filter(t-> t.getSign() > 0) // положительные
+						.filter(t-> t.getSign().equals(sign) ) // знак долга
 						.filter(t-> t.getSumma().compareTo(BigDecimal.ZERO) > 0) // ненулевые
 						.collect(Collectors.toList())
 						) {
 				// распределить, добавить сумму
-				sumDistAmnt = sumDistAmnt.add(distrib(t, lstChrg, lstSal, lstDebResult));
+				sumDistAmnt = sumDistAmnt.add(
+						distByPeriodSal(t, lstChrg, lstSal, lstDebResult, sign, isForced)
+						);
 				// продолжать
 				isContinue = true;
 			}
@@ -98,19 +463,9 @@ public class MigrateMngImpl implements MigrateMng {
 			}
 		}
 		if (isCantDist) {
-			log.info("НЕВОЗМОЖНО РАСПРЕДЕЛИТЬ!");
+			return false;
 		}
-
-		lstDeb.stream()
-		.forEach(d-> {
-				log.info("Долг: mg={}, summa={}", d.getMg(), d.getSumma());
-			});
-		lstSal.forEach(d-> {
-			log.info("Сальдо: mg={}, usl={}, org={}, summa={}",
-					d.getMg(), d.getUslId(), d.getOrgId(), d.getSumma());
-		});
-			log.info("Распределение завершено!");
-
+		return true;
 	}
 
 
@@ -119,12 +474,14 @@ public class MigrateMngImpl implements MigrateMng {
 	 * @param deb - строка долга
 	 * @param lstChrg - начисления по периодам
 	 * @param lstSal - сальдо по услугам и орг.
-	 * @param lstResult - результат распределения
+	 * @param lstDebResult - результат распределения
+	 * @param sign - распределить числа (1-положит., -1 - отрицат.)
+ 	 * @param isForced - принудительное? (не будет смотреть на сальдо)
 	 * @return
 	 */
-	private BigDecimal distrib(SumDebMgRec deb,
+	private BigDecimal distByPeriodSal(SumDebMgRec deb,
 			List<SumDebUslMgRec> lstChrg, List<SumDebUslMgRec> lstSal,
-			List<SumDebUslMgRec> lstResult) {
+			List<SumDebUslMgRec> lstDebResult, int sign, boolean isForced) {
 		// итоговая сумма распределения
 		BigDecimal sumDistAmnt = BigDecimal.ZERO;
 		Integer period = deb.getMg();
@@ -149,39 +506,52 @@ public class MigrateMngImpl implements MigrateMng {
 					summaDist = deb.getSumma();
 				}
 				// найти запись с данным uslId и orgId в сальдо
-				SumDebUslMgRec foundSal = lstSal.stream()
-					.filter(d -> d.getUslId().equals(t.getUslId()))
-					.filter(d -> d.getOrgId().equals(t.getOrgId()))
-					.findAny().orElse(null);
+				// log.info("CHECK usl={}, org={} sign={}", t.getUslId(), t.getOrgId(), sign);
+				SumDebUslMgRec foundSal = null;
+				if (!isForced) {
+					foundSal = lstSal.stream()
+							.filter(d -> d.getUslId().equals(t.getUslId()))
+							.filter(d -> d.getOrgId().equals(t.getOrgId()))
+							.filter(d -> d.getSign().equals(sign)) // знак сальдо
+							.findAny().orElse(null);
 
-				if (summaDist.compareTo(foundSal.getSumma()) > 0) {
-					// сумма для распределения больше суммы сальдо
-					// взять всю оставшуюся сумму сальдо
-					summaDist = foundSal.getSumma();
+					if (summaDist.compareTo(foundSal.getSumma()) > 0) {
+						// сумма для распределения больше суммы сальдо
+						// взять всю оставшуюся сумму сальдо
+						summaDist = foundSal.getSumma();
+					}
 				}
 
 				if (summaDist.compareTo(BigDecimal.ZERO) > 0) {
-					// уменьшить сумму сальдо
-					foundSal.setSumma(foundSal.getSumma().subtract(summaDist));
+					// уменьшить сумму сальдо, если не форсированное распределение
+					if (!isForced) {
+						foundSal.setSumma(foundSal.getSumma().subtract(summaDist));
+					}
 					// уменьшить сумму долга
 					deb.setSumma(deb.getSumma().subtract(summaDist));
 					// записать в результат
 					// найти запись результата
-					SumDebUslMgRec foundResult = lstResult.stream()
+					SumDebUslMgRec foundResult = lstDebResult.stream()
 							.filter(d -> d.getMg().equals(t.getMg()))
 							.filter(d -> d.getUslId().equals(t.getUslId()))
 							.filter(d -> d.getOrgId().equals(t.getOrgId()))
 							.findAny().orElse(null);
 					if (foundResult == null) {
 						// не найден результат с такими усл.+орг.+период - создать строку
-						lstResult.add(SumDebUslMgRec.builder()
+						// сумма с учетом знака!
+						lstDebResult.add(SumDebUslMgRec.builder()
 								.withMg(period)
 								.withUslId(t.getUslId())
 								.withOrgId(t.getOrgId())
-								.withSumma(summaDist).build());
+								.withSumma(
+										summaDist.multiply(BigDecimal.valueOf(sign)
+												)).build());
 					} else {
-						// найден результат - добавить сумму
-						foundResult.setSumma(foundResult.getSumma().add(summaDist));
+						// найден результат - добавить или вычесть сумму
+						// зависит от знака!
+						foundResult.setSumma(foundResult.getSumma().add(
+								summaDist.multiply(BigDecimal.valueOf(sign)
+										)));
 					}
 				}
 				// добавить итоговую сумму распределения
@@ -205,7 +575,7 @@ public class MigrateMngImpl implements MigrateMng {
 			lst.add(SumDebUslMgRec.builder()
 					.withUslId(d.getUslId())
 					.withOrgId(d.getOrgId())
-					.withSumma(d.getSumma())
+					.withSumma(d.getSumma().abs()) // абсолютное значение
 					.withSign(d.getSumma().compareTo(BigDecimal.ZERO))
 					.build()
 					);
@@ -237,16 +607,38 @@ public class MigrateMngImpl implements MigrateMng {
 									.withUslId(d.getUslId())
 									.withOrgId(d.getOrgId())
 									.withSumma(d.getSumma())
+									.withWeigth(BigDecimal.ZERO)
+									.withIsSurrogate(false)
 									.build()
 						);
 			});
 		});
 
-		// итого
-		BigDecimal amnt = lst.stream().map(t->t.getSumma()).reduce(BigDecimal.ZERO, BigDecimal::add);
-		// установить коэфф сумм по отношению к итогу
+		return lst;
+	}
 
-		Iterator<SumDebUslMgRec> itr = lst.iterator();
+
+	/**
+	 * Установить веса
+	 * @param lstSal - сальдо
+	 * @param lstChrg - начисление с весами по усл. + орг.
+	 * @param sign - распределить числа (1-положит., -1 - отрицат.)
+	 */
+	private void setWeigths(List<SumDebUslMgRec> lstSal,
+			List<SumDebUslMgRec> lstChrg, int sign) {
+		Iterator<SumDebUslMgRec> itr = lstChrg.iterator();
+		// удалить суррогатные строки начисления
+		while (itr.hasNext()) {
+			SumDebUslMgRec t = itr.next();
+			if (t.getIsSurrogate()) {
+				itr.remove();
+			}
+		}
+		// итого
+		BigDecimal amnt =
+				lstChrg.stream().map(t->t.getSumma()).reduce(BigDecimal.ZERO, BigDecimal::add);
+		// установить коэфф сумм по отношению к итогу и удалить суррогатные строки
+		itr = lstChrg.iterator();
 		while (itr.hasNext()) {
 			SumDebUslMgRec t = itr.next();
 			Double proc = t.getSumma().doubleValue() / amnt.doubleValue() * 10;
@@ -258,20 +650,21 @@ public class MigrateMngImpl implements MigrateMng {
 			} else {
 				t.setWeigth(procD);
 			}
-			// найти запись с данным uslId и orgId в сальдо
+			// найти запись с данным uslId и orgId и sign в сальдо
 			SumDebUslMgRec foundSal = lstSal.stream()
 				.filter(d -> d.getUslId().equals(t.getUslId()))
 				.filter(d -> d.getOrgId().equals(t.getOrgId()))
+				.filter(d -> d.getSign().equals(sign))
 				.findAny().orElse(null);
 			if (foundSal == null) {
-				// не найдено, удалить элемент
-				itr.remove();
+				// не найдено, убрать вес
+				t.setWeigth(BigDecimal.ZERO);
 			}
 		}
 		// установить вес эксклюзивного распределения = 100, в отношении усл. и орг.
 		// которые находятся только в одном периоде
-		lst.forEach(t-> {
-			SumDebUslMgRec found = lst.stream()
+		lstChrg.forEach(t-> {
+			SumDebUslMgRec found = lstChrg.stream()
 				.filter(d-> d.getUslId().equals(t.getUslId())
 						&& d.getOrgId().equals(t.getOrgId())) // одинаковые усл.+орг.
 				.filter(d-> !d.getMg().equals(t.getMg())) // разные периоды
@@ -282,20 +675,69 @@ public class MigrateMngImpl implements MigrateMng {
 				t.setWeigth(new BigDecimal("100"));
 			}
 		});
+	}
 
-		return lst;
+
+	/**
+	 * Получить тип задолженности
+	 * @param lstDeb - входящая задолженность
+	 * @return 1 - только задолж., -1 - только переплаты
+	 * 0 - смешанные долги
+	 */
+	private int getDebTp(List<SumDebMgRec> lstDeb) {
+		// кол-во положительных чисел
+		long positive = lstDeb.stream()
+			.filter(t-> t.getSign().equals(1))
+			.map(t-> t.getSumma())
+			.count();
+		// кол-во отрицательных чисел
+		long negative = lstDeb.stream()
+				.filter(t-> t.getSign().equals(-1))
+				.map(t-> t.getSumma())
+				.count();
+		int tp = -1;
+		if (positive > 0L && negative == 0L) {
+			// только задолженности
+			tp = 1;
+		} else if (positive == 0L && negative > 0L) {
+			// только переплаты
+			tp = -1;
+		} else if (positive > 0L && negative > 0L) {
+			// задолженности и переплаты (смешанное)
+			tp = 0;
+		}
+		return tp;
 	}
 
 	/**
-	 * Свернуть задолженность, учитывая переплату
+	 * Получить задолженность
 	 * @param lsk - лиц.счет
 	 * @param period - период
 	 * @return
 	 */
-	private List<SumDebMgRec> getRolledDeb(String lsk, Integer period) {
+	private List<SumDebMgRec> getDeb(String lsk, Integer period) {
 		// получить отсортированный список задолженностей по периодам (по предыдущему периоду)
 		List<SumRecMg> lst =
 				saldoUslDao.getVchargePayByLsk(lsk, period);
+		List<SumDebMgRec> lstDeb = new ArrayList<SumDebMgRec>();
+		lst.forEach(t-> {
+			lstDeb.add(SumDebMgRec.builder()
+					.withMg(t.getMg())
+					.withSumma(t.getSumma().abs()) // абсолютное значение
+					.withSign(t.getSumma().compareTo(BigDecimal.ZERO))
+					.build()
+					);
+		});
+		return lstDeb;
+	}
+
+
+	/**
+	 * Получить свернутую задолженность - НЕ ИСПОЛЬЗОВАТЬ
+	 * @param lst - входящая задолженность
+	 * @return
+	 */
+	private List<SumDebMgRec> getRolledDeb(List<SumRecMg> lst) {
 		ListIterator<SumRecMg> itr = lst.listIterator();
 		// переплата
 		BigDecimal ovrPay = BigDecimal.ZERO;

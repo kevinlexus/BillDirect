@@ -148,8 +148,12 @@ public class VchangeDet implements java.io.Serializable  {
 	}
 
 // Просуммировать все BigDecimal
-BigDecimal amnt = lst.stream().
-	reduce(BigDecimal.ZERO, BigDecimal::add);
+BigDecimal amnt = lst.stream()
+	.reduce(BigDecimal.ZERO, BigDecimal::add);
+
+// Получить MAX Integer
+Integer lastPeriod = lstDeb.stream().map(t->t.getMg())
+    .reduce(Integer::max).orElse(null);
 
 
 // Создать коллекцию другого объекта из stream 
