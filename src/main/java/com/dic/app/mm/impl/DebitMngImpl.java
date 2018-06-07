@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.DebitMng;
 import com.dic.app.mm.DebitThrMng;
 import com.dic.app.mm.PrepThread;
@@ -44,7 +45,6 @@ import com.dic.bill.dto.CalcStoreLocal;
 import com.dic.bill.dto.SumDebPenRec;
 import com.dic.bill.dto.SumPenRec;
 import com.dic.bill.dto.UslOrg;
-import com.dic.bill.mm.Config;
 import com.dic.bill.model.scott.Deb;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.Org;
@@ -62,7 +62,7 @@ import lombok.extern.slf4j.Slf4j;
 public class DebitMngImpl implements DebitMng {
 
 	@Autowired
-	private Config config;
+	private ConfigApp config;
 	@Autowired
 	private DebDAO debDao;
 	@Autowired
@@ -168,7 +168,7 @@ public class DebitMngImpl implements DebitMng {
 		try {
 			threadMng.invokeThreads(reverse, calcStore, 5, lstItem);
 		} catch (InterruptedException | ExecutionException e) {
-			e.printStackTrace();
+			log.error(Utl.getStackTraceString(e));
 			throw new ErrorWhileChrgPen("ОШИБКА во время расчета задолженности и пени!");
 		}
 
@@ -245,7 +245,7 @@ public class DebitMngImpl implements DebitMng {
 						// РАСЧЕТ задолжности и пени по услуге
 						return debitThrMng.genDebitUsl(kart, t, calcStore, localStore).stream();
 					} catch (ErrorWhileChrgPen e) {
-						e.printStackTrace();
+						log.error(Utl.getStackTraceString(e));
 						throw new RuntimeException("ОШИБКА в процессе начисления пени по лc.="+lsk);
 					}
 				})
@@ -514,11 +514,9 @@ public class DebitMngImpl implements DebitMng {
 					rec.setPenyaChrg(rec.getPenyaChrg().add(t.getPenyaChrg()));
 				}
 				//log.info("Перенаправление пени сумма={}", t.getPenyaChrg());
-				//t.setPenyaChrg(BigDecimal.ZERO);
+				t.setPenyaChrg(BigDecimal.ZERO);
 			}
 		}
-		// добавить новые записи перенаправленых сумм (если они будут)
-		//return lstOut;
 	}
 
 

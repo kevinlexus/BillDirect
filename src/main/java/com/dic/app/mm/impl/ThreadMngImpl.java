@@ -17,6 +17,7 @@ import com.dic.app.mm.PrepThread;
 import com.dic.app.mm.ThreadMng;
 import com.dic.bill.dto.CalcStore;
 import com.ric.cmn.CommonResult;
+import com.ric.cmn.Utl;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -104,7 +105,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 			try {
 				Thread.sleep(100);
 			} catch (InterruptedException e) {
-				e.printStackTrace();
+				log.error(Utl.getStackTraceString(e));
 			}
 		}
 		long endTime = System.currentTimeMillis();

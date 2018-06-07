@@ -12,14 +12,14 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import com.dic.app.AppConfig;
+import com.dic.app.Config;
+import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.DebitMng;
 import com.dic.app.mm.ThreadMng;
 import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.DebDAO;
 import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dao.RedirPayDAO;
-import com.dic.bill.mm.Config;
 import com.dic.bill.model.scott.SessionDirect;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
@@ -27,7 +27,7 @@ import com.ric.cmn.excp.ErrorWhileChrgPen;
 import lombok.extern.slf4j.Slf4j;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes=AppConfig.class)
+@ContextConfiguration(classes=Config.class)
 @AutoConfigureTestDatabase(replace = Replace.NONE)
 @DataJpaTest
 @Slf4j
@@ -37,7 +37,7 @@ public class TestWork {
 	@Autowired
 	private ApplicationContext ctx;
 	@Autowired
-	private Config config;
+	private ConfigApp config;
 	@Autowired
 	private ThreadMng threadMng;
 	@Autowired

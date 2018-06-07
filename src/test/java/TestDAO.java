@@ -7,7 +7,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import com.dic.app.AppConfig;
+import com.dic.app.Config;
 import com.dic.bill.dao.ChargeDAO;
 import com.dic.bill.dao.CorrectPayDAO;
 import com.dic.bill.dao.DebDAO;
@@ -18,7 +18,7 @@ import com.dic.bill.dao.VchangeDetDAO;
 import lombok.extern.slf4j.Slf4j;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes=AppConfig.class)
+@ContextConfiguration(classes=Config.class)
 @AutoConfigureTestDatabase(replace = Replace.NONE)
 @DataJpaTest
 @Slf4j

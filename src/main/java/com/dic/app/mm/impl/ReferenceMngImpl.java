@@ -36,11 +36,21 @@ public class ReferenceMngImpl implements ReferenceMng {
 	@Override
 	@Cacheable(cacheNames="ReferenceMng.getUslOrgRedirect", key="{#uslOrg.getUslId(), #uslOrg.getOrgId(), #kart.getLsk(), #tp}" )
 	public UslOrg getUslOrgRedirect(UslOrg uslOrg, Kart kart, Integer tp) {
+/*	УДАЛИТЬ
+ * 		log.info("Kart.uk={}", kart.getUk());
+		redirPayDao.getRedirPayOrd(tp,
+				kart.getUk().getReu(), uslOrg.getUslId(), uslOrg.getOrgId())
+				.stream().forEach(t-> {
+					log.info("t={}", t);
+					log.info("id={}, uk={}", t.getId(), t.getUk());
+				});
+*/
 		UslOrg uo = new UslOrg(null, null);
-		List<RedirPay> lst = redirPayDao.findAll().stream()
-			.filter(t-> t.getTp().equals(tp))
-			.filter(t->  t.getUk()==null || t.getUk().getId() // либо заполненный УК, либо пуст
-					.equals(kart.getUk().getId()))
+		List<RedirPay> lst = redirPayDao.getRedirPayOrd(tp,
+				kart.getUk().getReu(), uslOrg.getUslId(), uslOrg.getOrgId()) .stream()
+			//.filter(t-> t.getTp().equals(tp))
+			.filter(t->  t.getUk()==null || t.getUk() // либо заполненный УК, либо пуст
+					.equals(kart.getUk()))
 			.filter(t-> t.getUslSrc()==null || t.getUslSrc().getId() // либо заполненный источник услуги, либо пуст
 					.equals(uslOrg.getUslId()))
 			.filter(t-> t.getOrgSrc()==null || t.getOrgSrc().getId() // либо заполненный источник орг., либо пуст

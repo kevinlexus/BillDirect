@@ -1,5 +1,6 @@
 package com.dic.app.mm;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import javax.persistence.EntityManager;
@@ -11,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dic.bill.RequestConfig;
-import com.dic.bill.mm.Config;
 import com.dic.bill.model.scott.SessionDirect;
 import com.ric.cmn.Utl;
 
@@ -24,7 +24,7 @@ public class WebController {
 	@Autowired
 	private DebitMng debitMng;
 	@Autowired
-	private Config config;
+	private ConfigApp config;
 	@PersistenceContext
     private EntityManager em;
 
@@ -35,6 +35,7 @@ public class WebController {
 	 * @param sessionId - Id сессии, устанавливается в UTILS.prep_users_tree,
 	 * 					  если не заполнен, использовать 0, т.е. без записи в отчетную таблицу
 	 * @param debugLvl - уровень отладки 0, null - не записивать в лог отладочную информацию, 1 - записывать
+	 * @key - ключ, для выполнения ответственных заданий
 	 * @genDt - дата формирования
 	 * @return
 	 */
@@ -44,9 +45,16 @@ public class WebController {
     		@RequestParam(value = "lsk", defaultValue = "0") String lsk,
     		@RequestParam(value = "sessionId", defaultValue = "0")  Integer sessionId,
     		@RequestParam(value = "debugLvl", defaultValue = "0") Integer debugLvl,
-    		@RequestParam(value = "genDt", defaultValue = "", required = false) String genDt1
+    		@RequestParam(value = "genDt", defaultValue = "", required = false) String genDt1,
+    		@RequestParam(value = "key", defaultValue = "", required = false) String key
     		) {
-		log.info("GOT /gen with: tp={}, lsk={}, sessionId={}, debugLvl={}, genDt={}", tp, lsk, sessionId, debugLvl, genDt1);
+		log.info("GOT /gen with: tp={}, lsk={}, sessionId={}, debugLvl={}, genDt={}, key={}",
+				tp, lsk, sessionId, debugLvl, genDt1, key);
+
+		boolean isValidKey = checkValidKey(key);
+		if (!isValidKey) {
+			return "ERROR wrong key!";
+		}
 
 		if (tp == null || !Utl.in(tp, "0")) {
 			return "ERROR1 некорректный тип расчета: tp="+tp;
@@ -85,14 +93,28 @@ public class WebController {
 		} else {
 			lskPar = lsk;
 		}
-		try {
-	    	debitMng.genDebitAll(lskPar, genDt, dbgLvl, reqConf);
-		} catch (Exception e) {
-			return "ERROR " + e.getMessage();
-		}
 
-        return "OK";
+		if (tp.equals("0")) {
+			// рассчитать долги и пеню
+			try {
+		    	debitMng.genDebitAll(lskPar, genDt, dbgLvl, reqConf);
+			} catch (Exception e) {
+				return "ERROR " + e.getMessage();
+			}
+
+	        return "OK";
+		} else {
+			return "ERROR Не найден вызываемый метод";
+		}
     }
+
+
+	private boolean checkValidKey(String key) {
+		SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd");
+		String str = formatter.format(new Date());
+		boolean checkKey = key.equals("lasso_the_moose_".concat(str));
+		return checkKey;
+	}
 
 
 	/**
