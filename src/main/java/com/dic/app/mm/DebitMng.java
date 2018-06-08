@@ -10,6 +10,7 @@ import com.ric.cmn.excp.ErrorWhileChrgPen;
 
 public interface DebitMng {
 
-	void genDebitAll(String lsk, Date genDt, Integer debugLvl, RequestConfig reqConf) throws ErrorWhileChrgPen;
 	Future<CommonResult> genDebit(String lsk, CalcStore calcStore, RequestConfig reqConf);
+	void genDebitAll(String lskFrom, String lskTo, Date genDt, Integer debugLvl, RequestConfig reqConf)
+			throws ErrorWhileChrgPen;
 }

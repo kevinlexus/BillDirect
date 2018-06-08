@@ -2,7 +2,6 @@ package com.dic.app.mm.impl;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.ListIterator;
@@ -102,7 +101,8 @@ public class DebitMngImpl implements DebitMng {
 
 	/**
 	 * Расчет задолжности и пени
-	 * @param lsk - лиц.счет, если отсутствует - весь фонд
+	 * @param lskFrom - начальный лиц.счет, если отсутствует - весь фонд
+	 * @param lskTo - конечный лиц.счет, если отсутствует - весь фонд
 	 * @param genDt - дата расчета
 	 * @param debugLvl - уровень отладочной информации (0-нет, 1-отобразить)
 	 * @param iter - номер итерации расчета (чтобы потом выбрать из таблицы для отчета)
@@ -112,7 +112,7 @@ public class DebitMngImpl implements DebitMng {
 	@Override
 	@CacheEvict(value = {"ReferenceMng.getUslOrgRedirect"}, allEntries = true)
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor=Exception.class)
-	public void genDebitAll(String lsk, Date genDt, Integer debugLvl, RequestConfig reqConf) throws ErrorWhileChrgPen {
+	public void genDebitAll(String lskFrom, String lskTo, Date genDt, Integer debugLvl, RequestConfig reqConf) throws ErrorWhileChrgPen {
 		long startTime = System.currentTimeMillis();
 		log.info("НАЧАЛО расчета задолженности");
 
@@ -145,17 +145,13 @@ public class DebitMngImpl implements DebitMng {
 		List<String> lstItem;
 		// флаг - заставлять ли многопоточный сервис проверять маркер остановки главного процесса
 		boolean isCheckStop;
-		// тип выполнения (0 - по одному лс, вывести отчет в C_DEBPEN_USL_TEMP,
-		//				   1 - вывести исх сальдо)
-		if (lsk == null) {
-			// по всем лиц.счетам
-			lstItem = kartDao.getAll()
-					.stream().map(t->t.getLsk()).collect(Collectors.toList());
+		lstItem= kartDao.getRangeLsk(lskFrom, lskTo)
+				.stream().map(t-> t.getLsk()).collect(Collectors.toList());
+		if (!lskFrom.equals(lskTo) ) {
+			// по диапазону лиц.счетов
 			isCheckStop = true;
  		} else {
  			// по одному лиц.счету
- 			lstItem = new ArrayList<String>(0);
- 			lstItem.add(kartDao.getByLsk(lsk).getLsk());
 			isCheckStop = false;
  		}
 
@@ -271,12 +267,12 @@ public class DebitMngImpl implements DebitMng {
 
 			// получить задолженность, по которой рассчитывается пеня, по всем услугам
 			BigDecimal sumDeb = lst.stream().map(t->t.getDebRolled()).reduce(BigDecimal.ZERO, BigDecimal::add);
-			log.info("Задолженность для расчета пени:{}", sumDeb);
+			//log.info("Задолженность для расчета пени:{}", sumDeb);
 
 			for (SumPenRec t : lst) {
 					// занулить текущую пеню по всем услугам, если общее исх.долг < 0
 					if (sumDeb.compareTo(BigDecimal.ZERO) <= 0) {
-					//	t.setPenyaChrg(BigDecimal.ZERO);
+						t.setPenyaChrg(BigDecimal.ZERO);
 					}
 					// рассчитать исходящее сальдо по пене, сохранить расчет
 					save(calcStore, kart, localStore, t);
@@ -285,7 +281,7 @@ public class DebitMngImpl implements DebitMng {
 
 			long endTime = System.currentTimeMillis();
 			long totalTime = endTime - startTime;
-			log.info("ОКОНЧАНИЕ расчета задолженности по лиц.счету {}! Время расчета={} мс", lsk, totalTime);
+			log.info("ОКОНЧАНИЕ расчета задолженности по лиц.счету {} Время расчета={} мс", lsk, totalTime);
 	 } finally {
 		 // разблокировать лицевой счет
 		 config.getLock().unlockLsk(reqConf.getRqn(), lsk);

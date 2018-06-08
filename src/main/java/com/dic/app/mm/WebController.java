@@ -31,7 +31,8 @@ public class WebController {
 	/**
 	 * Расчет
 	 * @param tp - тип расчета (0- долги и пеня)
-	 * @param lsk - лиц.счет, если отсутствует - весь фонд
+	 * @param lskFrom - начальный лиц.счет, если отсутствует - весь фонд
+	 * @param lskTo - конечный лиц.счет, если отсутствует - весь фонд
 	 * @param sessionId - Id сессии, устанавливается в UTILS.prep_users_tree,
 	 * 					  если не заполнен, использовать 0, т.е. без записи в отчетную таблицу
 	 * @param debugLvl - уровень отладки 0, null - не записивать в лог отладочную информацию, 1 - записывать
@@ -42,15 +43,16 @@ public class WebController {
 	@RequestMapping("/gen")
     public String gen (
     		@RequestParam(value = "tp", defaultValue = "0") String tp,
-    		@RequestParam(value = "lsk", defaultValue = "0") String lsk,
+    		@RequestParam(value = "lskFrom", defaultValue = "0") String lskFrom,
+    		@RequestParam(value = "lskTo", defaultValue = "0") String lskTo,
     		@RequestParam(value = "sessionId", defaultValue = "0")  Integer sessionId,
     		@RequestParam(value = "debugLvl", defaultValue = "0") Integer debugLvl,
     		@RequestParam(value = "genDt", defaultValue = "", required = false) String genDt1,
     		@RequestParam(value = "key", defaultValue = "", required = false) String key,
     		@RequestParam(value = "stop", defaultValue = "0", required = false) String stop
     		) {
-		log.info("GOT /gen with: tp={}, lsk={}, sessionId={}, debugLvl={}, genDt={}, stop={}, key={}",
-				tp, lsk, sessionId, debugLvl, genDt1, stop, key);
+		log.info("GOT /gen with: tp={}, lskFrom={}, lskTo={}, sessionId={}, debugLvl={}, genDt={}, stop={}",
+				tp, lskFrom, lskTo, sessionId, debugLvl, genDt1, stop);
 
 		// проверка валидности ключа
 		boolean isValidKey = checkValidKey(key);
@@ -96,25 +98,17 @@ public class WebController {
 			dbgLvl = Integer.valueOf(debugLvl);
 		}
 
-		// способ формирования
-		String lskPar;
-		if (lsk.equals("0")) {
-			lskPar = null;
-		} else {
-			lskPar = lsk;
-		}
-
 		if (tp.equals("0")) {
 			// рассчитать долги и пеню
 			try {
 				if (!isStopped) {
 					// если не остановка процесса
-					if (lskPar == null) {
+					if (!lskFrom.equals(lskTo)) {
 						// заблокировать при расчете по всем лиц.счетам
 						Boolean isLocked = config.getLock().setLockProc(reqConf.getRqn(), "debitMng.genDebitAll");
 						if (isLocked) {
 							try {
-								debitMng.genDebitAll(lskPar, genDt, dbgLvl, reqConf);
+								debitMng.genDebitAll(lskFrom, lskTo, genDt, dbgLvl, reqConf);
 							} finally {
 								// разблокировать при расчете по всем лиц.счетам
 								config.getLock().unlockProc(reqConf.getRqn(), "debitMng.genDebitAll");
@@ -124,7 +118,7 @@ public class WebController {
 						}
 					} else {
 						// по одному лиц.счету
-				    	debitMng.genDebitAll(lskPar, genDt, dbgLvl, reqConf);
+				    	debitMng.genDebitAll(lskFrom, lskTo, genDt, dbgLvl, reqConf);
 					}
 				} else {
 					// снять маркер выполнения процесса

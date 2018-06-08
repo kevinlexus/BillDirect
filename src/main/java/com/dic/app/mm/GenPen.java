@@ -196,9 +196,15 @@ public class GenPen {
 		PenDt penDt = getPenDt(mg,  usl,  kart);
 		// вернуть кол-во дней между датой расчета пени и датой начала пени по справочнику
 		if (penDt == null) {
-			throw new ErrorWhileChrgPen(
-					"ОШИБКА во время начисления пени по лс="+kart.getLsk()+", возможно не настроен справочник C_SPR_PEN_USL!"
-					+ "Попытка найти элемент: mg="+mg+", usl.tp_pen_dt="+usl.getTpPenDt()+", kart.reu="+kart.getUk().getReu());
+			if (mg.compareTo(calcStore.getPeriod())==1) {
+				// период больше текущего, не должно быть пени
+				return null;
+			} else {
+				// некритическая ошибка отсутствия записи в справочнике пени, просто не начислить пеню!
+				log.error("ОШИБКА во время начисления пени по лс="+kart.getLsk()+", возможно не настроен справочник C_SPR_PEN_USL!"
+						+ "Попытка найти элемент: mg="+mg+", usl.tp_pen_dt="+usl.getTpPenDt()+", kart.reu="+kart.getUk().getReu());
+				return null;
+			}
 		}
 		int days = Utl.daysBetween(penDt.getDt(), curDt);
 		if (days > 0) {
@@ -209,8 +215,8 @@ public class GenPen {
 					.filter(t-> days >= t.getDays1().intValue() && days <= t.getDays2().intValue()) // фильтр по кол-ву дней долга
 					.filter(t-> Utl.between(curDt, t.getDt1(), t.getDt2())) // фильтр по дате расчета в справочнике
 					.findFirst().orElse(null);
-			// рассчет пени = долг * процент/100
 			Pen pen = new Pen();
+			// рассчет пени = долг * процент/100
 			pen.proc = penRef.getProc();
 			pen.penya = summa.multiply(pen.proc).divide(new BigDecimal(100));
 			pen.days = days;
