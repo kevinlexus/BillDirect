@@ -82,18 +82,24 @@ public class DebitThrMngImpl implements DebitThrMng {
 					.map(t-> new SumDebRec(null, null, null, null, null, null,
 							t.getSumma(), t.getSumma(), null, null, t.getMg(), t.getTp()))
 					.collect(Collectors.toList()));
-			// вычесть оплату долга - для расчета долга, включая текущий день (Не включая для задолжности для расчета пени)
+			// вычесть оплату долга - для расчета долга, включая текущий день (Не включая для задолженности для расчета пени)
+			// ВНИМАНИЕ! TODO! По оплате долга введена искусственная ошибка, перенесённая из пакета C_CPENYA строка "and case when t.dtek < init.get_cur_dt_start"
+			// Считаю некорректным таким образом ограничивать дату поступления оплаты, так как оплата может быть принята 31 числом предыдущего месяца
+			// и она должна повлиять на долг. Решить позже, что с этим делать ред. 08.06.2018
 			lstDeb.addAll(localStore.getLstPayFlow().stream()
 					.filter(t-> t.getDt().getTime() <= curDt.getTime())
 					.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
 					.map(t-> new SumDebRec(null, null, null, t.getSumma(), null, null,
-							t.getDt().getTime() < curDt.getTime() ?  // (Не включая текущий день, для задолжности для расчета пени)
+							(t.getDt().getTime() < dt1.getTime() ? dt1.getTime() :t.getDt().getTime()) //<-- ПРЕДНАМЕРЕННАЯ ошибка
+									< curDt.getTime() ?  // (Не включая текущий день, для задолжности для расчета пени)
 									t.getSumma().multiply(new BigDecimal("-1")) : BigDecimal.ZERO ,
 							t.getDt().getTime() <= curDt.getTime() ? // (включая текущий день, для обычной задолжности)
 									t.getSumma().multiply(new BigDecimal("-1")) : BigDecimal.ZERO,
 							null, null,
 							t.getMg(), t.getTp()))
 							.collect(Collectors.toList()));
+			// ВНИМАНИЕ! TODO! По оплате долга введена искусственная ошибка
+
 			// вычесть корректировки оплаты - для расчета долга, включая текущий день
 			lstDeb.addAll(localStore.getLstPayCorrFlow().stream()
 					.filter(t-> t.getDt().getTime() <= curDt.getTime())

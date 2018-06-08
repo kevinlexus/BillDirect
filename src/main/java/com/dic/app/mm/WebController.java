@@ -46,22 +46,32 @@ public class WebController {
     		@RequestParam(value = "sessionId", defaultValue = "0")  Integer sessionId,
     		@RequestParam(value = "debugLvl", defaultValue = "0") Integer debugLvl,
     		@RequestParam(value = "genDt", defaultValue = "", required = false) String genDt1,
-    		@RequestParam(value = "key", defaultValue = "", required = false) String key
+    		@RequestParam(value = "key", defaultValue = "", required = false) String key,
+    		@RequestParam(value = "stop", defaultValue = "0", required = false) String stop
     		) {
-		log.info("GOT /gen with: tp={}, lsk={}, sessionId={}, debugLvl={}, genDt={}, key={}",
-				tp, lsk, sessionId, debugLvl, genDt1, key);
+		log.info("GOT /gen with: tp={}, lsk={}, sessionId={}, debugLvl={}, genDt={}, stop={}, key={}",
+				tp, lsk, sessionId, debugLvl, genDt1, stop, key);
 
+		// проверка валидности ключа
 		boolean isValidKey = checkValidKey(key);
 		if (!isValidKey) {
 			return "ERROR wrong key!";
 		}
-
+		// проверка типа формирования
 		if (tp == null || !Utl.in(tp, "0")) {
 			return "ERROR1 некорректный тип расчета: tp="+tp;
 		}
-		Date genDt = checkDate(genDt1);
-		if (genDt == null) {
-			return "ERROR2 некорректная дата расчета: genDt="+genDt1;
+		Date genDt = null;
+		// остановить процесс?
+		boolean isStopped = false;
+		if (stop.equals("1")) {
+			isStopped = true;
+		} else {
+			// если не принудительная остановка, проверить параметры
+			genDt = checkDate(genDt1);
+			if (genDt == null) {
+				return "ERROR2 некорректная дата расчета: genDt="+genDt1;
+			}
 		}
 
 		SessionDirect sessionDirect = null;
@@ -97,8 +107,31 @@ public class WebController {
 		if (tp.equals("0")) {
 			// рассчитать долги и пеню
 			try {
-		    	debitMng.genDebitAll(lskPar, genDt, dbgLvl, reqConf);
+				if (!isStopped) {
+					// если не остановка процесса
+					if (lskPar == null) {
+						// заблокировать при расчете по всем лиц.счетам
+						Boolean isLocked = config.getLock().setLockProc(reqConf.getRqn(), "debitMng.genDebitAll");
+						if (isLocked) {
+							try {
+								debitMng.genDebitAll(lskPar, genDt, dbgLvl, reqConf);
+							} finally {
+								// разблокировать при расчете по всем лиц.счетам
+								config.getLock().unlockProc(reqConf.getRqn(), "debitMng.genDebitAll");
+							}
+						} else {
+							return "ERROR ОШИБКА блокировки процесса расчета задолженности и пени";
+						}
+					} else {
+						// по одному лиц.счету
+				    	debitMng.genDebitAll(lskPar, genDt, dbgLvl, reqConf);
+					}
+				} else {
+					// снять маркер выполнения процесса
+					config.getLock().stopProc(reqConf.getRqn(), "debitMng.genDebitAll");
+				}
 			} catch (Exception e) {
+				log.error(Utl.getStackTraceString(e));
 				return "ERROR " + e.getMessage();
 			}
 

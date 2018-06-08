@@ -36,15 +36,6 @@ public class ReferenceMngImpl implements ReferenceMng {
 	@Override
 	@Cacheable(cacheNames="ReferenceMng.getUslOrgRedirect", key="{#uslOrg.getUslId(), #uslOrg.getOrgId(), #kart.getLsk(), #tp}" )
 	public UslOrg getUslOrgRedirect(UslOrg uslOrg, Kart kart, Integer tp) {
-/*	УДАЛИТЬ
- * 		log.info("Kart.uk={}", kart.getUk());
-		redirPayDao.getRedirPayOrd(tp,
-				kart.getUk().getReu(), uslOrg.getUslId(), uslOrg.getOrgId())
-				.stream().forEach(t-> {
-					log.info("t={}", t);
-					log.info("id={}, uk={}", t.getId(), t.getUk());
-				});
-*/
 		UslOrg uo = new UslOrg(null, null);
 		List<RedirPay> lst = redirPayDao.getRedirPayOrd(tp,
 				kart.getUk().getReu(), uslOrg.getUslId(), uslOrg.getOrgId()) .stream()

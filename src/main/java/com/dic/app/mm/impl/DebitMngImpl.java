@@ -143,18 +143,20 @@ public class DebitMngImpl implements DebitMng {
 
 		// получить список лицевых счетов
 		List<String> lstItem;
+		// флаг - заставлять ли многопоточный сервис проверять маркер остановки главного процесса
+		boolean isCheckStop;
 		// тип выполнения (0 - по одному лс, вывести отчет в C_DEBPEN_USL_TEMP,
 		//				   1 - вывести исх сальдо)
 		if (lsk == null) {
 			// по всем лиц.счетам
 			lstItem = kartDao.getAll()
 					.stream().map(t->t.getLsk()).collect(Collectors.toList());
-			lstItem = kartDao.getAll()
-					.stream().map(t->t.getLsk()).collect(Collectors.toList());
+			isCheckStop = true;
  		} else {
  			// по одному лиц.счету
  			lstItem = new ArrayList<String>(0);
  			lstItem.add(kartDao.getByLsk(lsk).getLsk());
+			isCheckStop = false;
  		}
 
 		// будет выполнено позже, в создании потока
@@ -166,7 +168,7 @@ public class DebitMngImpl implements DebitMng {
 
 		// вызвать в потоках
 		try {
-			threadMng.invokeThreads(reverse, calcStore, 5, lstItem);
+			threadMng.invokeThreads(reverse, calcStore, 15, lstItem, isCheckStop);
 		} catch (InterruptedException | ExecutionException e) {
 			log.error(Utl.getStackTraceString(e));
 			throw new ErrorWhileChrgPen("ОШИБКА во время расчета задолженности и пени!");
@@ -226,7 +228,7 @@ public class DebitMngImpl implements DebitMng {
 			// оплата пени - 4
 			localStore.setLstPayPenFlow(kwtpDayDao.getKwtpDayPenByLsk(lsk));
 			// корректировки оплаты - 6
-			localStore.setLstPayCorrFlow(correctPayDao.getCorrectPayByLsk(lsk));
+			localStore.setLstPayCorrFlow(correctPayDao.getCorrectPayByLsk(lsk, String.valueOf(period)));
 			// корректировки начисления пени - 7
 			localStore.setLstPenChrgCorrFlow(penUslCorrDao.getPenUslCorrByLsk(lsk));
 
@@ -251,7 +253,6 @@ public class DebitMngImpl implements DebitMng {
 				})
 				.collect(Collectors.toList());
 
-			// СОХРАНИТЬ расчет
 			if (calcStore.getDebugLvl().equals(1)) {
 				log.info("");
 				log.info("ИТОГОВАЯ задолжность и пеня");
@@ -268,8 +269,16 @@ public class DebitMngImpl implements DebitMng {
 			debDao.updByLskPeriod(lsk, period, periodBack);
 			penDao.updByLskPeriod(lsk, period, periodBack);
 
+			// получить задолженность, по которой рассчитывается пеня, по всем услугам
+			BigDecimal sumDeb = lst.stream().map(t->t.getDebRolled()).reduce(BigDecimal.ZERO, BigDecimal::add);
+			log.info("Задолженность для расчета пени:{}", sumDeb);
+
 			for (SumPenRec t : lst) {
-					// сохранить расчет
+					// занулить текущую пеню по всем услугам, если общее исх.долг < 0
+					if (sumDeb.compareTo(BigDecimal.ZERO) <= 0) {
+					//	t.setPenyaChrg(BigDecimal.ZERO);
+					}
+					// рассчитать исходящее сальдо по пене, сохранить расчет
 					save(calcStore, kart, localStore, t);
 			}
 
@@ -293,7 +302,9 @@ public class DebitMngImpl implements DebitMng {
 	 * @param t - рассчитанная строка
 	 */
 	private void save(CalcStore calcStore, Kart kart, CalcStoreLocal localStore, SumPenRec t) {
-		BigDecimal penChrgRound = t.getPenyaChrg().setScale(2, RoundingMode.HALF_UP); // округлить начисленную пеню
+		// округлить начисленную пеню
+		BigDecimal penChrgRound = t.getPenyaChrg().setScale(2, RoundingMode.HALF_UP);
+		// исх.сальдо по пене
 		BigDecimal penyaOut =  t.getPenyaIn().add(penChrgRound).add(t.getPenyaCorr() 							   // прибавить корректировки
 						).subtract(t.getPenyaPay() 				   // отнять оплату
 								);
@@ -421,7 +432,7 @@ public class DebitMngImpl implements DebitMng {
 					|| penChrgRound.compareTo(BigDecimal.ZERO) != 0
 					|| t.getPenyaCorr().compareTo(BigDecimal.ZERO) != 0
 					|| t.getPenyaPay().compareTo(BigDecimal.ZERO) != 0
-					|| !t.getDays().equals(0)
+					//|| !t.getDays().equals(0)
 					|| t.getPenyaCorr().compareTo(BigDecimal.ZERO) != 0
 				) {
 				// если хотя бы одно поле != 0

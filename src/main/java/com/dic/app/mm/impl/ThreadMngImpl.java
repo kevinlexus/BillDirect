@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 
+import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.PrepThread;
 import com.dic.app.mm.ThreadMng;
 import com.dic.bill.dto.CalcStore;
@@ -34,6 +35,8 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 	private ApplicationContext ctx;
     @PersistenceContext
     private EntityManager em;
+	@Autowired
+	private ConfigApp config;
 
 
 	/**
@@ -41,11 +44,13 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 	 * @param reqConfig - конфиг запроса
 	 * @param cntThreads - кол-во потоков
 	 * @param lstItem - список Id на обработку
+	 * @param isCheckStop - проверять маркер остановки процесса?
 	 * @throws ExecutionException
 	 * @throws InterruptedException
 	 */
 	@Override
-	public void invokeThreads(PrepThread<T> reverse, CalcStore calcStore, int cntThreads, List<T> lstItem) throws InterruptedException, ExecutionException {
+	public void invokeThreads(PrepThread<T> reverse, CalcStore calcStore,
+			int cntThreads, List<T> lstItem, boolean isCheckStop) throws InterruptedException, ExecutionException {
 		long startTime = System.currentTimeMillis();
 
 		List<Future<CommonResult>> frl = new ArrayList<Future<CommonResult>>(cntThreads);
@@ -55,16 +60,22 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 		// проверить окончание всех потоков и запуск новых потоков
 		T itemWork = null;
 		boolean isStop = false;
-		while (!isStop) {
+		// флаг принудительной остановки
+		boolean isStopProcess = false;
+		while (!isStop && !isStopProcess) {
 			//log.info("========================================== Ожидание выполнения потоков ===========");
 			Future<CommonResult> fut;
 			int i=0;
 			// флаг наличия потоков
 			isStop = true;
 			for (Iterator<Future<CommonResult>> itr = frl.iterator(); itr.hasNext();) {
+				if (isCheckStop && config.getLock().isStopped("debitMng.genDebitAll")) {
+					// если процесс был остановлен, выход
+					isStopProcess = true;
+					break;
+				}
 
 				fut = itr.next();
-
 				if (fut == null) {
 					// получить новый объект
 					itemWork = getNextItem(lstItem);

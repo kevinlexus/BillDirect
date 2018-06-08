@@ -62,12 +62,7 @@ public class TestWork {
 
 		log.info("Текущий период: dt1={}, dt2={}", config.getCurDt1(), config.getCurDt2());
 
-	//	Deb deb = em.find(Deb.class, 131521L);
-	//	log.info("deb={}", deb);
-		//log.info("TEST={}", Utl.between2("077", "080", "026"));
-
 		SessionDirect sessionDirect = em.find(SessionDirect.class, 4735);
-		//debitMng.genDebitAll("00000185", Utl.getDateFromStr("15.04.2014"), 0, sessionDirect);
 		// конфиг запроса
 		RequestConfig reqConf =
 				RequestConfig.builder()
@@ -75,19 +70,14 @@ public class TestWork {
 				.withSessionDirect(sessionDirect) // сессия Директ
 				.build();
 
-		debitMng.genDebitAll(null, Utl.getDateFromStr("15.04.2014"), 0, reqConf);
+		Boolean isLocked = config.getLock().setLockProc(reqConf.getRqn(), "debitMng.genDebitAll");
+		debitMng.genDebitAll("00000185", Utl.getDateFromStr("15.04.2014"), 0, reqConf);
 
-/*		redirPayDao.getRedirPayOrd(0, "002", "003", -1).forEach(t->{
-			log.info("redir.id={}", t.getId());
-		});
-*//*		kartDao.getAll()
-			.stream()
-			.filter(t-> Integer.valueOf(t.getLsk()) >= 84 && Integer.valueOf(t.getLsk()) <=90  )
-			.forEach(t-> {
-				log.info("lsk={}", t.getLsk());
-				debitMng.genDebitAll(t.getLsk(), Utl.getDateFromStr("15.04.2014"), 0);
-		});
-*/
+		/*
+		if (isLocked) {
+			debitMng.genDebitAll(null, Utl.getDateFromStr("15.04.2014"), 0, reqConf);
+		}*/
+
 		log.info("Test end");
 	}
 
