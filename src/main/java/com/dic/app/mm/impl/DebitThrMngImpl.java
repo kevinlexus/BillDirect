@@ -17,7 +17,6 @@ import com.dic.app.mm.GenPen;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.CalcStoreLocal;
 import com.dic.bill.dto.SumDebRec;
-import com.dic.bill.dto.SumPenRec;
 import com.dic.bill.dto.UslOrg;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.Usl;
@@ -41,7 +40,7 @@ public class DebitThrMngImpl implements DebitThrMng {
 	 * @throws ErrorWhileChrgPen
 	 */
 	@Override
-	public List<SumPenRec> genDebitUsl(Kart kart, UslOrg u, CalcStore calcStore, CalcStoreLocal localStore) throws ErrorWhileChrgPen {
+	public List<SumDebRec> genDebitUsl(Kart kart, UslOrg u, CalcStore calcStore, CalcStoreLocal localStore) throws ErrorWhileChrgPen {
 		//log.info("usl= {}, org= {}", u.getUslId(), u.getOrgId());
 		// дата начала расчета
 		Date dt1 = calcStore.getDt1();
@@ -157,56 +156,17 @@ public class DebitThrMngImpl implements DebitThrMng {
 			// рассчитать пеню на определенный день, добавить в общую коллекцию по всем дням
 			lstPenAllDays.addAll(genPen.getRolledDebPen(isLastDay));
 		}
+
+/*		lstPenAllDays.forEach(t-> {
+			log.info("НЕдетализир.: dt={}, mg={}, penChrg={}", t.getDt(), t.getMg(), t.getPenyaChrg());
+		});*/
+
 		// сгруппировать пеню и вернуть
-		return getGroupingPenDeb(u, lstPenAllDays);
+		//return getGroupingPenDeb(u, lstPenAllDays);
 
+		// вернуть всю детализированную пеню по данной услуге и организации, по дням
+		return lstPenAllDays;
 	}
 
-
-	/**
-	 * Сгруппировать по периодам пеню, и долги на дату расчета
-	 * @param uslOrg - услуга и организация
-	 * @param lst - долги по всем дням
-	 * @throws ErrorWhileChrgPen
-	 */
-	private List<SumPenRec> getGroupingPenDeb(UslOrg uslOrg, List<SumDebRec> lst) throws ErrorWhileChrgPen {
-		// получить долги на последнюю дату
-		List<SumPenRec> lstDebAmnt =  lst.stream()
-				.filter(t-> t.getIsLastDay() == true)
-				.map(t-> new SumPenRec(t.getDebIn(), t.getPenyaPay(), t.getPayCorr(), t.getDebPay(),
-						t.getChrg(), t.getChng(), uslOrg, t.getDebOut(),
-						t.getDebRolled(), t.getPenyaIn(),
-						t.getPenyaCorr(), t.getDays(), t.getMg()))
-				.collect(Collectors.toList());
-
-		// сгруппировать начисленную пеню по периодам
-		for (SumDebRec t :lst) {
-			addPen(uslOrg, lstDebAmnt, t.getMg(), t.getPenyaChrg(), t.getDays());
-		}
-		return lstDebAmnt;
-	}
-
-	/**
-	 * добавить пеню по периоду в долги по последней дате
-	 * @param uslOrg - услуга и организация
-	 * @param lstDebAmnt - коллекция долгов
-	 * @param mg - период долга
-	 * @param penya - начисленая пеня за день
-	 * @param days - дней просрочки (если не будет найден период в долгах, использовать данный параметр)
-	 * @throws ErrorWhileChrgPen
-	 */
-	private void addPen(UslOrg uslOrg, List<SumPenRec> lstDebAmnt, Integer mg, BigDecimal penya, Integer days) throws ErrorWhileChrgPen {
-		// найти запись долга с данным периодом
-		SumPenRec recDeb = lstDebAmnt.stream()
-				.filter(t-> t.getMg().equals(mg)).findFirst().orElse(null);
-		if (recDeb != null) {
-			// запись найдена, сохранить значение пени
-			recDeb.setPenyaChrg(recDeb.getPenyaChrg().add(penya));
-		} else {
-			// запись НЕ найдена, создать новую, сохранить значение пени
-			// вообще, должна быть найдена запись, иначе, ошибка в коде!
-			throw new ErrorWhileChrgPen("Не найдена запись долга в процессе сохранения значения пени!");
-		}
-	}
 
 }

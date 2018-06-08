@@ -99,6 +99,12 @@ public class GenPen {
 		Iterator<SumDebRec> itr = lstSorted.iterator();
 		while (itr.hasNext()) {
 			SumDebRec t = itr.next();
+			// дата расчета
+			t.setDt(curDt);
+			// Id услуги
+			t.setUslId(uslOrg.getUslId());
+			// Id организации
+			t.setOrgId(uslOrg.getOrgId());
 			// пометить текущий день, является ли последним расчетным днём
 			t.setIsLastDay(isLastDay);
 			// Задолженность для расчета ПЕНИ
