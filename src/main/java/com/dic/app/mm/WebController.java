@@ -12,8 +12,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dic.bill.RequestConfig;
+import com.dic.bill.dao.KartDAO;
 import com.dic.bill.model.scott.SessionDirect;
 import com.ric.cmn.Utl;
+import com.ric.cmn.excp.ErrorWhileDistDeb;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -21,12 +23,16 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class WebController {
 
+	@PersistenceContext
+    private EntityManager em;
 	@Autowired
 	private DebitMng debitMng;
 	@Autowired
+	private KartDAO kartDao;
+	@Autowired
+	private MigrateMng migrateMng;
+	@Autowired
 	private ConfigApp config;
-	@PersistenceContext
-    private EntityManager em;
 
 	/**
 	 * Расчет
@@ -135,6 +141,35 @@ public class WebController {
 		}
     }
 
+
+
+	@RequestMapping("/migrate")
+    public String migrate (
+    		@RequestParam(value = "lskFrom", defaultValue = "0") String lskFrom,
+    		@RequestParam(value = "lskTo", defaultValue = "0") String lskTo,
+    		@RequestParam(value = "key", defaultValue = "", required = false) String key) {
+		log.info("GOT /migrate with: lskFrom={}, lskTo={}",
+				lskFrom, lskTo);
+
+		// проверка валидности ключа
+		boolean isValidKey = checkValidKey(key);
+		if (!isValidKey) {
+			return "ERROR wrong key!";
+		}
+		kartDao.getRangeLsk(lskFrom, lskTo).forEach(t-> {
+			try {
+				migrateMng.migrateDeb(t.getLsk(),
+						Integer.getInteger(config.getPeriodBack()));
+			} catch (ErrorWhileDistDeb e) {
+				log.info(Utl.getStackTraceString(e));
+			}
+		});
+
+
+
+		return "OK";
+
+	}
 
 	private boolean checkValidKey(String key) {
 		SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd");

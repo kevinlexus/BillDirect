@@ -249,29 +249,21 @@ public class DebitMngImpl implements DebitMng {
 				})
 				.collect(Collectors.toList());
 
-			if (calcStore.getDebugLvl().equals(1)) {
-				log.info("");
-				log.info("ИТОГОВАЯ задолжность и пеня");
-			}
-
 			// найти совокупные задолженности каждого дня, обнулить пеню, в тех днях, где задолженность = 0
 			// по дням
+			//log.info("Контроль по совокупным задолженностям");
 			Calendar c = Calendar.getInstance();
 			for (c.setTime(calcStore.getDt1()); !c.getTime().after(calcStore.getGenDt()); c.add(Calendar.DATE, 1)) {
 				Date curDt = c.getTime();
-				boolean isZeroDeb = true;
-				// фильтровать по дате
-				List<SumDebRec> lstCheck = lst.stream().filter(t->t.getDt().equals(curDt)).collect(Collectors.toList());
-				for (SumDebRec t: lstCheck) {
-					if (t.getDebOut().compareTo(BigDecimal.ZERO) == 1) {
-						// есть долг, пропускаем эту дату
-						isZeroDeb = false;
-						break;
-					}
-				}
-				if (isZeroDeb) {
+				//log.info("Контроль по совокупным задолженностям дата={}", curDt);
+				// суммировать по дате
+				BigDecimal debForPen = lst.stream().filter(t->t.getDt().equals(curDt))
+						.map(t-> t.getSumma()).reduce(BigDecimal.ZERO, BigDecimal::add);
+				//log.info("Контроль по совокупным задолженностям долг={}", debForPen);
+				if (debForPen.compareTo(BigDecimal.ZERO) <=0) {
 					// нет долгов, занулить пеню по всей дате
-					lstCheck.forEach(t-> t.setPenyaChrg(BigDecimal.ZERO));
+					//log.info("Контроль по совокупным задолженностям Нулим дату={}", curDt);
+					lst.stream().filter(t->t.getDt().equals(curDt)).forEach(t-> t.setPenyaChrg(BigDecimal.ZERO));
 				}
 			}
 
