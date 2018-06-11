@@ -6,17 +6,26 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Scope;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.MigrateMng;
+import com.dic.app.mm.PrepThread;
+import com.dic.app.mm.ThreadMng;
 import com.dic.bill.dao.DebDAO;
 import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dto.SumDebMgRec;
@@ -27,6 +36,8 @@ import com.dic.bill.model.scott.Deb;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.Org;
 import com.dic.bill.model.scott.Usl;
+import com.ric.cmn.CommonResult;
+import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileDistDeb;
 
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +57,7 @@ class Cnt {
  */
 @Slf4j
 @Service
+@Scope("prototype")
 public class MigrateMngImpl implements MigrateMng {
 
 	@PersistenceContext
@@ -54,20 +66,67 @@ public class MigrateMngImpl implements MigrateMng {
 	private SaldoUslDAO saldoUslDao;
 	@Autowired
 	private DebDAO debDao;
+	@Autowired
+	private ConfigApp config;
+	@Autowired
+	private ApplicationContext ctx;
+	@Autowired
+	private ThreadMng<String> threadMng;
+
+
+	@Override
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor=Exception.class)
+	public void migrateAll(String lskFrom, String lskTo) throws ErrorWhileDistDeb {
+		long startTime = System.currentTimeMillis();
+		log.info("НАЧАЛО миграции задолженности в новые структуры");
+
+		// получить список лицевых счетов
+		List<String> lstItem;
+		// флаг - заставлять ли многопоточный сервис проверять маркер остановки главного процесса
+		boolean isCheckStop = false;
+		lstItem= saldoUslDao.getAllWithNonZeroDeb(lskFrom, lskTo,
+				config.getPeriodBack());
+
+		// будет выполнено позже, в создании потока
+		PrepThread<String> reverse = (item) -> {
+			// сервис миграции задолженностей
+			MigrateMng migrateMng = ctx.getBean(MigrateMng.class);
+			return migrateMng.migrateDeb(item,
+					Integer.parseInt(config.getPeriodBack()),
+					Integer.parseInt(config.getPeriod()));
+		};
+
+		// вызвать в потоках
+		try {
+			threadMng.invokeThreads(reverse, 15, lstItem, isCheckStop);
+		} catch (InterruptedException | ExecutionException e) {
+			log.error(Utl.getStackTraceString(e));
+			throw new ErrorWhileDistDeb("ОШИБКА во время миграции задолженности!");
+		}
+
+
+		long endTime = System.currentTimeMillis();
+		long totalTime = endTime - startTime;
+		log.info("ОКОНЧАНИЕ миграции задолженности - Общее время выполнения={}", totalTime);
+
+	}
 
 	/**
 	 * Перенести данные из таблиц Директ, в систему учета долгов
 	 * по услуге, организации, периоду
 	 * @param lsk - лицевой счет
-	 * @param period - как правило предыдущий период, относительно текущего
+	 * @param periodBack - как правило предыдущий период, относительно текущего
+	 * @param period - текущий период
 	 * @throws ErrorWhileDistDeb
 	 */
+	@Async
 	@Override
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor=Exception.class)
-	public void migrateDeb(String lsk, Integer period) throws ErrorWhileDistDeb {
+	public Future<CommonResult> migrateDeb(String lsk, Integer periodBack, Integer period) {
 
+		log.info("Распределение лиц.счета={}, period={}, periodBack={}", lsk, period, periodBack);
 		// получить задолженность
-		List<SumDebMgRec> lstDeb = getDeb(lsk, period);
+		List<SumDebMgRec> lstDeb = getDeb(lsk, periodBack);
 
 		// получить исходящее сальдо предыдущего периода
 		List<SumDebUslMgRec> lstSal = getSal(lsk, period);
@@ -162,22 +221,23 @@ public class MigrateMngImpl implements MigrateMng {
 		Cnt cnt = new Cnt();
 		check(lstSal, lstDeb, cnt);
 
+		log.info("*** cntSal={}, cntDeb={}", cnt.cntSal, cnt.cntDeb);
 		if (cnt.cntSal == 0L && cnt.cntDeb != 0L) {
 			// сальдо распределено, долги не распределены
 			// вызвать принудительное распределение
 			log.info("*** РАСПРЕДЕЛИТЬ ДОЛГИ финально");
-			distDebFinal(period, lstDebResult, cnt);
+			distDebFinal(periodBack, lstDebResult, cnt, lsk);
 
 		} else if (cnt.cntSal != 0L && cnt.cntDeb == 0L) {
 			// сальдо не распределено, долги распределены
 
 			log.info("*** РАСПРЕДЕЛИТЬ САЛЬДО финально");
-			distSalFinal(period, lstDebResult, cnt);
+			distSalFinal(periodBack, lstDebResult, cnt);
 
 		} else if (cnt.cntSal != 0L && cnt.cntDeb != 0L) {
 			// сальдо не распределено, долги не распределены
-			distDebFinal(period, lstDebResult, cnt);
-			distSalFinal(period, lstDebResult, cnt);
+			distDebFinal(periodBack, lstDebResult, cnt, lsk);
+			distSalFinal(periodBack, lstDebResult, cnt);
 		}
 
 		// проверить наличие распределения
@@ -185,28 +245,28 @@ public class MigrateMngImpl implements MigrateMng {
 
 		if (cnt.cntDeb != 0L) {
 			// долги не распределены
-			throw new ErrorWhileDistDeb("ОШИБКА #1 не распределены ДОЛГИ в лс="+lsk);
+			throw new RuntimeException("ОШИБКА #1 не распределены ДОЛГИ в лс="+lsk);
 		}
 		if (cnt.cntSal != 0L) {
 			// сальдо не распределено
-			throw new ErrorWhileDistDeb("ОШИБКА #2 не распределено САЛЬДО в лс="+lsk);
+			throw new RuntimeException("ОШИБКА #2 не распределено САЛЬДО в лс="+lsk);
 		}
 
 		printDeb(lstDeb);
 		printSal(lstSal, lstDebResult);
 
 		// удалить предыдущее распределение
-		debDao.delByLskPeriod(lsk, period);
+		debDao.delByLskPeriod(lsk, periodBack);
 		// сохранить распределённые задолженности
 		Kart kart = em.find(Kart.class, lsk);
 		for (SumDebUslMgRec t : lstDebResult) {
 			Usl usl = em.find(Usl.class, t.getUslId());
 			if (usl==null) {
-				throw new ErrorWhileDistDeb("ОШИБКА #4 сохранения задолженности, не найдена услуга usl="+t.getUslId());
+				throw new RuntimeException("ОШИБКА #4 сохранения задолженности, не найдена услуга usl="+t.getUslId());
 			}
 			Org org = em.find(Org.class, t.getOrgId());
 			if (org==null) {
-				throw new ErrorWhileDistDeb("ОШИБКА #5 сохранения задолженности, не найдена организация org="+t.getOrgId());
+				throw new RuntimeException("ОШИБКА #5 сохранения задолженности, не найдена организация org="+t.getOrgId());
 			}
 			// сохранить новое
 			Deb deb = Deb.builder()
@@ -215,17 +275,18 @@ public class MigrateMngImpl implements MigrateMng {
 				.withMg(t.getMg())
 				.withUsl(usl)
 				.withOrg(org)
-				.withMgFrom(period)
-				.withMgTo(period)
+				.withMgFrom(periodBack)
+				.withMgTo(periodBack)
 				.build();
 			em.persist(deb);
 		}
 
-		log.info("Распределение выполнено!");
-
+		log.info("Распределение по лиц.счету={} выполнено!", lsk);
+		CommonResult res = new CommonResult(lsk, 1111111111); // TODO 111111
+		return new AsyncResult<CommonResult>(res);
 	}
 
-	private void distDebFinal(Integer period, List<SumDebUslMgRec> lstDebResult, Cnt cnt) {
+	private void distDebFinal(Integer period, List<SumDebUslMgRec> lstDebResult, Cnt cnt, String lsk) {
 		// получить любую строку итоговых долгов
 		SumDebUslMgRec someResult = lstDebResult.stream()
 				.findAny().orElse(null);
@@ -246,6 +307,9 @@ public class MigrateMngImpl implements MigrateMng {
 						lastResult.getSumma().add(t.getSumma())
 						);
 			} else {
+				if (someResult == null) {
+					log.error("ОШИБКА! Возможно некорректные долги по лиц.счету={}", lsk);
+				}
 				// не найден последний период
 				// поставить сумму
 				lstDebResult.add(SumDebUslMgRec.builder()

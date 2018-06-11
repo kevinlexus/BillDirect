@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.PrepThread;
 import com.dic.app.mm.ThreadMng;
-import com.dic.bill.dto.CalcStore;
 import com.ric.cmn.CommonResult;
 import com.ric.cmn.Utl;
 
@@ -49,7 +48,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 	 * @throws InterruptedException
 	 */
 	@Override
-	public void invokeThreads(PrepThread<T> reverse, CalcStore calcStore,
+	public void invokeThreads(PrepThread<T> reverse,
 			int cntThreads, List<T> lstItem, boolean isCheckStop) throws InterruptedException, ExecutionException {
 		long startTime = System.currentTimeMillis();
 

@@ -36,25 +36,37 @@ public class GenPen {
 	private Kart kart;
 
 	// сгруппированные задолженности
-	List<SumDebRec> lst = new ArrayList<SumDebRec>();
+	List<SumDebRec> lst;
 	// услуга
 	private Usl usl;
+	// Integer представление кода reu, для ускорения фильтров
+	private int reuId;
 
 	/**
 	 * Конструктор
 	 * @param kart - лиц.счет
 	 * @param uslOrg - услуга + организация
 	 * @param usl - услуга (возникла необходимость получить еще и типы услуг, поэтому ввел usl)
-	 * @param curDt - рассчетная дата
 	 * @param calcStore - хранилище справочников
+	 * @param reuId - Integer представление кода reu, для ускорения фильтров
+	 * @param передать сюда UtlMng, так как это не сервис
 	 */
-	public GenPen(Kart kart, UslOrg uslOrg, Usl usl, Date curDt, CalcStore calcStore) {
+	public GenPen(Kart kart, UslOrg uslOrg, Usl usl, CalcStore calcStore, int reuId) {
 		this.calcStore = calcStore;
 		this.uslOrg = uslOrg;
-		this.curDt = curDt;
 		this.kart = kart;
 		this.usl = usl;
+		this.reuId = reuId;
 	};
+
+	/**
+	 * Инициализация класса
+	 * @param curDt
+	 */
+	public void setUp(Date curDt) {
+		lst = new ArrayList<SumDebRec>();
+		this.curDt = curDt;
+	}
 
 	/**
 	 * Справочник начала действия пени... была попытка сделать на нём @Cacheable
@@ -69,7 +81,9 @@ public class GenPen {
 	private PenDt getPenDt(Integer mg, Usl usl, Kart kart) {
 		return calcStore.getLstPenDt().stream()
 				.filter(t-> t.getUslTpPen().equals(usl.getTpPenDt()) && t.getMg().equals(mg)) // фильтр по типу услуги и периоду
-				.filter(t-> Utl.between2(kart.getUk().getReu(), t.getReuFrom(), t.getReuTo())) // фильтр по УК
+//				.filter(t-> utlMng.between2(kart.getUk().getReu(), t.getReuFrom(), t.getReuTo()))
+				.filter(t-> Utl.between2(reuId, t.getReuFrom(), t.getReuTo()))
+				//.filter(t-> Utl.between2(calcStore, t.getReuFrom(), t.getReuTo()))
 				.findFirst().orElse(null);
 	}
 

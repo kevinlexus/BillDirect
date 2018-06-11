@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dic.bill.RequestConfig;
-import com.dic.bill.dao.KartDAO;
+import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.model.scott.SessionDirect;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileDistDeb;
@@ -28,7 +28,7 @@ public class WebController {
 	@Autowired
 	private DebitMng debitMng;
 	@Autowired
-	private KartDAO kartDao;
+	private SaldoUslDAO saldoUslDao;
 	@Autowired
 	private MigrateMng migrateMng;
 	@Autowired
@@ -63,6 +63,7 @@ public class WebController {
 		// проверка валидности ключа
 		boolean isValidKey = checkValidKey(key);
 		if (!isValidKey) {
+			log.info("ERROR wrong key!");
 			return "ERROR wrong key!";
 		}
 		// проверка типа формирования
@@ -154,18 +155,16 @@ public class WebController {
 		// проверка валидности ключа
 		boolean isValidKey = checkValidKey(key);
 		if (!isValidKey) {
+			log.info("ERROR wrong key!");
 			return "ERROR wrong key!";
 		}
-		kartDao.getRangeLsk(lskFrom, lskTo).forEach(t-> {
-			try {
-				migrateMng.migrateDeb(t.getLsk(),
-						Integer.getInteger(config.getPeriodBack()));
-			} catch (ErrorWhileDistDeb e) {
-				log.info(Utl.getStackTraceString(e));
-			}
-		});
 
-
+		try {
+			migrateMng.migrateAll(lskFrom, lskTo);
+		} catch (ErrorWhileDistDeb e) {
+			log.error("Прошла ошибка, в процессе миграции данных по задолженностям");
+			log.error(Utl.getStackTraceString(e));
+		}
 
 		return "OK";
 

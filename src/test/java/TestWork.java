@@ -72,7 +72,7 @@ public class TestWork {
 
 		Boolean isLocked = config.getLock().setLockProc(reqConf.getRqn(), "debitMng.genDebitAll");
 		//debitMng.genDebitAll("00000185", "00000185", Utl.getDateFromStr("15.04.2014"), 0, reqConf);
-		debitMng.genDebitAll("00000185", "90000185", Utl.getDateFromStr("15.04.2014"), 0, reqConf);
+		debitMng.genDebitAll("00000000", "90000030", Utl.getDateFromStr("15.04.2014"), 0, reqConf);
 
 		/*
 		if (isLocked) {

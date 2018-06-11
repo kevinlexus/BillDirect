@@ -12,8 +12,8 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import com.dic.app.Config;
+import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.MigrateMng;
-import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileDistDeb;
 
 import lombok.extern.slf4j.Slf4j;
@@ -30,18 +30,15 @@ public class TestMigration {
     private EntityManager em;
 	@Autowired
     private MigrateMng migrateMng;
+	@Autowired
+    private ConfigApp config;
 
     @Test
     @Rollback(false)
-    public void mainTestMigration() {
-		log.info("Test start");
+    public void mainTestMigration() throws ErrorWhileDistDeb {
+		log.info("Test start, period={}", config.getPeriod());
 
-		try {
-			migrateMng.migrateDeb("00000085", 201403);
-		} catch (ErrorWhileDistDeb e) {
-			// TODO Auto-generated catch block
-			log.error(Utl.getStackTraceString(e));
-		}
+		//migrateMng.migrateDeb("00000085", 201403, 201404);
 
 		log.info("Test end");
 	}

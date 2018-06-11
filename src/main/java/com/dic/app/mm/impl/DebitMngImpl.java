@@ -166,7 +166,7 @@ public class DebitMngImpl implements DebitMng {
 
 		// вызвать в потоках
 		try {
-			threadMng.invokeThreads(reverse, calcStore, 15, lstItem, isCheckStop);
+			threadMng.invokeThreads(reverse, 15, lstItem, isCheckStop);
 		} catch (InterruptedException | ExecutionException e) {
 			log.error(Utl.getStackTraceString(e));
 			throw new ErrorWhileChrgPen("ОШИБКА во время расчета задолженности и пени!");
@@ -174,7 +174,7 @@ public class DebitMngImpl implements DebitMng {
 
 		long endTime = System.currentTimeMillis();
 		long totalTime = endTime - startTime;
-		log.info("ОКОНЧАНИЕ расчета задолженности - Общее время расчета={}", totalTime);
+		log.info("ОКОНЧАНИЕ расчета задолженности - Общее время выполнения={}", totalTime);
 	}
 
 
@@ -229,9 +229,10 @@ public class DebitMngImpl implements DebitMng {
 			localStore.setLstPayCorrFlow(correctPayDao.getCorrectPayByLsk(lsk, String.valueOf(period)));
 			// корректировки начисления пени - 7
 			localStore.setLstPenChrgCorrFlow(penUslCorrDao.getPenUslCorrByLsk(lsk));
-
 			// создать список уникальных элементов услуга+организация
 			localStore.createUniqUslOrg();
+			// преобразовать String код reu в int, для ускорения фильтров
+			localStore.setReuId(Integer.parseInt(kart.getUk().getReu()));
 			// получить список уникальных элементов услуга+организация
 			List<UslOrg> lstUslOrg = localStore.getUniqUslOrg();
 

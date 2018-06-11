@@ -49,12 +49,16 @@ public class DebitThrMngImpl implements DebitThrMng {
 		// загрузить услугу
 		Usl usl = em.find(Usl.class, u.getUslId());
 
+		// объект расчета пени
+		GenPen genPen = new GenPen(kart, u, usl, calcStore, localStore.getReuId());
+
 		List<SumDebRec> lstDeb = new ArrayList<SumDebRec>(50);
 		// РАСЧЕТ по дням
 		Calendar c = Calendar.getInstance();
 		List<SumDebRec> lstPenAllDays = new ArrayList<SumDebRec>(100);
 		for (c.setTime(dt1); !c.getTime().after(dt2); c.add(Calendar.DATE, 1)) {
 			Date curDt = c.getTime();
+			genPen.setUp(curDt);
 			// является ли текущий день последним расчетным?
 			boolean isLastDay = curDt.equals(dt2);
 
@@ -148,8 +152,6 @@ public class DebitThrMngImpl implements DebitThrMng {
 						.collect(Collectors.toList()));
 			}
 
-			// объект расчета пени
-			GenPen genPen = new GenPen(kart, u, usl, curDt, calcStore);
 			// добавить и сгруппировать все финансовые операции, по состоянию на текущий день
 			lstDeb.forEach(t-> genPen.addRec(t, isLastDay));
 			// свернуть долги (учесть переплаты предыдущих периодов),
