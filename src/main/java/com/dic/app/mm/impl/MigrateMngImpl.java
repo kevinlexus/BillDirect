@@ -121,7 +121,7 @@ public class MigrateMngImpl implements MigrateMng {
 	 */
 	@Async
 	@Override
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor=Exception.class)
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
 	public Future<CommonResult> migrateDeb(String lsk, Integer periodBack, Integer period) {
 
 		log.info("Распределение лиц.счета={}, period={}, periodBack={}", lsk, period, periodBack);
