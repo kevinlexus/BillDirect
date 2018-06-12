@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.dic.app.mm.GenMng;
+import com.dic.app.mm.ExecMng;
 import com.dic.bill.dao.SprGenItmDAO;
 import com.dic.bill.model.scott.SprGenItm;
 
@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-public class GenMngImpl implements GenMng {
+public class ExecMngImpl implements ExecMng {
 
 	@PersistenceContext
 	private EntityManager em;
@@ -47,7 +47,7 @@ public class GenMngImpl implements GenMng {
 	}
 
 	@Override
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@Transactional(readOnly = false, propagation = Propagation.MANDATORY)
 	public Integer execProc(Integer var, Integer id, Integer sel) {
 		StoredProcedureQuery qr;
 		Integer ret = null;
@@ -131,18 +131,20 @@ public class GenMngImpl implements GenMng {
 				par=9;
 				break;
 			}
-
 			qr.setParameter(3, par);
 			qr.execute();
 			ret = (Integer) qr.getOutputParameterValue(1);
 			log.info("Проверка ошибок scott.gen.gen_check с параметром var_={}, дала результат err_={}", par, ret);
 			break;
-
 		case 16:
 			// установить текущую дату, до формирования
 			qr = em.createStoredProcedureQuery("scott.init.set_date_for_gen");
 			qr.executeUpdate();
-
+			break;
+		case 17:
+			//чистить инф, там где ВООБЩЕ нет счетчиков (нет записи в c_vvod)
+			qr = em.createStoredProcedureQuery("scott.p_thread.gen_clear_vol");
+			qr.executeUpdate();
 			break;
 		case 35:
 			// вызов из WebCtrl
@@ -153,7 +155,44 @@ public class GenMngImpl implements GenMng {
 			qr.setParameter(1, id);
 			qr.setParameter(2, sel);
 			qr.executeUpdate();
-
+			break;
+		case 36:
+		    // перераспределение авансовых платежей
+			qr = em.createStoredProcedureQuery("scott.c_dist_pay.dist_pay_lsk_avnc_force");
+			qr.executeUpdate();
+			break;
+		case 100:
+			// распределить ОДН во вводах, где нет ОДПУ
+			qr = em.createStoredProcedureQuery("scott.p_vvod.gen_dist_wo_vvod_usl");
+			qr.registerStoredProcedureParameter(1, Integer.class, ParameterMode.IN);
+			qr.setParameter(1, id);
+			qr.executeUpdate();
+			break;
+		case 101:
+			// распределить ОДН во вводах, где есть ОДПУ
+			qr = em.createStoredProcedureQuery("scott.p_thread.gen_dist_odpu");
+			qr.registerStoredProcedureParameter(1, Integer.class, ParameterMode.IN);
+			qr.setParameter(1, id);
+			qr.executeUpdate();
+			break;
+		case 102:
+			// начислить пеню по домам
+			qr = em.createStoredProcedureQuery("scott.c_cpenya.gen_charge_pay_pen_house");
+			// дата, не заполняем, null
+			qr.registerStoredProcedureParameter(1, Date.class, ParameterMode.IN);
+			// id дома
+			qr.registerStoredProcedureParameter(2, Integer.class, ParameterMode.IN);
+			qr.setParameter(1, new Date());
+			qr.setParameter(2, id);
+			qr.executeUpdate();
+			break;
+		case 103:
+			// расчитать начисление по домам
+			qr = em.createStoredProcedureQuery("scott.c_charges.gen_charges");
+			// id дома
+			qr.registerStoredProcedureParameter(1, Integer.class, ParameterMode.IN);
+			qr.setParameter(1, id);
+			qr.executeUpdate();
 			break;
 
 		default:
@@ -199,4 +238,14 @@ public class GenMngImpl implements GenMng {
 	public void stateBase(int state) {
 		execProc(3, null, state);
 	}
+
+	@Override
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
+	public void setProc(SprGenItm spr, double proc) {
+		SprGenItm spr2;
+		spr2=em.find(SprGenItm.class, spr.getId());
+		log.info("ПРОЦЕНТ в процедуре %={}", proc);
+		spr2.setProc(proc);
+	}
+
 }

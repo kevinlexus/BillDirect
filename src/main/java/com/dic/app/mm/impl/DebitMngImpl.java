@@ -96,11 +96,6 @@ public class DebitMngImpl implements DebitMng {
 	@PersistenceContext
     private EntityManager em;
 
-	// Метод лямбда, для выполнения внутри сервиса потоков
-	public static Future<CommonResult> reverseStr(PrepThread<String> reverse, String lsk){
-		  return reverse.myStringFunction(lsk);
-	}
-
 	/**
 	 * Расчет задолжности и пени
 	 * @param lskFrom - начальный лиц.счет, если отсутствует - весь фонд
@@ -145,20 +140,20 @@ public class DebitMngImpl implements DebitMng {
 
 		// получить список лицевых счетов
 		List<String> lstItem;
-		// флаг - заставлять ли многопоточный сервис проверять маркер остановки главного процесса
-		boolean isCheckStop;
 		lstItem= kartDao.getRangeLsk(lskFrom, lskTo)
 				.stream().map(t-> t.getLsk()).collect(Collectors.toList());
+		// маркер главного процесса, проверять, для осуществления остановки
+		String mark;
 		if (!lskFrom.equals(lskTo) ) {
 			// по диапазону лиц.счетов
-			isCheckStop = true;
+			mark = "MainGeneration";
  		} else {
  			// по одному лиц.счету
-			isCheckStop = false;
+			mark = null;
  		}
 
 		// будет выполнено позже, в создании потока
-		PrepThread<String> reverse = (item) -> {
+		PrepThread<String> reverse = (item, proc) -> {
 			// сервис расчета задолженности и пени
 			DebitMng debitMng = ctx.getBean(DebitMng.class);
 			return debitMng.genDebit(item, calcStore, reqConf);
@@ -166,7 +161,7 @@ public class DebitMngImpl implements DebitMng {
 
 		// вызвать в потоках
 		try {
-			threadMng.invokeThreads(reverse, 15, lstItem, isCheckStop);
+			threadMng.invokeThreads(reverse, 15, lstItem, mark);
 		} catch (InterruptedException | ExecutionException e) {
 			log.error(Utl.getStackTraceString(e));
 			throw new ErrorWhileChrgPen("ОШИБКА во время расчета задолженности и пени!");

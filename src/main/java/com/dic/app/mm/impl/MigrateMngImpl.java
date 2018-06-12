@@ -88,7 +88,7 @@ public class MigrateMngImpl implements MigrateMng {
 				config.getPeriodBack());
 
 		// будет выполнено позже, в создании потока
-		PrepThread<String> reverse = (item) -> {
+		PrepThread<String> reverse = (item, proc) -> {
 			// сервис миграции задолженностей
 			MigrateMng migrateMng = ctx.getBean(MigrateMng.class);
 			return migrateMng.migrateDeb(item,
@@ -98,7 +98,7 @@ public class MigrateMngImpl implements MigrateMng {
 
 		// вызвать в потоках
 		try {
-			threadMng.invokeThreads(reverse, 15, lstItem, isCheckStop);
+			threadMng.invokeThreads(reverse, 15, lstItem, null);
 		} catch (InterruptedException | ExecutionException e) {
 			log.error(Utl.getStackTraceString(e));
 			throw new ErrorWhileDistDeb("ОШИБКА во время миграции задолженности!");

@@ -6,7 +6,7 @@ import com.ric.cmn.CommonResult;
 
 public interface PrepThread<T> {
 
-	Future<CommonResult> myStringFunction(T itemWork);
+	Future<CommonResult> lambdaFunction(T itemWork, double proc);
 
 }
 

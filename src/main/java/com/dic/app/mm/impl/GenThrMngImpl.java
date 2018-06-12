@@ -1,21 +1,25 @@
 package com.dic.app.mm.impl;
 
+import java.util.concurrent.Future;
+
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dic.app.mm.ConfigApp;
-import com.dic.app.mm.GenMng;
+import com.dic.app.mm.ExecMng;
 import com.dic.app.mm.GenThrMng;
 import com.dic.bill.dao.SprGenItmDAO;
+import com.dic.bill.dao.VvodDAO;
 import com.dic.bill.model.scott.SprGenItm;
-import com.ric.cmn.excp.ErrorWhileGen;
+import com.ric.cmn.CommonResult;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,173 +35,48 @@ public class GenThrMngImpl implements GenThrMng {
 	@Autowired
 	private SprGenItmDAO sprGenItemDao;
 	@Autowired
-	private GenMng genMng;
+	private VvodDAO vvodDao;
+	@Autowired
+	private ExecMng genMng;
 
 	/**
-	 * ОСНОВНОЙ поток формирования
-	 * @throws ErrorWhileGen
+	 * Выполнить поток. Propagation.REQUIRES_NEW - так как не удается в новом потоке
+	 * продолжить транзакцию от главного, REQUIRED - не помогло.
+	 *
+	 * @param var - вид задачи
+	 * @param id - id объекта
 	 */
-	@Override
 	@Async
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
-	public void startMainThread() {
+	@Override
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
+	public Future<CommonResult> doJob(Integer var, Integer id, SprGenItm spr, double proc) {
+		switch (var) {
+		case 1:
+			log.info("Выполняется поток распределения объемов во вводе id={}, где нет ОДПУ", id);
+			genMng.execProc(100, id, null);
+			log.info("Выполнился поток распределения объемов во вводе id={}, где нет ОДПУ", id);
+			break;
+		case 2:
+			log.info("Выполняется поток распределения объемов во вводе id={}, где есть ОДПУ", id);
+			genMng.execProc(101, id, null);
+			log.info("Выполнился поток распределения объемов во вводе id={}, где есть ОДПУ", id);
+			break;
+		case 3:
+			//**********установить дату формирования, так как новая транзакция (Propagation.REQUIRES_NEW)
+			genMng.setGenDate();
 
-		// установить статус - формирование
-		config.setStateGen("1");
-		// прогресс - 0
-		config.setProgress(0);
-
-		SprGenItm menuGenItg = sprGenItemDao.getByCd("GEN_ITG");
-		SprGenItm menuMonthOver = sprGenItemDao.getByCd("GEN_MONTH_OVER");
-		SprGenItm menuCheckBG = sprGenItemDao.getByCd("GEN_CHECK_BEFORE_GEN");
-
-		//**********почистить ошибку последнего формирования, % выполнения
-		genMng.clearError(menuGenItg);
-
-		//**********установить дату формирования
-		genMng.setGenDate();
-
-		//**********Закрыть базу для пользователей, если выбрано итоговое формир
-		if (menuGenItg.getSel()) {
-			genMng.stateBase(1);
-			log.info("Установлен признак закрытия базы!");
-		}
-
-		//**********Проверки до формирования
-		if (menuCheckBG.getSel()) {
-			// если выбраны проверки, а они как правило д.б. выбраны при итоговом
-			if (checkErr()) {
-				// найдены ошибки - выход
-				menuGenItg.setState("Найдены ошибки до формирования!");
-				log.info("Найдены ошибки до формирования!");
-				// статус - формирование остановлено
-				config.setStateGen("0");
-				return;
-			}
-			log.info("Проверки до формирования выполнены!");
-		}
-
-		//**********Проверки до перехода месяца
-		if (menuMonthOver.getSel()) {
-			if (checkMonthOverErr()) {
-				// найдены ошибки - выход
-				menuGenItg.setState("Найдены ошибки до перехода месяца!");
-				log.info("Найдены ошибки до перехода месяца!");
-				// статус - формирование остановлено
-				config.setStateGen("0");
-				return;
-			}
-			log.info("Проверки до перехода месяца выполнены!");
-		}
-
-
-
-
-
-
-
-
-
-
-
-		while (config.getStateGen().equals("1")) {
-			try {
-				Thread.sleep(1000);
-				config.setProgress(config.getProgress()+1);
-				log.info("ПРОВЕРКА ПОТОКА!");
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-
-			}
+			log.info("Выполняется поток начисления пени по дому c_house.id={}", id);
+			genMng.execProc(102, id, null);
+			log.info("Выполнился поток начисления пени по дому c_house.id={}", id);
+			break;
+		case 4:
+			log.info("Выполняется поток расчета начисления по дому c_house.id={}", id);
+			genMng.execProc(103, id, null);
+			log.info("Выполнился поток расчета начисления по дому c_house.id={}", id);
+			break;
 
 		}
-
-
+		CommonResult res = new CommonResult(null, 0);
+		return new AsyncResult<CommonResult>(res);
 	}
-
-	/**
-	 * Проверка ошибок
-	 * вернуть false - если нет ошибок
-	 */
-	private boolean checkErr() {
-		// новая проверка, на список домов в разных УК, по которым обнаружены открытые лицевые счета
-		Integer ret = genMng.execProc(38, null, null);
-		boolean isErr = false;
-		if (ret.equals(1)) {
-			// установить статус ошибки, выйти из формирования
-			isErr = true;
-		}
-		ret = genMng.execProc(4, null, null);
-		if (ret.equals(1)) {
-			// установить статус ошибки, выйти из формирования
-			isErr = true;
-		}
-		ret = genMng.execProc(5, null, null);
-		if (ret.equals(1)) {
-			// установить статус ошибки, выйти из формирования
-			isErr = true;
-		}
-		ret = genMng.execProc(6, null, null);
-		if (ret.equals(1)) {
-			// установить статус ошибки, выйти из формирования
-			isErr = true;
-		}
-		ret = genMng.execProc(7, null, null);
-		if (ret.equals(1)) {
-			// установить статус ошибки, выйти из формирования
-			isErr = true;
-		}
-
-		ret = genMng.execProc(12, null, null);
-		if (ret.equals(1)) {
-			// установить статус ошибки, выйти из формирования
-			isErr = true;
-		}
-
-		ret = genMng.execProc(8, null, null);
-		if (ret.equals(1)) {
-			// установить статус ошибки, выйти из формирования
-			isErr = true;
-		}
-
-		ret = genMng.execProc(15, null, null);
-		if (ret.equals(1)) {
-			// установить статус ошибки, выйти из формирования
-			isErr = true;
-		}
-
-		return isErr;
-	}
-
-	/**
-	 * Проверка ошибок до перехода
-	 * вернуть false - если нет ошибок
-	 */
-	private boolean checkMonthOverErr() {
-		// новая проверка, на список домов в разных УК, по которым обнаружены открытые лицевые счета
-		Integer ret = genMng.execProc(8, null, null);
-		boolean isErr = false;
-		if (ret.equals(1)) {
-			// установить статус ошибки, выйти из формирования
-			isErr = true;
-		}
-		ret = genMng.execProc(10, null, null);
-		if (ret.equals(1)) {
-			// установить статус ошибки, выйти из формирования
-			isErr = true;
-		}
-		ret = genMng.execProc(11, null, null);
-		if (ret.equals(1)) {
-			// установить статус ошибки, выйти из формирования
-			isErr = true;
-		}
-		ret = genMng.execProc(14, null, null);
-		if (ret.equals(1)) {
-			// установить статус ошибки, выйти из формирования
-			isErr = true;
-		}
-
-		return isErr;
-	}
-
 }

@@ -12,6 +12,8 @@ import javax.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.PrepThread;
@@ -43,14 +45,25 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 	 * @param reqConfig - конфиг запроса
 	 * @param cntThreads - кол-во потоков
 	 * @param lstItem - список Id на обработку
-	 * @param isCheckStop - проверять маркер остановки процесса?
+	 * @param name - наименование потока, если заполнен, проверять остановку главного процесса
 	 * @throws ExecutionException
 	 * @throws InterruptedException
 	 */
 	@Override
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor=Exception.class)
 	public void invokeThreads(PrepThread<T> reverse,
-			int cntThreads, List<T> lstItem, boolean isCheckStop) throws InterruptedException, ExecutionException {
+			int cntThreads, List<T> lstItem, String name) throws InterruptedException, ExecutionException {
 		long startTime = System.currentTimeMillis();
+		// размер очереди
+		int lstSize = lstItem.size();
+		int curSize = lstSize;
+		// если указано имя маркера, то проверять остановку процесса
+		boolean isCheckStop;
+		if (name != null) {
+			isCheckStop = true;
+		} else {
+			isCheckStop = false;
+		}
 
 		List<Future<CommonResult>> frl = new ArrayList<Future<CommonResult>>(cntThreads);
 		for (int i=1; i<=cntThreads; i++) {
@@ -68,7 +81,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 			// флаг наличия потоков
 			isStop = true;
 			for (Iterator<Future<CommonResult>> itr = frl.iterator(); itr.hasNext();) {
-				if (isCheckStop && config.getLock().isStopped("debitMng.genDebitAll")) {
+				if (isCheckStop && config.getLock().isStopped(name)) {
 					// если процесс был остановлен, выход
 					isStopProcess = true;
 					break;
@@ -78,9 +91,17 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 				if (fut == null) {
 					// получить новый объект
 					itemWork = getNextItem(lstItem);
+					// уменьшить кол-во на 1
+					curSize=curSize-1;
+					// рассчитать процент выполнения
+					double proc = 0;
+					if (lstSize > 0) {
+						proc = (1-Double.valueOf(curSize) / Double.valueOf(lstSize))*100;
+					}
+//					proc = 777D;
 					if (itemWork != null) {
-						// создать новый поток
-						fut = reverse.myStringFunction(itemWork);
+						// создать новый поток, передать информацию о % выполнения
+						fut = reverse.lambdaFunction(itemWork, proc);
 						//log.info("================================ Начат поток начисления для лс={} ==================", itemWork);
 						frl.set(i, fut);
 					}

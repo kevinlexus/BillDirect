@@ -38,7 +38,7 @@ public class WebController {
 	@Autowired
 	private MigrateMng migrateMng;
 	@Autowired
-	private GenMng genMng;
+	private ExecMng genMng;
 	@Autowired
 	private SprGenItmDAO sprGenItmDao;
 	@Autowired
@@ -119,9 +119,9 @@ public class WebController {
 	 */
 	@RequestMapping("/startGen")
     @ResponseBody
-    String startGen() {
-		GenThrMng genThrMng = ctx.getBean(GenThrMng.class);
-		genThrMng.startMainThread();
+    public String startGen() {
+		GenMainMng genMainMng = ctx.getBean(GenMainMng.class);
+		genMainMng.startMainThread();
 		return "ok";
     }
 
@@ -131,9 +131,10 @@ public class WebController {
 	 */
 	@RequestMapping("/stopGen")
     @ResponseBody
-    String stopGen() {
+    public String stopGen() {
 		// установить статус - остановить формирование
 		config.setStateGen("0");
+		config.getLock().unlockProc(1, "MainGeneration");
 		return "ok";
     }
 
@@ -225,13 +226,13 @@ public class WebController {
 					// если не остановка процесса
 					if (!lskFrom.equals(lskTo)) {
 						// заблокировать при расчете по всем лиц.счетам
-						Boolean isLocked = config.getLock().setLockProc(reqConf.getRqn(), "debitMng.genDebitAll");
+						Boolean isLocked = config.getLock().setLockProc(reqConf.getRqn(), "MainGeneration"); // TODO разрулить потом маркеры - будут пересекаться с формированием из SprGenItem!
 						if (isLocked) {
 							try {
 								debitMng.genDebitAll(lskFrom, lskTo, genDt, dbgLvl, reqConf);
 							} finally {
 								// разблокировать при расчете по всем лиц.счетам
-								config.getLock().unlockProc(reqConf.getRqn(), "debitMng.genDebitAll");
+								config.getLock().unlockProc(reqConf.getRqn(), "MainGeneration"); // TODO разрулить потом маркеры - будут пересекаться с формированием из SprGenItem!
 							}
 						} else {
 							return "ERROR ОШИБКА блокировки процесса расчета задолженности и пени";
@@ -242,7 +243,7 @@ public class WebController {
 					}
 				} else {
 					// снять маркер выполнения процесса
-					config.getLock().stopProc(reqConf.getRqn(), "debitMng.genDebitAll");
+					config.getLock().stopProc(reqConf.getRqn(), "MainGeneration"); // TODO разрулить потом маркеры - будут пересекаться с формированием из SprGenItem!
 				}
 			} catch (Exception e) {
 				log.error(Utl.getStackTraceString(e));
