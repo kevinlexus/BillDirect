@@ -46,14 +46,19 @@ public class ConfigImpl implements ConfigApp {
 
 	//private List<Integer> workLst; // обрабатываемые лицевые счета
 
-	// Текущий период (для партицирования и проч.)
+	// текущий период (для партицирования и проч.)
 	String period;
-	// Период +1 месяц
+	// период +1 месяц
 	String periodNext;
-	// Период -1 месяц
+	// период -1 месяц
 	String periodBack;
 
-	// Запретить начислять по лиц.счетам, если формируется глобальное начисление
+	// статус текущего формирования 0 - остановлено, 1 - выполняется
+	String stateGen="0";
+	// прогресс текущего формирования
+	Integer progress;
+
+	// запретить начислять по лиц.счетам, если формируется глобальное начисление
 	Boolean isRestrictChrgLsk = false;
 
 
@@ -180,6 +185,26 @@ public class ConfigImpl implements ConfigApp {
 			}
 		}
 		return true;
+	}
+
+	@Override
+	public String getStateGen() {
+		return stateGen;
+	}
+
+	@Override
+	public void setStateGen(String stateGen) {
+		this.stateGen = stateGen;
+	}
+
+	@Override
+	public Integer getProgress() {
+		return progress;
+	}
+
+	@Override
+	public void setProgress(Integer progress) {
+		this.progress = progress;
 	}
 
 

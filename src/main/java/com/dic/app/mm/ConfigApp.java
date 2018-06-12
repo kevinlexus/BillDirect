@@ -6,6 +6,8 @@ import com.dic.bill.Lock;
 
 public interface ConfigApp {
 
+	Integer getProgress();
+
 	String getPeriod();
 
 	String getPeriodNext();
@@ -21,5 +23,11 @@ public interface ConfigApp {
 	boolean aquireLock(int rqn, String lsk);
 
 	int incNextReqNum();
+
+	String getStateGen();
+
+	void setStateGen(String stateGen);
+
+	void setProgress(Integer progress);
 
 }

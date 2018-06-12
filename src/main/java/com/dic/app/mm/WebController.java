@@ -2,18 +2,26 @@ package com.dic.app.mm;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dic.bill.RequestConfig;
-import com.dic.bill.dao.SaldoUslDAO;
+import com.dic.bill.dao.PrepErrDAO;
+import com.dic.bill.dao.SprGenItmDAO;
+import com.dic.bill.model.scott.PrepErr;
 import com.dic.bill.model.scott.SessionDirect;
+import com.dic.bill.model.scott.SprGenItm;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileDistDeb;
 
@@ -28,11 +36,116 @@ public class WebController {
 	@Autowired
 	private DebitMng debitMng;
 	@Autowired
-	private SaldoUslDAO saldoUslDao;
-	@Autowired
 	private MigrateMng migrateMng;
 	@Autowired
+	private GenMng genMng;
+	@Autowired
+	private SprGenItmDAO sprGenItmDao;
+	@Autowired
+	private PrepErrDAO prepErrDao;
+	@Autowired
 	private ConfigApp config;
+	@Autowired
+	private ApplicationContext ctx;
+
+
+	/**
+	 * Получить список элементов меню для итогового формирования
+	 * @return
+	 */
+    @RequestMapping(value = "/getSprgenitm", method = RequestMethod.GET, produces="application/json")
+    @ResponseBody
+    public List<SprGenItm> getSprGenItm() {
+	   return sprGenItmDao.getAllOrdered();
+    }
+
+    /*
+     * Вернуть статус текущего формирования
+     * 0 - не формируется
+     * 1 - идёт формирование
+     */
+    @RequestMapping(value = "/getStateGen", method = RequestMethod.GET)
+    @ResponseBody
+    public String getStateGen() {
+	   return config.getStateGen();
+    }
+
+	/**
+	 * Получить последнюю ошибку
+	 * @return
+	 */
+	@RequestMapping(value = "/getPrepErr", method = RequestMethod.GET, produces = "application/json")
+	@ResponseBody
+	public List<PrepErr> getPrepErr() {
+		return prepErrDao.getAllOrdered();
+	}
+
+	/**
+	 * Обновить элемент меню значениями
+	 * @param iList
+	 */
+	@RequestMapping(value = "/editSprgenitm", method = RequestMethod.POST, produces = "application/json", consumes = "application/json")
+	@ResponseBody
+	public void updateSprGenItm(@RequestBody List<SprGenItm> lst) { // использовать List объектов, со стороны ExtJs в
+																	// Модели сделано allowSingle: false
+		genMng.updateSprGenItem(lst);
+	}
+
+	/*
+	 * Переключить состояние пунктов меню, в зависимости от формирования
+	 */
+	@RequestMapping(value = "/checkItms", method = RequestMethod.POST)
+	@ResponseBody
+	public String checkItms(@RequestParam(value = "id") int id, @RequestParam(value = "sel") int sel) {
+		genMng.execProc(35, id, sel);
+		return null;
+	}
+
+   /*
+    * Вернуть ошибку, последнего формирования, если есть
+    */
+   @RequestMapping(value = "/getErrGen", method = RequestMethod.GET)
+   @ResponseBody
+   public String getErrGen() {
+ 	   SprGenItm sprGenItm = sprGenItmDao.getByCd("GEN_ITG");
+
+	   return String.valueOf(sprGenItm.getErr());
+    }
+
+
+	/**
+	 * Начать формирование
+	 * @return
+	 */
+	@RequestMapping("/startGen")
+    @ResponseBody
+    String startGen() {
+		GenThrMng genThrMng = ctx.getBean(GenThrMng.class);
+		genThrMng.startMainThread();
+		return "ok";
+    }
+
+	/**
+	 * Остановить формирование
+	 * @return
+	 */
+	@RequestMapping("/stopGen")
+    @ResponseBody
+    String stopGen() {
+		// установить статус - остановить формирование
+		config.setStateGen("0");
+		return "ok";
+    }
+
+   /*
+    * Вернуть прогресс текущего формирования, для обновления грида у клиента
+    */
+   @RequestMapping(value = "/getProgress", method = RequestMethod.GET)
+   @ResponseBody
+   public Integer getProgress() {
+	   return config.getProgress();
+    }
+
 
 	/**
 	 * Расчет
