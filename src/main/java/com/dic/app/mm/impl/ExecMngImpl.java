@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.ExecMng;
 import com.dic.bill.dao.SprGenItmDAO;
 import com.dic.bill.model.scott.SprGenItm;
@@ -25,6 +26,8 @@ public class ExecMngImpl implements ExecMng {
 
 	@PersistenceContext
 	private EntityManager em;
+	@Autowired
+	private ConfigApp config;
 	@Autowired
 	private SprGenItmDAO sprGenItmDao;
 
@@ -47,7 +50,7 @@ public class ExecMngImpl implements ExecMng {
 	}
 
 	@Override
-	@Transactional(readOnly = false, propagation = Propagation.MANDATORY)
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 	public Integer execProc(Integer var, Integer id, Integer sel) {
 		StoredProcedureQuery qr;
 		Integer ret = null;
@@ -239,13 +242,29 @@ public class ExecMngImpl implements ExecMng {
 		execProc(3, null, state);
 	}
 
+	/**
+	 * Установить процент выполнения в элементе меню
+	 * @param spr - элемент меню
+	 * @param proc - процент
+	 */
 	@Override
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
-	public void setProc(SprGenItm spr, double proc) {
-		SprGenItm spr2;
-		spr2=em.find(SprGenItm.class, spr.getId());
-		log.info("ПРОЦЕНТ в процедуре %={}", proc);
-		spr2.setProc(proc);
+	public void setPercent(SprGenItm spr, double proc) {
+		SprGenItm sprFound=em.find(SprGenItm.class, spr.getId());
+		sprFound.setProc(proc);
+		// прогресс формирования +1
+		config.incProgress();
+	}
+
+	/**
+	 * Почистить во всех элементах % выполения
+	 */
+	@Override
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor=Exception.class)
+	public void clearPercent() {
+		sprGenItmDao.findAll().forEach(t-> {
+			t.setProc(0D);
+		});
 	}
 
 }

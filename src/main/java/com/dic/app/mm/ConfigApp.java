@@ -24,10 +24,8 @@ public interface ConfigApp {
 
 	int incNextReqNum();
 
-	String getStateGen();
-
-	void setStateGen(String stateGen);
-
 	void setProgress(Integer progress);
+
+	void incProgress();
 
 }

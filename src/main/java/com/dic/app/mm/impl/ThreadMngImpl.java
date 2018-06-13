@@ -96,9 +96,8 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 					// рассчитать процент выполнения
 					double proc = 0;
 					if (lstSize > 0) {
-						proc = (1-Double.valueOf(curSize) / Double.valueOf(lstSize))*100;
+						proc = (1-Double.valueOf(curSize) / Double.valueOf(lstSize));
 					}
-//					proc = 777D;
 					if (itemWork != null) {
 						// создать новый поток, передать информацию о % выполнения
 						fut = reverse.lambdaFunction(itemWork, proc);

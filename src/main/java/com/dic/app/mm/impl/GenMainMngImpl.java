@@ -40,13 +40,13 @@ public class GenMainMngImpl implements GenMainMng {
 	@Autowired
 	private ConfigApp config;
 	@Autowired
-	private SprGenItmDAO sprGenItemDao;
+	private SprGenItmDAO sprGenItmDao;
 	@Autowired
 	private VvodDAO vvodDao;
 	@Autowired
 	private HouseDAO houseDao;
 	@Autowired
-	private ExecMng genMng;
+	private ExecMng execMng;
 	@Autowired
 	private ApplicationContext ctx;
 	@Autowired
@@ -60,28 +60,26 @@ public class GenMainMngImpl implements GenMainMng {
 	@Async
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 	public void startMainThread() {
-
-		// установить статус - формирование
-		config.setStateGen("1");
+		// маркер формирования
 		config.getLock().setLockProc(1, "MainGeneration");
 
 		try {
 		// прогресс - 0
 		config.setProgress(0);
 
-		SprGenItm menuGenItg = sprGenItemDao.getByCd("GEN_ITG");
-		SprGenItm menuMonthOver = sprGenItemDao.getByCd("GEN_MONTH_OVER");
-		SprGenItm menuCheckBG = sprGenItemDao.getByCd("GEN_CHECK_BEFORE_GEN");
+		SprGenItm menuGenItg = sprGenItmDao.getByCd("GEN_ITG");
+		SprGenItm menuMonthOver = sprGenItmDao.getByCd("GEN_MONTH_OVER");
+		SprGenItm menuCheckBG = sprGenItmDao.getByCd("GEN_CHECK_BEFORE_GEN");
 
 		//**********почистить ошибку последнего формирования, % выполнения
 		//genMng.clearError(menuGenItg);
 
 		//**********установить дату формирования
-		genMng.setGenDate();
+		execMng.setGenDate();
 
 		//**********Закрыть базу для пользователей, если выбрано итоговое формир
 		if (menuGenItg.getSel()) {
-			genMng.stateBase(1);
+			execMng.stateBase(1);
 			log.info("Установлен признак закрытия базы!");
 		}
 
@@ -94,6 +92,7 @@ public class GenMainMngImpl implements GenMainMng {
 				log.info("Найдены ошибки до формирования!");
 				return;
 			}
+			execMng.setPercent(menuCheckBG, 1);
 			log.info("Проверки до формирования выполнены!");
 		}
 
@@ -105,25 +104,32 @@ public class GenMainMngImpl implements GenMainMng {
 				log.info("Найдены ошибки до перехода месяца!");
 				return;
 			}
+			execMng.setPercent(menuMonthOver, 1);
 			log.info("Проверки до перехода месяца выполнены!");
 		}
+		execMng.setPercent(menuGenItg, 0.10D);
 
 		// список Id объектов
 		List<Integer> lst;
-
 		//**********Начать формирование
-		for (SprGenItm itm : sprGenItemDao.getAllCheckedOrdered()) {
-				log.info("Generating menu item: " + itm.getCd());
+		for (SprGenItm itm : sprGenItmDao.getAllCheckedOrdered()) {
+
+				log.info("Generating menu item: {}", itm.getCd());
+
 				switch (itm.getCd()) {
 
 				case "GEN_ADVANCE":
 					// переформировать авансовые платежи
-					genMng.execProc(36, null, null);
+					execMng.execProc(36, null, null);
+					execMng.setPercent(itm, 1);
+					execMng.setPercent(menuGenItg, 0.20D);
 					break;
 
 				case "GEN_DIST_VOLS1":
 					//чистить инф, там где ВООБЩЕ нет счетчиков (нет записи в c_vvod)
-					genMng.execProc(17, null, null);
+					execMng.execProc(17, null, null);
+					execMng.setPercent(itm, 1);
+					execMng.setPercent(menuGenItg, 0.25D);
 					break;
 				case "GEN_DIST_VOLS2":
 					// распределить где нет ОДПУ
@@ -135,6 +141,8 @@ public class GenMainMngImpl implements GenMainMng {
 						log.info("Найдены ошибки во время распределения объемов где нет ОДПУ!");
 						return;
 					}
+					execMng.setPercent(itm, 1);
+					execMng.setPercent(menuGenItg, 0.40D);
 					break;
 				case "GEN_DIST_VOLS3":
 					//распределить где есть ОДПУ
@@ -146,6 +154,8 @@ public class GenMainMngImpl implements GenMainMng {
 						log.info("Найдены ошибки во время распределения объемов где есть ОДПУ!");
 						return;
 					}
+					execMng.setPercent(itm, 1);
+					execMng.setPercent(menuGenItg, 0.45D);
 					break;
 
 				case "GEN_CHRG":
@@ -158,6 +168,8 @@ public class GenMainMngImpl implements GenMainMng {
 						log.info("Найдены ошибки во время расчета начисления домам!");
 						return;
 					}
+					execMng.setPercent(itm, 1);
+					execMng.setPercent(menuGenItg, 0.50D);
 					break;
 
 				case "GEN_PENYA":
@@ -170,32 +182,18 @@ public class GenMainMngImpl implements GenMainMng {
 						log.info("Найдены ошибки во время начисления пени по домам!");
 						return;
 					}
-
+					execMng.setPercent(itm, 1);
+					execMng.setPercent(menuGenItg, 0.60D);
 				}
-
 		}
 
-
-
-
-
-
-			try {
-				Thread.sleep(3000);
-				config.setProgress(config.getProgress()+1);
-				log.info("ПРОВЕРКА ПОТОКА!");
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-
-			}
-
-
+		// выполнено всё
+		execMng.setPercent(menuGenItg, 1D);
 
 	}	finally {
+		// формирование остановлено
 		// снять маркер выполнения
 		config.getLock().unlockProc(1, "MainGeneration");
-		// статус - формирование остановлено
-		config.setStateGen("0");
 	}
 
 	}
@@ -211,7 +209,7 @@ public class GenMainMngImpl implements GenMainMng {
 		// будет выполнено позже, в создании потока
 		PrepThread<Integer> reverse = (item, proc) -> {
 			// сохранить процент выполнения
-			genMng.setProc(spr, proc);
+			//execMng.setPercent(spr, proc);
 			// потоковый сервис
 			GenThrMng genThrMng = ctx.getBean(GenThrMng.class);
 			return genThrMng.doJob(var, item, spr, proc);
@@ -234,46 +232,46 @@ public class GenMainMngImpl implements GenMainMng {
 	 */
 	private boolean checkErr() {
 		// новая проверка, на список домов в разных УК, по которым обнаружены открытые лицевые счета
-		Integer ret = genMng.execProc(38, null, null);
+		Integer ret = execMng.execProc(38, null, null);
 		boolean isErr = false;
 		if (ret.equals(1)) {
 			// установить статус ошибки, выйти из формирования
 			isErr = true;
 		}
-		ret = genMng.execProc(4, null, null);
+		ret = execMng.execProc(4, null, null);
 		if (ret.equals(1)) {
 			// установить статус ошибки, выйти из формирования
 			isErr = true;
 		}
-		ret = genMng.execProc(5, null, null);
+		ret = execMng.execProc(5, null, null);
 		if (ret.equals(1)) {
 			// установить статус ошибки, выйти из формирования
 			isErr = true;
 		}
-		ret = genMng.execProc(6, null, null);
+		ret = execMng.execProc(6, null, null);
 		if (ret.equals(1)) {
 			// установить статус ошибки, выйти из формирования
 			isErr = true;
 		}
-		ret = genMng.execProc(7, null, null);
-		if (ret.equals(1)) {
-			// установить статус ошибки, выйти из формирования
-			isErr = true;
-		}
-
-		ret = genMng.execProc(12, null, null);
+		ret = execMng.execProc(7, null, null);
 		if (ret.equals(1)) {
 			// установить статус ошибки, выйти из формирования
 			isErr = true;
 		}
 
-		ret = genMng.execProc(8, null, null);
+		ret = execMng.execProc(12, null, null);
 		if (ret.equals(1)) {
 			// установить статус ошибки, выйти из формирования
 			isErr = true;
 		}
 
-		ret = genMng.execProc(15, null, null);
+		ret = execMng.execProc(8, null, null);
+		if (ret.equals(1)) {
+			// установить статус ошибки, выйти из формирования
+			isErr = true;
+		}
+
+		ret = execMng.execProc(15, null, null);
 		if (ret.equals(1)) {
 			// установить статус ошибки, выйти из формирования
 			isErr = true;
@@ -288,23 +286,23 @@ public class GenMainMngImpl implements GenMainMng {
 	 */
 	private boolean checkMonthOverErr() {
 		// новая проверка, на список домов в разных УК, по которым обнаружены открытые лицевые счета
-		Integer ret = genMng.execProc(8, null, null);
+		Integer ret = execMng.execProc(8, null, null);
 		boolean isErr = false;
 		if (ret.equals(1)) {
 			// установить статус ошибки, выйти из формирования
 			isErr = true;
 		}
-		ret = genMng.execProc(10, null, null);
+		ret = execMng.execProc(10, null, null);
 		if (ret.equals(1)) {
 			// установить статус ошибки, выйти из формирования
 			isErr = true;
 		}
-		ret = genMng.execProc(11, null, null);
+		ret = execMng.execProc(11, null, null);
 		if (ret.equals(1)) {
 			// установить статус ошибки, выйти из формирования
 			isErr = true;
 		}
-		ret = genMng.execProc(14, null, null);
+		ret = execMng.execProc(14, null, null);
 		if (ret.equals(1)) {
 			// установить статус ошибки, выйти из формирования
 			isErr = true;

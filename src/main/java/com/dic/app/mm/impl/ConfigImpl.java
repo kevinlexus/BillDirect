@@ -53,8 +53,6 @@ public class ConfigImpl implements ConfigApp {
 	// период -1 месяц
 	String periodBack;
 
-	// статус текущего формирования 0 - остановлено, 1 - выполняется
-	String stateGen="0";
 	// прогресс текущего формирования
 	Integer progress;
 
@@ -188,16 +186,6 @@ public class ConfigImpl implements ConfigApp {
 	}
 
 	@Override
-	public String getStateGen() {
-		return stateGen;
-	}
-
-	@Override
-	public void setStateGen(String stateGen) {
-		this.stateGen = stateGen;
-	}
-
-	@Override
 	public Integer getProgress() {
 		return progress;
 	}
@@ -205,6 +193,11 @@ public class ConfigImpl implements ConfigApp {
 	@Override
 	public void setProgress(Integer progress) {
 		this.progress = progress;
+	}
+
+	@Override
+	public void incProgress() {
+		progress++;
 	}
 
 

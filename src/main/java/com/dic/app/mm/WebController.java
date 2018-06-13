@@ -38,7 +38,7 @@ public class WebController {
 	@Autowired
 	private MigrateMng migrateMng;
 	@Autowired
-	private ExecMng genMng;
+	private ExecMng execMng;
 	@Autowired
 	private SprGenItmDAO sprGenItmDao;
 	@Autowired
@@ -67,7 +67,7 @@ public class WebController {
     @RequestMapping(value = "/getStateGen", method = RequestMethod.GET)
     @ResponseBody
     public String getStateGen() {
-	   return config.getStateGen();
+    	return config.getLock().isStopped("MainGeneration") ? "0":"1";
     }
 
 	/**
@@ -88,7 +88,7 @@ public class WebController {
 	@ResponseBody
 	public void updateSprGenItm(@RequestBody List<SprGenItm> lst) { // использовать List объектов, со стороны ExtJs в
 																	// Модели сделано allowSingle: false
-		genMng.updateSprGenItem(lst);
+		execMng.updateSprGenItem(lst);
 	}
 
 	/*
@@ -97,7 +97,7 @@ public class WebController {
 	@RequestMapping(value = "/checkItms", method = RequestMethod.POST)
 	@ResponseBody
 	public String checkItms(@RequestParam(value = "id") int id, @RequestParam(value = "sel") int sel) {
-		genMng.execProc(35, id, sel);
+		execMng.execProc(35, id, sel);
 		return null;
 	}
 
@@ -120,8 +120,12 @@ public class WebController {
 	@RequestMapping("/startGen")
     @ResponseBody
     public String startGen() {
+		// почистить % выполнения
+		execMng.clearPercent();
+		// формировать
 		GenMainMng genMainMng = ctx.getBean(GenMainMng.class);
 		genMainMng.startMainThread();
+
 		return "ok";
     }
 
@@ -133,7 +137,6 @@ public class WebController {
     @ResponseBody
     public String stopGen() {
 		// установить статус - остановить формирование
-		config.setStateGen("0");
 		config.getLock().unlockProc(1, "MainGeneration");
 		return "ok";
     }

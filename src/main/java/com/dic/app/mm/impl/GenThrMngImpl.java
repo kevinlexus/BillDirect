@@ -13,11 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.ExecMng;
 import com.dic.app.mm.GenThrMng;
-import com.dic.bill.dao.SprGenItmDAO;
-import com.dic.bill.dao.VvodDAO;
 import com.dic.bill.model.scott.SprGenItm;
 import com.ric.cmn.CommonResult;
 
@@ -31,13 +28,7 @@ public class GenThrMngImpl implements GenThrMng {
 	@PersistenceContext
 	private EntityManager em;
 	@Autowired
-	private ConfigApp config;
-	@Autowired
-	private SprGenItmDAO sprGenItemDao;
-	@Autowired
-	private VvodDAO vvodDao;
-	@Autowired
-	private ExecMng genMng;
+	private ExecMng execMng;
 
 	/**
 	 * Выполнить поток. Propagation.REQUIRES_NEW - так как не удается в новом потоке
@@ -53,29 +44,32 @@ public class GenThrMngImpl implements GenThrMng {
 		switch (var) {
 		case 1:
 			log.info("Выполняется поток распределения объемов во вводе id={}, где нет ОДПУ", id);
-			genMng.execProc(100, id, null);
+			execMng.execProc(100, id, null);
 			log.info("Выполнился поток распределения объемов во вводе id={}, где нет ОДПУ", id);
 			break;
 		case 2:
 			log.info("Выполняется поток распределения объемов во вводе id={}, где есть ОДПУ", id);
-			genMng.execProc(101, id, null);
+			execMng.execProc(101, id, null);
 			log.info("Выполнился поток распределения объемов во вводе id={}, где есть ОДПУ", id);
 			break;
 		case 3:
 			//**********установить дату формирования, так как новая транзакция (Propagation.REQUIRES_NEW)
-			genMng.setGenDate();
+			execMng.setGenDate();
 
 			log.info("Выполняется поток начисления пени по дому c_house.id={}", id);
-			genMng.execProc(102, id, null);
+			execMng.execProc(102, id, null);
 			log.info("Выполнился поток начисления пени по дому c_house.id={}", id);
 			break;
 		case 4:
 			log.info("Выполняется поток расчета начисления по дому c_house.id={}", id);
-			genMng.execProc(103, id, null);
+			execMng.execProc(103, id, null);
 			log.info("Выполнился поток расчета начисления по дому c_house.id={}", id);
 			break;
 
 		}
+		// сохранить процент выполнения
+		execMng.setPercent(spr, proc);
+
 		CommonResult res = new CommonResult(null, 0);
 		return new AsyncResult<CommonResult>(res);
 	}

@@ -11,6 +11,7 @@ public interface ExecMng {
 	void clearError(SprGenItm menuGenItg);
 	void setGenDate();
 	void stateBase(int state);
-	void setProc(SprGenItm spr, double proc);
+	void setPercent(SprGenItm spr, double proc);
+	void clearPercent();
 
 }
