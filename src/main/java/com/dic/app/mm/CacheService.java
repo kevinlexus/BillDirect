@@ -29,10 +29,6 @@ public class CacheService {
 		  	        .setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(new Duration(TimeUnit.SECONDS, 600)))
 		  	        .setStoreByValue(true)
 		  	        .setStatisticsEnabled(false));
-	      cacheManager.createCache("UtlMngImpl.between2_str", new MutableConfiguration<>()
-		  	        .setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(new Duration(TimeUnit.SECONDS, 60000)))
-		  	        .setStoreByValue(false)
-		  	        .setStatisticsEnabled(false));
 	    }
 
 

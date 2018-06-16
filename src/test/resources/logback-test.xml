@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
   <timestamp key="myTimestamp" datePattern="yyyy-MM-dd"/>
-  <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+  <appender name="FILE1" class="ch.qos.logback.core.FileAppender">
             <file>${user.home}/BillDirect${myTimestamp}.log</file>
             <append>true</append>
             <encoder>
                 <pattern>%d{dd-MM-yyyy HH:mm:ss.SSS} %msg         [%thread] %-5level %logger{36}%n</pattern>
             </encoder>
   </appender>
-  <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+  <appender name="FILE2" class="ch.qos.logback.core.FileAppender">
             <file>${user.home}/BillDirect_brief${myTimestamp}.log</file>
             <append>true</append>
             <encoder>
@@ -43,7 +43,8 @@
 
   <!-- Setting the root level of logging to INFO - Здесь менять уровни логгинга в Spring Boot-->
   <root level="INFO">
-    <appender-ref ref="FILE" />
+    <appender-ref ref="FILE1" />
+    <appender-ref ref="FILE2" />
     <appender-ref ref="STDOUT" />
   </root>
 </configuration>

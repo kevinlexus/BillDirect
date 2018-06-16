@@ -38,7 +38,7 @@ public class TestMigration {
     public void mainTestMigration() throws ErrorWhileDistDeb {
 		log.info("Test start, period={}", config.getPeriod());
 
-		//migrateMng.migrateDeb("00000085", 201403, 201404);
+		migrateMng.migrateAll("00000085", "00000085"); //.migrateDeb("00000085", 201403, 201404);
 
 		log.info("Test end");
 	}
