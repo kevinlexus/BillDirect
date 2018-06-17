@@ -150,7 +150,16 @@ public class MigrateMngImpl implements MigrateMng {
 			// зависит от типа задолженности
 			int sign = debTp;
 			log.info("*** РАСПРЕДЕЛИТЬ долги одного знака, по sign={}", sign);
-			boolean res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true, false);
+			boolean res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true);
+
+			if (!res) {
+				// не удалось распределить, распределить принудительно
+				// добавив нужный период в строку с весом 1.00 руб, в начисления
+				migUtlMng.addSurrogateChrg(lstDeb, lstSal, lstChrg, sign);
+				// вызвать еще раз распределение, не устанавливая веса
+				res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, false);
+			}
+
 			// распечатать долг
 			migUtlMng.printDeb(lstDeb);
 			migUtlMng.printSal(lstSal);
@@ -161,7 +170,14 @@ public class MigrateMngImpl implements MigrateMng {
 			// распределить сперва все ДОЛГИ
 			int sign = 1;
 			log.info("*** РАСПРЕДЕЛИТЬ сперва ДОЛГИ");
-			boolean res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true, false);
+			boolean res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true);
+			if (!res) {
+				// не удалось распределить, распределить принудительно
+				// добавив нужный период в строку с весом 1.00 руб, в начисления
+				migUtlMng.addSurrogateChrg(lstDeb, lstSal, lstChrg, sign);
+				// вызвать еще раз распределение, не устанавливая веса
+				res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, false);
+			}
 			// распечатать долг
 			migUtlMng.printDeb(lstDeb);
 			migUtlMng.printSal(lstSal);
@@ -169,15 +185,24 @@ public class MigrateMngImpl implements MigrateMng {
 			// распределить все ПЕРЕПЛАТЫ
 			sign = -1;
 			log.info("*** РАСПРЕДЕЛИТЬ ПЕРЕПЛАТЫ");
-			res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true, false);
+			res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true);
+			if (!res) {
+				// не удалось распределить, распределить принудительно
+				// добавив нужный период в строку с весом 1.00 руб, в начисления
+				migUtlMng.addSurrogateChrg(lstDeb, lstSal, lstChrg, sign);
+				// вызвать еще раз распределение, не устанавливая веса
+				res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, false);
+			}
 			// распечатать долг
 			migUtlMng.printDeb(lstDeb);
 			migUtlMng.printSal(lstSal);
-
 		}
 
 		log.info("*** ДОЛГ ДО СЛОЖЕНИЯ:");
 		migUtlMng.printDebResult(lstDebResult);
+
+		// на данном этапе должны идти суммы распределения
+		migUtlMng.checkSumma(lstSal, lstDeb, lsk);
 
 		// сложить дебет и кредит
 		groupResult(lstDebResult);
@@ -306,11 +331,10 @@ public class MigrateMngImpl implements MigrateMng {
 	 * @param lstDebResult - результат
 	 * @param sign - знак распределения
 	 * @param isSetWeigths - повторно установить веса?
-	 * @param isForced - принудительное? (не будет смотреть на сальдо)
 	 * @return
 	 */
 	private boolean distSalByDeb(List<SumDebMgRec> lstDeb, List<SumDebUslMgRec> lstSal, List<SumDebUslMgRec> lstChrg,
-			List<SumDebUslMgRec> lstDebResult, int sign, boolean isSetWeigths, boolean isForced) {
+			List<SumDebUslMgRec> lstDebResult, int sign, boolean isSetWeigths) {
 		if (isSetWeigths) {
 			// установить веса по начислению
 			migUtlMng.setWeigths(lstSal, lstChrg, sign);
@@ -484,9 +508,10 @@ public class MigrateMngImpl implements MigrateMng {
 				for (SumDebUslMgRec d: lstOtherChrg) {
 					// найти еще нераспределенные долги
 					SumDebMgRec nonDistDeb = lstDeb.stream()
-							.filter(t-> t.getMg().equals(d.getMg()) // с таким периодом как в начислении
-									&& t.getSumma().compareTo(BigDecimal.ZERO) > 0) // ненулевые
-					.findFirst().orElse(null);
+						.filter(t-> t.getMg().equals(d.getMg()) // с таким периодом как в начислении
+								&& t.getSumma().compareTo(BigDecimal.ZERO) > 0) // ненулевые
+						.filter(t-> t.getSign().equals(sign)) // данный знак
+						.findFirst().orElse(null);
 					if (nonDistDeb!=null) {
 						// найдено
 						BigDecimal summaDist;

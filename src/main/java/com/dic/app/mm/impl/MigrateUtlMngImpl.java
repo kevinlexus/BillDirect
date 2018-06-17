@@ -116,7 +116,7 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 						);
 			} else {
 				if (someResult == null) {
-					log.error("ОШИБКА! Возможно некорректные долги по лиц.счету={}", lsk);
+					throw new RuntimeException("ОШИБКА! Возможно некорректные долги по лиц.счету="+lsk);
 				}
 				// не найден последний период
 				// поставить сумму
@@ -146,6 +146,9 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 						lastResult.getSumma().subtract(t.getSumma())
 						);
 			} else {
+				if (someResult == null) {
+					throw new RuntimeException("ОШИБКА! Возможно некорректные долги по лиц.счету="+lsk);
+				}
 				// не найден последний период
 				// снять сумму
 				lstDebResult.add(SumDebUslMgRec.builder()
@@ -252,6 +255,27 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 		});
 		cnt.cntDeb = cnt.lstDebNd.size();
 	}
+
+	/**
+	 * Проверить нераспределившиеся суммы
+	 */
+	@Override
+	public void checkSumma(List<SumDebUslMgRec> lstSal, List<SumDebMgRec> lstDeb, String lsk) {
+		BigDecimal summaSal =
+				lstSal.stream()
+				.map(t->t.getSumma().multiply(BigDecimal.valueOf(t.getSign())))
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		BigDecimal summaDeb =
+				lstDeb.stream()
+				.map(t->t.getSumma().multiply(BigDecimal.valueOf(t.getSign())))
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+
+		if (summaSal.compareTo(summaDeb) != 0 ) {
+			throw new RuntimeException("Сумма распределения положительных сумм - некорректна! лиц.сч.="+lsk);
+		}
+
+	}
+
 
 
 	/**
@@ -488,6 +512,45 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 
 	}
 
+
+	/**
+	 * Подготовить суррогатную строку начисления
+	 * @param lstDeb - долги
+	 * @param lstSal - сальдо
+	 * @param lstChrg - начисление
+	 * @param sign - знак долга
+	 */
+	@Override
+	public void addSurrogateChrg(List<SumDebMgRec> lstDeb, List<SumDebUslMgRec> lstSal, List<SumDebUslMgRec> lstChrg,
+			int sign) {
+		// добавить нужный период в строку начисления
+		// найти все не распределенные долги
+		lstDeb.stream()
+			.filter(t-> t.getSumma().compareTo(BigDecimal.ZERO) > 0) // ненулевые
+			.filter(t-> t.getSign().equals(sign) ) // знак долга
+			.forEach(d-> {
+				// найти записи с нераспределёнными долгами, в сальдо
+				lstSal.stream()
+					.filter(t-> t.getSumma().compareTo(BigDecimal.ZERO) > 0) // ненулевое
+					.filter(t -> t.getSign().equals(sign)) // знак сальдо
+					.forEach(t-> {
+						// вес 1 руб., чтоб быстрее распределялось
+						BigDecimal weigth = new BigDecimal("1.00");
+						// добавить суррогатную запись начисления, чтоб распределялось
+						log.info("В начисление добавлена суррогатная запись: mg={}, usl={}, org={}, weigth={}",
+								d.getMg(), t.getUslId(), t.getOrgId(), weigth);
+						lstChrg.add(SumDebUslMgRec.builder()
+								.withMg(d.getMg())
+								.withUslId(t.getUslId())
+								.withOrgId(t.getOrgId())
+								.withWeigth(weigth)
+								.withIsSurrogate(true)
+								.build()
+								);
+					});
+
+			});
+	}
 
 
 }

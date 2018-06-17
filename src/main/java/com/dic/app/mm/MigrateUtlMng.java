@@ -23,5 +23,8 @@ public interface MigrateUtlMng {
 			int sign);
 	void printDebResult(List<SumDebUslMgRec> lstDebResult);
 	void printSal(List<SumDebUslMgRec> lstSal);
+	void checkSumma(List<SumDebUslMgRec> lstSal, List<SumDebMgRec> lstDeb, String lsk);
+	void addSurrogateChrg(List<SumDebMgRec> lstDeb, List<SumDebUslMgRec> lstSal, List<SumDebUslMgRec> lstChrg,
+			int sign);
 
 }
