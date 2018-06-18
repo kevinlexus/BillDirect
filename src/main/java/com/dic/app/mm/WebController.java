@@ -265,9 +265,10 @@ public class WebController {
     public String migrate (
     		@RequestParam(value = "lskFrom", defaultValue = "0") String lskFrom,
     		@RequestParam(value = "lskTo", defaultValue = "0") String lskTo,
+    		@RequestParam(value = "debugLvl", defaultValue = "0") Integer debugLvl,
     		@RequestParam(value = "key", defaultValue = "", required = false) String key) {
-		log.info("GOT /migrate with: lskFrom={}, lskTo={}",
-				lskFrom, lskTo);
+		log.info("GOT /migrate with: lskFrom={}, lskTo={}, debugLvl={}",
+				lskFrom, lskTo, debugLvl);
 
 		// проверка валидности ключа
 		boolean isValidKey = checkValidKey(key);
@@ -275,9 +276,14 @@ public class WebController {
 			log.info("ERROR wrong key!");
 			return "ERROR wrong key!";
 		}
+		// уровень отладки
+		Integer dbgLvl = 0;
+		if (debugLvl != null) {
+			dbgLvl = Integer.valueOf(debugLvl);
+		}
 
 		try {
-			migrateMng.migrateAll(lskFrom, lskTo);
+			migrateMng.migrateAll(lskFrom, lskTo, dbgLvl);
 		} catch (ErrorWhileDistDeb e) {
 			log.error("Прошла ошибка, в процессе миграции данных по задолженностям");
 			log.error(Utl.getStackTraceString(e));

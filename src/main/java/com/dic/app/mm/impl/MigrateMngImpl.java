@@ -68,7 +68,7 @@ public class MigrateMngImpl implements MigrateMng {
 
 	@Override
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor=Exception.class)
-	public void migrateAll(String lskFrom, String lskTo) throws ErrorWhileDistDeb {
+	public void migrateAll(String lskFrom, String lskTo, Integer dbgLvl) throws ErrorWhileDistDeb {
 		long startTime = System.currentTimeMillis();
 		log.info("НАЧАЛО миграции задолженности в новые структуры");
 
@@ -83,7 +83,8 @@ public class MigrateMngImpl implements MigrateMng {
 			MigrateMng migrateMng = ctx.getBean(MigrateMng.class);
 			return migrateMng.migrateDeb(item,
 					Integer.parseInt(config.getPeriodBack()),
-					Integer.parseInt(config.getPeriod()));
+					Integer.parseInt(config.getPeriod()),
+					dbgLvl);
 		};
 
 		// вызвать в потоках
@@ -112,7 +113,7 @@ public class MigrateMngImpl implements MigrateMng {
 	@Async
 	@Override
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
-	public Future<CommonResult> migrateDeb(String lsk, Integer periodBack, Integer period) {
+	public Future<CommonResult> migrateDeb(String lsk, Integer periodBack, Integer period, Integer dbgLvl) {
 
 		log.info("НАЧАЛО РАСПРЕДЕЛЕНИЯ лиц.счета={}", lsk);
 		// получить задолженность
@@ -128,9 +129,9 @@ public class MigrateMngImpl implements MigrateMng {
 		// распечатать долг
 		//printDeb(lstDeb);
 		// распечатать начисление
-		log.info("*** НАЧИСЛЕНИЕ:");
-		migUtlMng.printChrg(lstChrg);
-		log.info("");
+		//log.info("*** НАЧИСЛЕНИЕ:");
+		//migUtlMng.printChrg(lstChrg);
+		//log.info("");
 
 		// РАСПРЕДЕЛЕНИЕ
 		// результат распределения
@@ -150,19 +151,26 @@ public class MigrateMngImpl implements MigrateMng {
 			// зависит от типа задолженности
 			int sign = debTp;
 			log.info("*** РАСПРЕДЕЛИТЬ долги одного знака, по sign={}", sign);
-			boolean res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true);
+			boolean res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true, dbgLvl);
+			if (dbgLvl.equals(1)) {
+				// распечатать начисление
+				log.info("*** НАЧИСЛЕНИЕ:");
+				migUtlMng.printChrg(lstChrg);
+			}
 
 			if (!res) {
 				// не удалось распределить, распределить принудительно
 				// добавив нужный период в строку с весом 1.00 руб, в начисления
 				migUtlMng.addSurrogateChrg(lstDeb, lstSal, lstChrg, sign);
 				// вызвать еще раз распределение, не устанавливая веса
-				res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, false);
+				res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, false, dbgLvl);
 			}
 
-			// распечатать долг
-			migUtlMng.printDeb(lstDeb);
-			migUtlMng.printSal(lstSal);
+			if (dbgLvl.equals(1)) {
+				// распечатать долг
+				migUtlMng.printDeb(lstDeb);
+				migUtlMng.printSal(lstSal);
+			}
 		} else if (debTp==0) {
 			// смешанные долги
 			log.info("*** РАСПРЕДЕЛИТЬ смешанные суммы долги и перплаты");
@@ -170,36 +178,47 @@ public class MigrateMngImpl implements MigrateMng {
 			// распределить сперва все ДОЛГИ
 			int sign = 1;
 			log.info("*** РАСПРЕДЕЛИТЬ сперва ДОЛГИ");
-			boolean res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true);
+			boolean res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true, dbgLvl);
+			if (dbgLvl.equals(1)) {
+				// распечатать начисление
+				log.info("*** НАЧИСЛЕНИЕ:");
+				migUtlMng.printChrg(lstChrg);
+			}
 			if (!res) {
 				// не удалось распределить, распределить принудительно
 				// добавив нужный период в строку с весом 1.00 руб, в начисления
 				migUtlMng.addSurrogateChrg(lstDeb, lstSal, lstChrg, sign);
 				// вызвать еще раз распределение, не устанавливая веса
-				res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, false);
+				res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, false, dbgLvl);
 			}
-			// распечатать долг
-			migUtlMng.printDeb(lstDeb);
-			migUtlMng.printSal(lstSal);
+			if (dbgLvl.equals(1)) {
+				// распечатать долг
+				migUtlMng.printDeb(lstDeb);
+				migUtlMng.printSal(lstSal);
+			}
 
 			// распределить все ПЕРЕПЛАТЫ
 			sign = -1;
 			log.info("*** РАСПРЕДЕЛИТЬ ПЕРЕПЛАТЫ");
-			res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true);
+			res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true, dbgLvl);
 			if (!res) {
 				// не удалось распределить, распределить принудительно
 				// добавив нужный период в строку с весом 1.00 руб, в начисления
 				migUtlMng.addSurrogateChrg(lstDeb, lstSal, lstChrg, sign);
 				// вызвать еще раз распределение, не устанавливая веса
-				res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, false);
+				res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, false, dbgLvl);
 			}
-			// распечатать долг
-			migUtlMng.printDeb(lstDeb);
-			migUtlMng.printSal(lstSal);
+			if (dbgLvl.equals(1)) {
+				// распечатать долг
+				migUtlMng.printDeb(lstDeb);
+				migUtlMng.printSal(lstSal);
+			}
 		}
 
-		log.info("*** ДОЛГ ДО СЛОЖЕНИЯ:");
-		migUtlMng.printDebResult(lstDebResult);
+		if (dbgLvl.equals(1)) {
+			log.info("*** ДОЛГ ДО СЛОЖЕНИЯ:");
+			migUtlMng.printDebResult(lstDebResult);
+		}
 
 		// на данном этапе должны идти суммы распределения
 		migUtlMng.checkSumma(lstSal, lstDeb, lsk);
@@ -334,7 +353,7 @@ public class MigrateMngImpl implements MigrateMng {
 	 * @return
 	 */
 	private boolean distSalByDeb(List<SumDebMgRec> lstDeb, List<SumDebUslMgRec> lstSal, List<SumDebUslMgRec> lstChrg,
-			List<SumDebUslMgRec> lstDebResult, int sign, boolean isSetWeigths) {
+			List<SumDebUslMgRec> lstDebResult, int sign, boolean isSetWeigths, Integer dbgLvl) {
 		if (isSetWeigths) {
 			// установить веса по начислению
 			migUtlMng.setWeigths(lstSal, lstChrg, sign);
@@ -354,7 +373,7 @@ public class MigrateMngImpl implements MigrateMng {
 						) {
 				// распределить, добавить сумму
 				sumDistAmnt = sumDistAmnt.add(
-						distSalByPeriodDeb(t, lstDeb, lstChrg, lstDebResult, sign, lstSal)
+						distSalByPeriodDeb(t, lstDeb, lstChrg, lstDebResult, sign, lstSal, dbgLvl)
 						);
 				//log.info("сумма распр={}", sumDistAmnt);
 				// продолжать
@@ -380,13 +399,16 @@ public class MigrateMngImpl implements MigrateMng {
 	 * @param lstDebResult - результат долгов
 	 * @param sign - знак распределения
 	 * @param lstSal
+	 * @param dbgLvl - уровень отладки
 	 * @return
 	 * @return вернуть распределённую сумму
 	 */
 	private BigDecimal distSalByPeriodDeb(SumDebUslMgRec sal, List<SumDebMgRec> lstDeb, List<SumDebUslMgRec> lstChrg,
-			List<SumDebUslMgRec> lstDebResult, int sign, List<SumDebUslMgRec> lstSal) {
-		if (sal.getUslId().equals("044") && sal.getOrgId().equals(801)) {
-		//	log.info("sal");
+			List<SumDebUslMgRec> lstDebResult, int sign, List<SumDebUslMgRec> lstSal, Integer dbgLvl) {
+		if (sal.getUslId().equals("016") && sal.getOrgId().equals(708)) {
+			int a=0;
+			a++;
+			//log.info("sal");
 		}
 		BigDecimal sumAmnt = BigDecimal.ZERO;
 		// получить строки начисления в которых работали данные услуга + орг
@@ -425,7 +447,10 @@ public class MigrateMngImpl implements MigrateMng {
 				// записать результат
 				migUtlMng.insDebResult(lstDebResult, foundDeb.getMg(), sal.getUslId(), sal.getOrgId(), summaDist, sign);
 				sumAmnt=sumAmnt.add(summaDist);
-			}
+/*				if (sal.getUslId().equals("016") && sal.getOrgId().equals(708)) {
+					log.info("############ добавлено: mg={}, uslId={}, orgId={}, summaDist={}", foundDeb.getMg(), sal.getUslId(), sal.getOrgId(), summaDist);
+				}
+*/			}
 		}
 
 		if (sumAmnt.compareTo(BigDecimal.ZERO) > 0) {
@@ -460,13 +485,17 @@ public class MigrateMngImpl implements MigrateMng {
 						.findAny().orElse(null);
 				if (foundDeb!=null) {
 					// втиснуть сумму
-					BigDecimal sumaIns = pushDebResult(summaDist, t.getMg(), t.getUslId(),
-							t.getOrgId(), sign, lstDeb, lstChrg, lstDebResult, lstSal);
-					if (sumaIns != null) {
-						// уменьшить сумму сальдо
-						sal.setSumma(sal.getSumma().subtract(sumaIns));
+					BigDecimal summaIns = pushDebResult(summaDist, t.getMg(), t.getUslId(),
+							t.getOrgId(), sign, lstDeb, lstChrg, lstDebResult, lstSal, dbgLvl);
+					if (summaIns != null) {
+/*						if (sal.getUslId().equals("016") && sal.getOrgId().equals(708)) {
+							log.info("############ втиснуто: mg={}, uslId={}, orgId={}, summaDist={}",
+									t.getMg(), t.getUslId(), t.getOrgId(), summaIns);
+						}
+*/						// уменьшить сумму сальдо
+						sal.setSumma(sal.getSumma().subtract(summaIns));
 						// сумма распределяется
-						sumAmnt=sumAmnt.add(sumaIns);
+						sumAmnt=sumAmnt.add(summaIns);
 					}
 				}
 			}
@@ -490,7 +519,7 @@ public class MigrateMngImpl implements MigrateMng {
 	 */
 	private BigDecimal pushDebResult(BigDecimal summa, Integer period, String uslId, Integer orgId,
 			int sign, List<SumDebMgRec> lstDeb, List<SumDebUslMgRec> lstChrg,
-			List<SumDebUslMgRec> lstDebResult, List<SumDebUslMgRec> lstSal) {
+			List<SumDebUslMgRec> lstDebResult, List<SumDebUslMgRec> lstSal, Integer dbgLvl) {
 			// найти в результатах долгов
 			List<SumDebUslMgRec> lst = lstDebResult.stream()
 				.filter(t-> !t.getUslId().equals(uslId) || !t.getOrgId().equals(orgId)) // прочие усл. или орг.
@@ -545,8 +574,12 @@ public class MigrateMngImpl implements MigrateMng {
 						migUtlMng.insDebResult(lstDebResult, nonDistDeb.getMg(), srcDebResult.getUslId(), srcDebResult.getOrgId(), summaDist, sign);
 						// записать результат распределения
 						migUtlMng.insDebResult(lstDebResult, period, uslId, orgId, summaDist, sign);
-						//log.info("сумма={}, uslId={}, orgId={} mg={}, перенесена в период mg={}",
-							//	summaDist, srcDeb.getUslId(), srcDeb.getOrgId(), srcDeb.getMg(), nonDistDeb.getMg());
+						if (dbgLvl.equals(1)) {
+							log.info("summa={}, sign={}, uslId={}, orgId={} mg={}, не поместилась в период, вызвано перемещение:",
+									summa, sign, uslId, orgId, period);
+							log.info("summa={}, uslId={}, orgId={} mg={}, перенесена в период mg={}",
+									summaDist, srcDebResult.getUslId(), srcDebResult.getOrgId(), srcDebResult.getMg(), nonDistDeb.getMg());
+						}
 						return summaDist;
 					} else {
 						//log.info("НЕвозможно переместить сумму={}, uslId={}, orgId={} из периода={}",

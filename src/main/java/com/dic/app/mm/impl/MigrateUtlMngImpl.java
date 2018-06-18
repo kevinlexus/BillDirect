@@ -385,11 +385,11 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 		while (itr.hasNext()) {
 			SumDebUslMgRec t = itr.next();
 			Double proc = t.getSumma().doubleValue() / amnt.doubleValue() * 10;
-			// округлить и если меньше 0, то принять как 0.10 руб.
+			// округлить и если меньше 0, то принять как 0.01 руб.
 			BigDecimal procD = new BigDecimal(proc);
 			procD = procD.setScale(2, RoundingMode.HALF_UP);
 			if (procD.compareTo(BigDecimal.ZERO) == 0) {
-				t.setWeigth(new BigDecimal("0.1"));
+				t.setWeigth(new BigDecimal("0.01"));
 			} else {
 				t.setWeigth(procD);
 			}

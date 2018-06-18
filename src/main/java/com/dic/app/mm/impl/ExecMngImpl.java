@@ -145,8 +145,30 @@ public class ExecMngImpl implements ExecMng {
 			qr.executeUpdate();
 			break;
 		case 17:
-			//чистить инф, там где ВООБЩЕ нет счетчиков (нет записи в c_vvod)
+			// чистить инф, там где ВООБЩЕ нет счетчиков (нет записи в c_vvod)
 			qr = em.createStoredProcedureQuery("scott.p_thread.gen_clear_vol");
+			qr.executeUpdate();
+			break;
+		case 19:
+			// сальдо по лиц счетам
+			qr = em.createStoredProcedureQuery("scott.gen.gen_saldo");
+			qr.registerStoredProcedureParameter(1, String.class, ParameterMode.IN);
+			qr.setParameter(1, "");
+			qr.executeUpdate();
+			break;
+		case 20:
+			// движение
+			qr = em.createStoredProcedureQuery("scott.c_cpenya.gen_charge_pay_full");
+			qr.executeUpdate();
+			break;
+		case 21:
+			// распределение пени по исх сальдо
+			qr = em.createStoredProcedureQuery("scott.c_cpenya.gen_charge_pay_pen");
+
+			qr.registerStoredProcedureParameter(1, Date.class, ParameterMode.IN);
+			qr.registerStoredProcedureParameter(2, Integer.class, ParameterMode.IN);
+			qr.setParameter(1, null);
+			qr.setParameter(2, 0);
 			qr.executeUpdate();
 			break;
 		case 35:

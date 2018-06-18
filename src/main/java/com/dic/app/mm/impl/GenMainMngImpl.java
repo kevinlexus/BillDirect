@@ -172,6 +172,18 @@ public class GenMainMngImpl implements GenMainMng {
 					execMng.setPercent(menuGenItg, 0.50D);
 					break;
 
+				case "GEN_SAL":
+					//сальдо по лиц счетам
+					execMng.execProc(19, null, null);
+					execMng.setPercent(itm, 1);
+					execMng.setPercent(menuGenItg, 0.65D);
+					break;
+				case "GEN_FLOW":
+					// движение
+					execMng.execProc(20, null, null);
+					execMng.setPercent(itm, 1);
+					execMng.setPercent(menuGenItg, 0.70D);
+					break;
 				case "GEN_PENYA":
 					// начисление пени по домам
 					lst = houseDao.getNotClosed()
@@ -183,7 +195,24 @@ public class GenMainMngImpl implements GenMainMng {
 						return;
 					}
 					execMng.setPercent(itm, 1);
-					execMng.setPercent(menuGenItg, 0.60D);
+					execMng.setPercent(menuGenItg, 0.75D);
+					break;
+				case "GEN_PENYA_DIST": {
+					// распределение пени по исх сальдо
+					execMng.execProc(21, null, null);
+					// проверить распр.пени
+					Integer ret = execMng.execProc(13, null, null);
+					if (ret.equals(1)) {
+						// найдены ошибки - выход
+						menuGenItg.setState("Найдены ошибки в процессе проверки распределения пени!");
+						log.info("Найдены ошибки в процессе проверки распределения пени!");
+						return;
+					}
+					execMng.setPercent(itm, 1);
+					execMng.setPercent(menuGenItg, 0.80D);
+					break;
+				}
+
 				}
 		}
 
