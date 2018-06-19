@@ -68,7 +68,7 @@ public class GenThrMngImpl implements GenThrMng {
 
 		}
 		// сохранить процент выполнения
-		execMng.setPercent(spr, proc);
+		execMng.setMenuElemPercent(spr, proc);
 
 		CommonResult res = new CommonResult(null, 0);
 		return new AsyncResult<CommonResult>(res);

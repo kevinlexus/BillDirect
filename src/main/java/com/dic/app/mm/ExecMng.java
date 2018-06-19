@@ -1,5 +1,6 @@
 package com.dic.app.mm;
 
+import java.util.Date;
 import java.util.List;
 
 import com.dic.bill.model.scott.SprGenItm;
@@ -11,7 +12,10 @@ public interface ExecMng {
 	void clearError(SprGenItm menuGenItg);
 	void setGenDate();
 	void stateBase(int state);
-	void setPercent(SprGenItm spr, double proc);
+	void setMenuElemPercent(SprGenItm spr, double proc);
 	void clearPercent();
+	void setMenuElemState(SprGenItm spr, String state);
+	void setMenuElemDt1(SprGenItm spr, Date dt1);
+	void setMenuElemDt2(SprGenItm spr, Date dt2);
 
 }

@@ -153,7 +153,7 @@ public class ExecMngImpl implements ExecMng {
 			// сальдо по лиц счетам
 			qr = em.createStoredProcedureQuery("scott.gen.gen_saldo");
 			qr.registerStoredProcedureParameter(1, String.class, ParameterMode.IN);
-			qr.setParameter(1, "");
+			qr.setParameter(1, null);
 			qr.executeUpdate();
 			break;
 		case 20:
@@ -169,6 +169,67 @@ public class ExecMngImpl implements ExecMng {
 			qr.registerStoredProcedureParameter(2, Integer.class, ParameterMode.IN);
 			qr.setParameter(1, null);
 			qr.setParameter(2, 0);
+			qr.executeUpdate();
+			break;
+		case 22:
+			// сальдо по домам
+			qr = em.createStoredProcedureQuery("scott.gen.gen_saldo_houses");
+			qr.executeUpdate();
+			break;
+		case 23:
+			// начисление по услугам (надо ли оно кому???)
+			qr = em.createStoredProcedureQuery("scott.gen.gen_xito13");
+			qr.executeUpdate();
+			break;
+		case 24:
+		    // оплата по операциям Ф.3.1.
+			qr = em.createStoredProcedureQuery("scott.gen.gen_opl_xito5");
+			qr.executeUpdate();
+			break;
+		case 25:
+		    // оплата по операциям Ф.3.1. для оборотки
+			qr = em.createStoredProcedureQuery("scott.gen.gen_opl_xito5_");
+			qr.executeUpdate();
+			break;
+		case 26:
+			// по УК-организациям Ф.2.4.
+			qr = em.createStoredProcedureQuery("scott.gen.gen_opl_xito10");
+			qr.executeUpdate();
+			break;
+		case 27:
+			// по пунктам начисления
+			qr = em.createStoredProcedureQuery("scott.gen.gen_opl_xito3");
+			qr.executeUpdate();
+			break;
+		case 28:
+			// архив, счета
+			qr = em.createStoredProcedureQuery("scott.gen.prepare_arch");
+			qr.registerStoredProcedureParameter(1, String.class, ParameterMode.IN);
+			qr.setParameter(1, null);
+			qr.executeUpdate();
+			break;
+		case 29:
+			// задолжники
+			qr = em.createStoredProcedureQuery("scott.gen.gen_debits_lsk_month");
+			qr.registerStoredProcedureParameter(1, String.class, ParameterMode.IN);
+			qr.setParameter(1, null);
+			qr.executeUpdate();
+			break;
+		case 31:
+			// cписки - changes
+			qr = em.createStoredProcedureQuery("scott.c_exp_list.changes_export");
+			qr.executeUpdate();
+			break;
+		case 32:
+			// cписки - charges
+			qr = em.createStoredProcedureQuery("scott.c_exp_list.charges_export");
+			qr.executeUpdate();
+			break;
+		case 33:
+			// cтатистика
+			qr = em.createStoredProcedureQuery("scott.gen_stat.gen_stat_usl");
+			qr.registerStoredProcedureParameter(1, String.class, ParameterMode.IN);
+			qr.setParameter(1, null);
 			qr.executeUpdate();
 			break;
 		case 35:
@@ -271,11 +332,45 @@ public class ExecMngImpl implements ExecMng {
 	 */
 	@Override
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
-	public void setPercent(SprGenItm spr, double proc) {
+	public void setMenuElemPercent(SprGenItm spr, double proc) {
 		SprGenItm sprFound=em.find(SprGenItm.class, spr.getId());
 		sprFound.setProc(proc);
-		// прогресс формирования +1
-		config.incProgress();
+	}
+
+	/**
+	 * Установить строку состояния в элементе меню
+	 * @param spr - элемент меню
+	 * @param state - строка
+	 */
+	@Override
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
+	public void setMenuElemState(SprGenItm spr, String state) {
+		SprGenItm sprFound=em.find(SprGenItm.class, spr.getId());
+		sprFound.setState(state);
+	}
+
+	/**
+	 * Установить дату начала формирования в элементе меню
+	 * @param spr - элемент меню
+	 * @param dt1- дата начала формирования
+	 */
+	@Override
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
+	public void setMenuElemDt1(SprGenItm spr, Date dt1) {
+		SprGenItm sprFound=em.find(SprGenItm.class, spr.getId());
+		sprFound.setDt1(dt1);;
+	}
+
+	/**
+	 * Установить окончания начала формирования в элементе меню
+	 * @param spr - элемент меню
+	 * @param dt2- дата начала формирования
+	 */
+	@Override
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
+	public void setMenuElemDt2(SprGenItm spr, Date dt2) {
+		SprGenItm sprFound=em.find(SprGenItm.class, spr.getId());
+		sprFound.setDt2(dt2);;
 	}
 
 	/**
