@@ -5,8 +5,8 @@ import java.util.concurrent.Future;
 
 import com.dic.bill.RequestConfig;
 import com.dic.bill.dto.CalcStore;
-import com.ric.cmn.CommonResult;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
+import com.ric.dto.CommonResult;
 
 public interface DebitMng {
 

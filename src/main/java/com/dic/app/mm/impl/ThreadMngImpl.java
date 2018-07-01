@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.PrepThread;
 import com.dic.app.mm.ThreadMng;
-import com.ric.cmn.CommonResult;
+import com.ric.dto.CommonResult;
 import com.ric.cmn.Utl;
 
 import lombok.extern.slf4j.Slf4j;

@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.dic.app.mm.ExecMng;
 import com.dic.app.mm.GenThrMng;
 import com.dic.bill.model.scott.SprGenItm;
-import com.ric.cmn.CommonResult;
+import com.ric.dto.CommonResult;
 
 import lombok.extern.slf4j.Slf4j;
 

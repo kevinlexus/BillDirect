@@ -33,7 +33,7 @@ import com.dic.bill.model.scott.Deb;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.Org;
 import com.dic.bill.model.scott.Usl;
-import com.ric.cmn.CommonResult;
+import com.ric.dto.CommonResult;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileDistDeb;
 
