@@ -103,7 +103,7 @@ public class GenPen {
 		lstSorted.forEach(t-> {
 			log.info("НЕсвернутые долги: дата={} период={}", Utl.getStrFromDate(curDt, "dd.MM.yyyy"), t.getMg());
 			log.info("долг для пени={}, долг={}, свернутый долг={}",
-					t.getSumma(), t.getSummaDeb(), t.getDebRolled());
+					t.getChrg(), t.getSummaDeb(), t.getDebRolled());
 		});*/
 
 		// свернуть задолженность
@@ -319,7 +319,7 @@ public class GenPen {
 			break;
 		}
 		log.info("{}: {}, mg={}, summa={}, summaDeb={}, summaRollDeb={}",
-				str2, str, rec.getMg(), rec.getSumma(), rec.getSummaDeb(), rec.getDebRolled());*/
+				str2, str, rec.getMg(), rec.getChrg(), rec.getSummaDeb(), rec.getDebRolled());*/
 	}
 
 	public List<SumDebRec> getLst() {

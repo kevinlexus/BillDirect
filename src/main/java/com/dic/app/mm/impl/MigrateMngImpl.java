@@ -459,7 +459,7 @@ public class MigrateMngImpl implements MigrateMng {
 		} else {
 			// сумма не может распределиться найти прочие орг. + усл., чтобы вытеснить на другие периоды
 	/*		log.info("Не может распр. сумма={}, знак={}, uslId={}, orgId={}, попытка переместить другие усл.+орг. в прочие периоды",
-					sal.getSumma(), sal.getSign(), sal.getUslId(), sal.getOrgId());
+					sal.getChrg(), sal.getSign(), sal.getUslId(), sal.getOrgId());
 
 			migUtlMng.printDeb(lstDeb);
 			migUtlMng.printChrg(lstChrg);
@@ -552,7 +552,7 @@ public class MigrateMngImpl implements MigrateMng {
 						} else {
 							// взять сумму распр.
 							summaDist = summa;
-							//log.info("check2 val1={} val2={} is={}", summa, srcDebResult.getSumma(), summa.compareTo(srcDebResult.getSumma()) > 0);
+							//log.info("check2 val1={} val2={} is={}", summa, srcDebResult.getChrg(), summa.compareTo(srcDebResult.getChrg()) > 0);
 						}
 
 						if (summaDist.compareTo(nonDistDeb.getSumma()) > 0) {
@@ -564,10 +564,10 @@ public class MigrateMngImpl implements MigrateMng {
 						// перенести сумму распр. долга в другой период
 						srcDebResult.setSumma(srcDebResult.getSumma().subtract(summaDist));
 						nonDistDeb.setSumma(nonDistDeb.getSumma().subtract(summaDist));
-						/*if (srcDebResult.getSumma().compareTo(BigDecimal.ZERO) < 0) {
+						/*if (srcDebResult.getChrg().compareTo(BigDecimal.ZERO) < 0) {
 							log.info("stop1!");
 						}
-						if (srcDebResult.getSumma().compareTo(BigDecimal.ZERO) < 0) {
+						if (srcDebResult.getChrg().compareTo(BigDecimal.ZERO) < 0) {
 							log.info("stop2!");
 						}*/
 						// поставить сумму долга в результате на другой период

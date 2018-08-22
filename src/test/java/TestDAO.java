@@ -89,7 +89,7 @@ public class TestDAO {
 		});
 
 		log.info("Test SaldoUsl");
-		saldoUslDao.getSaldoUslByLsk("00000085", 201403).forEach(t-> {
+		saldoUslDao.getSaldoUslByLsk("00000085", "201403").forEach(t-> {
 			log.info("SaldoUsl: uslId={}, orgId={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
 		});
 		log.info("Test End!");

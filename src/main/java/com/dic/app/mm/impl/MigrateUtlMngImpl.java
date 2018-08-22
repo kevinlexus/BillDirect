@@ -303,7 +303,7 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 		List<SumDebUslMgRec> lst =
 				new ArrayList<SumDebUslMgRec>();
 		List<SumUslOrgRec> lst2 =
-				saldoUslDao.getSaldoUslByLsk(lsk, period);
+				saldoUslDao.getSaldoUslByLsk(lsk, String.valueOf(period));
 		lst2.forEach(d-> {
 			lst.add(SumDebUslMgRec.builder()
 					.withUslId(d.getUslId())
