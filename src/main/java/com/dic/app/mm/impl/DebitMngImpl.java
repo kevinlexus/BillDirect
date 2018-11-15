@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
+import com.dic.bill.model.scott.Charge;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationContext;
@@ -48,7 +49,6 @@ import com.dic.bill.dto.SumPenRec;
 import com.dic.bill.dto.UslOrg;
 import com.dic.bill.model.scott.Deb;
 import com.dic.bill.model.scott.Kart;
-import com.dic.bill.model.scott.Org;
 import com.dic.bill.model.scott.Pen;
 import com.dic.bill.model.scott.Usl;
 import com.ric.dto.CommonResult;
@@ -57,6 +57,11 @@ import com.ric.cmn.excp.ErrorWhileChrgPen;
 
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Сервис формирования задолженностей и пени
+ * @author lev
+ * @version 1.11
+ */
 @Slf4j
 @Service
 @Scope("prototype")
@@ -102,8 +107,7 @@ public class DebitMngImpl implements DebitMng {
 	 * @param lskTo - конечный лиц.счет, если отсутствует - весь фонд
 	 * @param genDt - дата расчета
 	 * @param debugLvl - уровень отладочной информации (0-нет, 1-отобразить)
-	 * @param iter - номер итерации расчета (чтобы потом выбрать из таблицы для отчета)
-	 * @param sessionId - Id сессии
+	 * @param reqConf - конфиг запроса
 	 * @throws ErrorWhileChrgPen
 	 */
 	@Override
@@ -132,12 +136,6 @@ public class DebitMngImpl implements DebitMng {
 		// справочник ставок рефинансирования
 		calcStore.setLstPenRef(penRefDao.findAll()); //.setLstStavrUsl(stavrUslDao.findAll());
 		log.info("Загружен справочник ставок рефинансирования");
-		//calcStore.getLstSprPenUsl().size();
-		//log.info("Cправочник дат начала обязательства по оплате");
-
-		//calcStore.getLstStavrUsl().size();
-		//log.info("Загружен справочник ставок рефинансирования");
-
 		// получить список лицевых счетов
 		List<String> lstItem;
 		lstItem= kartDao.getRangeLsk(lskFrom, lskTo)
@@ -152,7 +150,7 @@ public class DebitMngImpl implements DebitMng {
 			mark = null;
  		}
 
-		// будет выполнено позже, в создании потока
+		// lambda, будет выполнено позже, в создании потока
 		PrepThread<String> reverse = (item, proc) -> {
 			// сервис расчета задолженности и пени
 			DebitMng debitMng = ctx.getBean(DebitMng.class);
@@ -177,8 +175,7 @@ public class DebitMngImpl implements DebitMng {
 	 * Расчет задолжности и пени
 	 * @param lsk - лиц.счет
 	 * @param calcStore - хранилище справочников
-	 * @param genDt - дата расчета
-	 * @param sessionId - Id сессии
+	 * @param reqConf - конфиг запроса
 	 */
 	@Async
 	@Override
@@ -193,7 +190,6 @@ public class DebitMngImpl implements DebitMng {
 			}
 			Kart kart = em.find(Kart.class, lsk);
 
-			//String lsk = kart.getLsk();
 			// текущий период
 			Integer period = calcStore.getPeriod();
 			// период - месяц назад
@@ -204,13 +200,7 @@ public class DebitMngImpl implements DebitMng {
 			// задолженность предыдущего периода (здесь же заполнены поля по вх.сальдо по пене) - 1
 			localStore.setLstDebFlow(debDao.getDebitByLsk(lsk, periodBack));
 
-	/*		penDao.getPenByLsk(lsk, periodBack).stream()
-			.forEach(t->{
-						log.info("ВХОДЯЩЕЕ сальдо по пене mg={}, usl={} org={}, сумма={}", t.getMg(), t.getUslId(), t.getOrgId(), t.getPenOut());
-
-					});
-
-	*/		// задолженность по пене (вх.сальдо) - 8
+  		    // задолженность по пене (вх.сальдо) - 8
 			localStore.setLstDebPenFlow(penDao.getPenByLsk(lsk, periodBack));
 			// текущее начисление - 2
 			localStore.setLstChrgFlow(chargeDao.getChargeByLsk(lsk));
@@ -233,7 +223,6 @@ public class DebitMngImpl implements DebitMng {
 
 			// обработать каждый элемент услуга+организация
 			List<SumDebRec> lst = lstUslOrg.parallelStream()
-				//.filter(t-> t.getUslId().equals("005") && t.getOrgId().equals(10))
 				.flatMap(t -> {
 					try {
 						// РАСЧЕТ задолжности и пени по услуге
@@ -247,18 +236,14 @@ public class DebitMngImpl implements DebitMng {
 
 			// найти совокупные задолженности каждого дня, обнулить пеню, в тех днях, где задолженность = 0
 			// по дням
-			//log.info("Контроль по совокупным задолженностям");
 			Calendar c = Calendar.getInstance();
 			for (c.setTime(calcStore.getDt1()); !c.getTime().after(calcStore.getGenDt()); c.add(Calendar.DATE, 1)) {
 				Date curDt = c.getTime();
-				//log.info("Контроль по совокупным задолженностям дата={}", curDt);
 				// суммировать по дате
 				BigDecimal debForPen = lst.stream().filter(t->t.getDt().equals(curDt))
 						.map(t-> t.getSumma()).reduce(BigDecimal.ZERO, BigDecimal::add);
-				//log.info("Контроль по совокупным задолженностям долг={}", debForPen);
 				if (debForPen.compareTo(BigDecimal.ZERO) <=0) {
 					// нет долгов, занулить пеню по всей дате
-					//log.info("Контроль по совокупным задолженностям Нулим дату={}", curDt);
 					lst.stream().filter(t->t.getDt().equals(curDt)).forEach(t-> t.setPenyaChrg(BigDecimal.ZERO));
 				}
 			}
@@ -283,14 +268,10 @@ public class DebitMngImpl implements DebitMng {
 			penDao.updByLskPeriod(lsk, period, periodBack);
 
 			// получить задолженность, по которой рассчитывается пеня, по всем услугам
-			//BigDecimal sumDeb = lst.stream().map(t->t.getDebRolled()).reduce(BigDecimal.ZERO, BigDecimal::add);
-			//log.info("Задолженность для расчета пени:{}", sumDeb);
-
 			for (SumPenRec t : lstGrp) {
 					// рассчитать исходящее сальдо по пене, сохранить расчет
 					save(calcStore, kart, localStore, t);
 			}
-
 
 			long endTime = System.currentTimeMillis();
 			long totalTime = endTime - startTime;
@@ -299,7 +280,7 @@ public class DebitMngImpl implements DebitMng {
 		 // разблокировать лицевой счет
 		 config.getLock().unlockLsk(reqConf.getRqn(), lsk);
 	 }
-	CommonResult res = new CommonResult(lsk, 1111111111); // TODO 111111
+	CommonResult res = new CommonResult(lsk, 0);
 	return new AsyncResult<CommonResult>(res);
 	}
 
@@ -308,7 +289,7 @@ public class DebitMngImpl implements DebitMng {
 	 * @param calcStore - хранилище справочников
 	 * @param kart - лиц.счет
 	 * @param localStore - локальное хранилище финансовых операций по лиц.счету
-	 * @param t - рассчитанная строка
+	 * @param t - расчитанная строка
 	 */
 	private void save(CalcStore calcStore, Kart kart, CalcStoreLocal localStore, SumPenRec t) {
 		// округлить начисленную пеню
@@ -357,8 +338,6 @@ public class DebitMngImpl implements DebitMng {
 				isCreate = true;
 			}
 		}
-		//log.info("usl={}, org={} debIn={}", t.getUslOrg().getUslId(),
-		//		t.getUslOrg().getOrgId(), t.getPenyaIn());
 		if (isCreate) {
 			// создать запись нового периода
 			if (t.getDebIn().compareTo(BigDecimal.ZERO) != 0
@@ -377,7 +356,7 @@ public class DebitMngImpl implements DebitMng {
 							+ " некорректные данные в таблице SCOTT.DEB!"
 							+ " Не найдена услуга с кодом usl="+t.getUslId());
 				}
-				Org org = em.find(Org.class, t.getOrgId());
+				Charge.Org org = em.find(Charge.Org.class, t.getOrgId());
 				if (org == null) {
 					// так как внутри потока, то только RuntimeException
 					throw new RuntimeException("Ошибка при сохранении записей долгов,"
@@ -445,10 +424,6 @@ public class DebitMngImpl implements DebitMng {
 					|| t.getPenyaCorr().compareTo(BigDecimal.ZERO) != 0
 				) {
 				// если хотя бы одно поле != 0
-/*				log.info("ПРОВЕРКА uslId={}, orgId={}, период={}",
-						t.getUslOrg().getUslId(), t.getUslOrg().getOrgId(), t.getMg());
-*/				//log.info("CREATE usl={}, org={}", t.getUslOrg().getUslId(),
-				//		t.getUslOrg().getOrgId());
 				Usl usl = em.find(Usl.class, t.getUslId());
 				if (usl == null) {
 					// так как внутри потока, то только RuntimeException
@@ -456,7 +431,7 @@ public class DebitMngImpl implements DebitMng {
 							+ " некорректные данные в таблице SCOTT.PEN!"
 							+ " Не найдена услуга с кодом usl="+t.getUslId());
 				}
-				Org org = em.find(Org.class, t.getOrgId());
+				Charge.Org org = em.find(Charge.Org.class, t.getOrgId());
 				if (org == null) {
 					// так как внутри потока, то только RuntimeException
 					throw new RuntimeException("Ошибка при сохранении записей пени,"

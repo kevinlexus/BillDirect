@@ -42,7 +42,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 
 	/**
 	 * Вызвать выполнение потоков распределения объемов/ начисления
-	 * @param reqConfig - конфиг запроса
+	 * @param reverse- lambda функция
 	 * @param cntThreads - кол-во потоков
 	 * @param lstItem - список Id на обработку
 	 * @param name - наименование потока, если заполнен, проверять остановку главного процесса
@@ -75,7 +75,6 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 		// флаг принудительной остановки
 		boolean isStopProcess = false;
 		while (!isStop && !isStopProcess) {
-			//log.info("========================================== Ожидание выполнения потоков ===========");
 			Future<CommonResult> fut;
 			int i=0;
 			// флаг наличия потоков
@@ -101,27 +100,16 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 					if (itemWork != null) {
 						// создать новый поток, передать информацию о % выполнения
 						fut = reverse.lambdaFunction(itemWork, proc);
-						//log.info("================================ Начат поток начисления для лс={} ==================", itemWork);
 						frl.set(i, fut);
 					}
 				} else if (!fut.isDone()) {
-					//log.info("========= Поток НЕ завершен! лс={}", fut.get().getLsk());
-					//log.info("..................................... CHK1");
 				} else {
-					//log.info("------------------------------------- CHK2");
-					//try {
 						if (fut.get().getErr() == 1) {
 							log.error("================================ ОШИБКА ПОЛУЧЕНА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА для лс={} ==================", fut.get().getErr());
 						} else {
-							//log.info("================================ Успешно завершен поток начисления для лс={} ==================", fut.get().getLsk());
 						}
-					/*} catch (InterruptedException | ExecutionException e1) {
-						e1.printStackTrace();
-						log.error("ОШИБКА ВО ВРЕМЯ ВЫПОЛНЕНИЯ ПОТОКА!", e1);
-					} finally {*/
 						// очистить переменную потока
 						frl.set(i, null);
-					//}
 
 				}
 

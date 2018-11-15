@@ -24,6 +24,11 @@ import com.ric.cmn.excp.ErrorWhileChrgPen;
 
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Сервис обработки строк задолженности и расчета пени по дням
+ * @author lev
+ * @version 1.18
+ */
 @Slf4j
 @Service
 public class DebitThrMngImpl implements DebitThrMng {
@@ -41,7 +46,6 @@ public class DebitThrMngImpl implements DebitThrMng {
 	 */
 	@Override
 	public List<SumDebRec> genDebitUsl(Kart kart, UslOrg u, CalcStore calcStore, CalcStoreLocal localStore) throws ErrorWhileChrgPen {
-		//log.info("usl= {}, org= {}", u.getUslId(), u.getOrgId());
 		// дата начала расчета
 		Date dt1 = calcStore.getDt1();
 		// дата окончания расчета
@@ -86,9 +90,6 @@ public class DebitThrMngImpl implements DebitThrMng {
 							t.getSumma(), t.getSumma(), null, null, t.getMg(), t.getTp()))
 					.collect(Collectors.toList()));
 			// вычесть оплату долга - для расчета долга, включая текущий день (Не включая для задолженности для расчета пени)
-			// ВНИМАНИЕ! TODO! По оплате долга введена искусственная ошибка, перенесённая из пакета C_CPENYA строка "and case when t.dtek < init.get_cur_dt_start"
-			// Считаю некорректным таким образом ограничивать дату поступления оплаты, так как оплата может быть принята 31 числом предыдущего месяца
-			// и она должна повлиять на долг. Решить позже, что с этим делать ред. 08.06.2018
 			lstDeb.addAll(localStore.getLstPayFlow().stream()
 					.filter(t-> t.getDt().getTime() <= curDt.getTime())
 					.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
@@ -101,7 +102,6 @@ public class DebitThrMngImpl implements DebitThrMng {
 							null, null,
 							t.getMg(), t.getTp()))
 							.collect(Collectors.toList()));
-			// ВНИМАНИЕ! TODO! По оплате долга введена искусственная ошибка
 
 			// вычесть корректировки оплаты - для расчета долга, включая текущий день
 			lstDeb.addAll(localStore.getLstPayCorrFlow().stream()
@@ -123,14 +123,7 @@ public class DebitThrMngImpl implements DebitThrMng {
 								t.getPenOut(), null, t.getMg(), t.getTp()))
 						.collect(Collectors.toList()));
 
-/*				localStore.getLstDebPenFlow().stream()
-				.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
-				.forEach(t->{
-							log.info("ВХОДЯЩЕЕ сальдо по пене mg={}, usl={} org={}, сумма={}", t.getMg(), t.getUslId(), t.getOrgId(), t.getPenOut());
-
-						});
-
-*/				// корректировки начисления пени
+				// корректировки начисления пени
 				lstDeb.addAll(localStore.getLstPenChrgCorrFlow().stream()
 						.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
 						.map(t-> new SumDebRec(null, null, null, null, null, null, null, null, null,
@@ -158,13 +151,6 @@ public class DebitThrMngImpl implements DebitThrMng {
 			// рассчитать пеню на определенный день, добавить в общую коллекцию по всем дням
 			lstPenAllDays.addAll(genPen.getRolledDebPen(isLastDay));
 		}
-
-/*		lstPenAllDays.forEach(t-> {
-			log.info("НЕдетализир.: dt={}, mg={}, penChrg={}", t.getDt(), t.getMg(), t.getPenyaChrg());
-		});*/
-
-		// сгруппировать пеню и вернуть
-		//return getGroupingPenDeb(u, lstPenAllDays);
 
 		// вернуть всю детализированную пеню по данной услуге и организации, по дням
 		return lstPenAllDays;
