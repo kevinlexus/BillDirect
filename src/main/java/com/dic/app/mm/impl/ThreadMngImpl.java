@@ -9,6 +9,7 @@ import java.util.concurrent.Future;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
+import com.ric.cmn.excp.WrongParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
@@ -45,21 +46,21 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 	 * @param reverse- lambda функция
 	 * @param cntThreads - кол-во потоков
 	 * @param lstItem - список Id на обработку
-	 * @param name - наименование потока, если заполнен, проверять остановку главного процесса
+	 * @param mark - наименование потока, если заполнен, проверять остановку главного процесса
 	 * @throws ExecutionException
 	 * @throws InterruptedException
 	 */
 	@Override
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor=Exception.class)
 	public void invokeThreads(PrepThread<T> reverse,
-			int cntThreads, List<T> lstItem, String name) throws InterruptedException, ExecutionException {
+			int cntThreads, List<T> lstItem, String mark) throws InterruptedException, ExecutionException, WrongParam {
 		long startTime = System.currentTimeMillis();
 		// размер очереди
 		int lstSize = lstItem.size();
 		int curSize = lstSize;
 		// если указано имя маркера, то проверять остановку процесса
 		boolean isCheckStop;
-		if (name != null) {
+		if (mark != null) {
 			isCheckStop = true;
 		} else {
 			isCheckStop = false;
@@ -80,7 +81,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 			// флаг наличия потоков
 			isStop = true;
 			for (Iterator<Future<CommonResult>> itr = frl.iterator(); itr.hasNext();) {
-				if (isCheckStop && config.getLock().isStopped(name)) {
+				if (isCheckStop && config.getLock().isStopped(mark)) {
 					// если процесс был остановлен, выход
 					isStopProcess = true;
 					break;

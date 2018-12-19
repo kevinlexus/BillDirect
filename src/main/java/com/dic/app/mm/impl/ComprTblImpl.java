@@ -149,7 +149,7 @@ public class ComprTblImpl implements ComprTbl {
     	    	// Получить все периоды, фильтр - по услуге
 
     			minPeriod = lst.stream().filter(d -> d.getKey().equals(key)).map(t -> t.getMgFrom()).min(Integer::compareTo).orElse(null);
-    			//maxPeriod = lst.stream().filter(d -> d.getUsl().equals(key) && d.getMgFrom() < curPeriod) // не включая текущий период
+    			//maxPeriod = tp.stream().filter(d -> d.getUsl().equals(key) && d.getMgFrom() < curPeriod) // не включая текущий период
     				//	.map(t -> t.getMgTo()).max(Integer::compareTo).orElse(null);
     			log.trace("Л.с.:{} мин.период:{}", lsk, minPeriod);
 
@@ -277,10 +277,10 @@ public class ComprTblImpl implements ComprTbl {
 		return CollectionUtils.isEqualCollection(filtLst1, filtLst2, equator);
 
 		// Получить коллекции hash и сравнить их между собой оставил пока
-/*    	List<Integer> filtLst1 = lst.stream()
+/*    	List<Integer> filtLst1 = tp.stream()
 				.filter(t -> key == null || t.getUsl().equals(key))
 				.filter(t -> t.getMgFrom().equals(period1)).map(t-> t.getHash()).collect(Collectors.toList());
-		List<Integer> filtLst2 = lst.stream()
+		List<Integer> filtLst2 = tp.stream()
 				.filter(t -> key == null || t.getUsl().equals(key))
 				.filter(t -> t.getMgFrom().equals(period2)).map(t-> t.getHash()).collect(Collectors.toList());
 */

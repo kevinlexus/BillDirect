@@ -49,7 +49,7 @@ public class GenPen {
 	 * @param usl - услуга (возникла необходимость получить еще и типы услуг, поэтому ввел usl)
 	 * @param calcStore - хранилище справочников
 	 * @param reuId - Integer представление кода reu, для ускорения фильтров
-	 * @param передать сюда UtlMng, так как это не сервис
+	 * @param
 	 */
 	public GenPen(Kart kart, UslOrg uslOrg, Usl usl, CalcStore calcStore, int reuId) {
 		this.calcStore = calcStore;
@@ -221,7 +221,7 @@ public class GenPen {
 				return null;
 			} else {
 				// некритическая ошибка отсутствия записи в справочнике пени, просто не начислить пеню!
-				log.error("ОШИБКА во время начисления пени по лс="+kart.getLsk()+", возможно не настроен справочник C_SPR_PEN_USL!"
+				log.error("ОШИБКА во время начисления пени по лс="+kart.getLsk()+", возможно не настроен справочник PEN_DT!"
 						+ "Попытка найти элемент: mg="+mg+", usl.tp_pen_dt="+usl.getTpPenDt()+", kart.reu="+kart.getUk().getReu());
 				return null;
 			}
@@ -229,7 +229,7 @@ public class GenPen {
 		int days = Utl.daysBetween(penDt.getDt(), curDt);
 		if (days > 0) {
 			// пеня возможна, если есть кол-во дней долга
-			//log.info(" spr={}, cur={}, days={}", sprPenUsl.getDt(), curDt, days);
+			//log.info(" spr={}, cur={}, days={}", sprPenUsl.getTs(), curDt, days);
 			PenRef penRef = calcStore.getLstPenRef().stream()
 					.filter(t-> t.getUslTpRef().equals(usl.getTpPenRef())) // фильтр по типу услуги
 					.filter(t-> days >= t.getDays1().intValue() && days <= t.getDays2().intValue()) // фильтр по кол-ву дней долга

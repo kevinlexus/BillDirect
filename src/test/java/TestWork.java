@@ -1,6 +1,7 @@
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
+import com.dic.app.mm.ProcessMng;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,19 +9,18 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.AutoConfigureTestData
 import org.springframework.boot.test.autoconfigure.orm.jpa.AutoConfigureTestDatabase.Replace;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.ApplicationContext;
+import org.springframework.test.annotation.Repeat;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import com.dic.app.Config;
 import com.dic.app.mm.ConfigApp;
-import com.dic.app.mm.DebitMng;
 import com.dic.app.mm.ThreadMng;
 import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.DebDAO;
 import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dao.RedirPayDAO;
-import com.dic.bill.model.scott.SessionDirect;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
 
@@ -41,7 +41,7 @@ public class TestWork {
 	@Autowired
 	private ThreadMng threadMng;
 	@Autowired
-	private DebitMng debitMng;
+	private ProcessMng processMng;
 
 	@Autowired
 	private KartDAO kartDao;
@@ -53,31 +53,26 @@ public class TestWork {
 	@PersistenceContext
     private EntityManager em;
 
+	/**
+	 * Проверка расчета начисления, задолжности и пени
+	 * @throws ErrorWhileChrgPen
+	 */
     @Test
-    @Rollback(false)
-    //@Repeat(value = 100)
+    @Rollback(true)
+    @Repeat(value = 1)
     public void mainWork() throws ErrorWhileChrgPen {
 		log.info("Test start");
 
-
 		log.info("Текущий период: dt1={}, dt2={}", config.getCurDt1(), config.getCurDt2());
-
-		SessionDirect sessionDirect = em.find(SessionDirect.class, 4735);
 		// конфиг запроса
 		RequestConfig reqConf =
-				RequestConfig.builder()
+				RequestConfig.RequestConfigBuilder.aRequestConfig()
 				.withRqn(config.incNextReqNum()) // уникальный номер запроса
-				.withSessionDirect(sessionDirect) // сессия Директ
+				.withTp(1) // тип операции
 				.build();
-
-		Boolean isLocked = config.getLock().setLockProc(reqConf.getRqn(), "debitMng.genDebitAll");
-		//debitMng.genDebitAll("00000185", "00000185", Utl.getDateFromStr("15.04.2014"), 0, reqConf);
-		debitMng.genDebitAll("00000085", "00000085", Utl.getDateFromStr("15.04.2014"), 0, reqConf);
-
-		/*
-		if (isLocked) {
-			debitMng.genDebitAll(null, Utl.getDateFromStr("15.04.2014"), 0, reqConf);
-		}*/
+		processMng.genProcessAll("00000000", "00000085",
+					Utl.getDateFromStr("15.04.2014"),
+				0, reqConf);
 
 		log.info("Test end");
 	}

@@ -45,37 +45,37 @@ public class TestDAO {
 		log.info("Test Debit");
 		debUslDao.getDebitByLsk("00000084", 201403).forEach(t-> {
 			log.info("Debit: usl={}, org={}, summa={}, mg={}, dt={}, tp={}",
-					t.getUslId(), t.getOrgId(), t.getDebOut(), t.getMg(), t.getDt(), t.getTp());
+					t.getUslId(), t.getOrgId(), t.getDebOut(), t.getMg(), t.getTs(), t.getTp());
 		});
 
 		log.info("Test Charge");
 		chargeDao.getChargeByLsk("00000084").forEach(t-> {
 			log.info("Charge: usl={}, org={}, summa={}, mg={}, dt={}, tp={}",
-					t.getUslId(), t.getOrgId(), t.getDebOut(), t.getMg(), t.getDt(), t.getTp());
+					t.getUslId(), t.getOrgId(), t.getDebOut(), t.getMg(), t.getTs(), t.getTp());
 		});
 
 		log.info("Test VchangeDet");
 		vchangeDetDao.getVchangeDetByLsk("00000084").forEach(t-> {
 			log.info("Change: usl={}, org={}, summa={}, mg={}, dt={}, tp={}",
-					t.getUslId(), t.getOrgId(), t.getDebOut(), t.getMg(), t.getDt(), t.getTp());
+					t.getUslId(), t.getOrgId(), t.getDebOut(), t.getMg(), t.getTs(), t.getTp());
 		});
 
 		log.info("Test KwtpDay оплата долга");
 		kwtpDayDao.getKwtpDaySumByLsk("00000084").forEach(t-> {
 			log.info("KwtpDay tp=1: usl={}, org={}, summa={}, mg={}, dt={}, tp={}",
-					t.getUslId(), t.getOrgId(), t.getDebOut(), t.getMg(), t.getDt(), t.getTp());
+					t.getUslId(), t.getOrgId(), t.getDebOut(), t.getMg(), t.getTs(), t.getTp());
 		});
 
 		log.info("Test KwtpDay оплата пени");
 		kwtpDayDao.getKwtpDayPenByLsk("00000084").forEach(t-> {
 			log.info("KwtpDay tp=0: usl={}, org={}, summa={}, mg={}, dt={}, tp={}",
-					t.getUslId(), t.getOrgId(), t.getDebOut(), t.getMg(), t.getDt(), t.getTp());
+					t.getUslId(), t.getOrgId(), t.getDebOut(), t.getMg(), t.getTs(), t.getTp());
 		});
 
 		log.info("Test CorrectPay");
 		correctPayDao.getCorrectPayByLsk("00000084").forEach(t-> {
 			log.info("CorrectPay: usl={}, org={}, summa={}, mg={}, dt={}, tp={}",
-					t.getUslId(), t.getOrgId(), t.getDebOut(), t.getMg(), t.getDt(), t.getTp());
+					t.getUslId(), t.getOrgId(), t.getDebOut(), t.getMg(), t.getTs(), t.getTp());
 		});
 */
 		log.info("Test VchargePay");

@@ -10,7 +10,8 @@ import java.util.stream.Collectors;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
-import com.dic.bill.model.scott.Charge;
+import com.dic.bill.model.scott.*;
+import com.ric.cmn.excp.WrongParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Scope;
@@ -30,9 +31,6 @@ import com.dic.bill.dao.DebDAO;
 import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dto.SumDebMgRec;
 import com.dic.bill.dto.SumDebUslMgRec;
-import com.dic.bill.model.scott.Deb;
-import com.dic.bill.model.scott.Kart;
-import com.dic.bill.model.scott.Usl;
 import com.ric.dto.CommonResult;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileDistDeb;
@@ -90,11 +88,10 @@ public class MigrateMngImpl implements MigrateMng {
 		// вызвать в потоках
 		try {
 			threadMng.invokeThreads(reverse, 15, lstItem, null);
-		} catch (InterruptedException | ExecutionException e) {
+		} catch (InterruptedException | ExecutionException | WrongParam e) {
 			log.error(Utl.getStackTraceString(e));
 			throw new ErrorWhileDistDeb("ОШИБКА во время миграции задолженности!");
 		}
-
 
 		long endTime = System.currentTimeMillis();
 		long totalTime = endTime - startTime;
@@ -278,7 +275,7 @@ public class MigrateMngImpl implements MigrateMng {
 			if (usl==null) {
 				throw new RuntimeException("ОШИБКА #4 сохранения задолженности, не найдена услуга usl="+t.getUslId());
 			}
-			Charge.Org org = em.find(Charge.Org.class, t.getOrgId());
+			Org org = em.find(Org.class, t.getOrgId());
 			if (org==null) {
 				throw new RuntimeException("ОШИБКА #5 сохранения задолженности, не найдена организация org="+t.getOrgId());
 			}

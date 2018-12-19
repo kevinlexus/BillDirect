@@ -20,7 +20,7 @@ import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.PrepErrDAO;
 import com.dic.bill.dao.SprGenItmDAO;
 import com.dic.bill.model.scott.PrepErr;
-import com.dic.bill.model.scott.SessionDirect;
+//import com.dic.bill.model.scott.SessionDirect;
 import com.dic.bill.model.scott.SprGenItm;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileDistDeb;
@@ -34,7 +34,7 @@ public class WebController {
 	@PersistenceContext
     private EntityManager em;
 	@Autowired
-	private DebitMng debitMng;
+	private ProcessMng debitMng;
 	@Autowired
 	private MigrateMng migrateMng;
 	@Autowired
@@ -67,7 +67,7 @@ public class WebController {
     @RequestMapping(value = "/getStateGen", method = RequestMethod.GET)
     @ResponseBody
     public String getStateGen() {
-    	return config.getLock().isStopped("MainGeneration") ? "0":"1";
+    	return config.getLock().isStopped("AmountGeneration") ? "0":"1";
     }
 
 	/**
@@ -114,7 +114,7 @@ public class WebController {
 
 
 	/**
-	 * Начать формирование
+	 * Начать итоговое формирование
 	 * @return
 	 */
 	@RequestMapping("/startGen")
@@ -130,14 +130,14 @@ public class WebController {
     }
 
 	/**
-	 * Остановить формирование
+	 * Остановить итоговое формирование
 	 * @return
 	 */
 	@RequestMapping("/stopGen")
     @ResponseBody
     public String stopGen() {
 		// установить статус - остановить формирование
-		config.getLock().unlockProc(1, "MainGeneration");
+		config.getLock().unlockProc(1, "AmountGeneration");
 		return "ok";
     }
 
@@ -163,7 +163,7 @@ public class WebController {
 	 * @genDt - дата формирования
 	 * @return
 	 */
-	@RequestMapping("/gen")
+	/*@RequestMapping("/gen")
     public String gen (
     		@RequestParam(value = "tp", defaultValue = "0") String tp,
     		@RequestParam(value = "lskFrom", defaultValue = "0") String lskFrom,
@@ -229,24 +229,27 @@ public class WebController {
 					// если не остановка процесса
 					if (!lskFrom.equals(lskTo)) {
 						// заблокировать при расчете по всем лиц.счетам
-						Boolean isLocked = config.getLock().setLockProc(reqConf.getRqn(), "MainGeneration"); // TODO разрулить потом маркеры - будут пересекаться с формированием из SprGenItem!
+						Boolean isLocked = config.getLock().setLockProc(reqConf.getRqn(),
+								"ProcessGeneration");
 						if (isLocked) {
 							try {
-								debitMng.genDebitAll(lskFrom, lskTo, genDt, dbgLvl, reqConf);
+								debitMng.genProcessAll(lskFrom, lskTo, genDt, dbgLvl, reqConf);
 							} finally {
 								// разблокировать при расчете по всем лиц.счетам
-								config.getLock().unlockProc(reqConf.getRqn(), "MainGeneration"); // TODO разрулить потом маркеры - будут пересекаться с формированием из SprGenItem!
+								config.getLock().unlockProc(reqConf.getRqn(),
+										"ProcessGeneration");
 							}
 						} else {
 							return "ERROR ОШИБКА блокировки процесса расчета задолженности и пени";
 						}
 					} else {
 						// по одному лиц.счету
-				    	debitMng.genDebitAll(lskFrom, lskTo, genDt, dbgLvl, reqConf);
+				    	debitMng.genProcessAll(lskFrom, lskTo, genDt, dbgLvl, reqConf);
 					}
 				} else {
 					// снять маркер выполнения процесса
-					config.getLock().stopProc(reqConf.getRqn(), "MainGeneration"); // TODO разрулить потом маркеры - будут пересекаться с формированием из SprGenItem!
+					config.getLock().stopProc(reqConf.getRqn(),
+							"ProcessGeneration");
 				}
 			} catch (Exception e) {
 				log.error(Utl.getStackTraceString(e));
@@ -258,7 +261,7 @@ public class WebController {
 			return "ERROR Не найден вызываемый метод";
 		}
     }
-
+*/
 
 
 	@RequestMapping("/migrate")

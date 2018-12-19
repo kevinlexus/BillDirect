@@ -1,29 +1,22 @@
 package com.dic.app.mm.impl;
 
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.GregorianCalendar;
-import java.util.List;
-import java.util.TimeZone;
-
-import javax.annotation.PostConstruct;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import com.dic.app.mm.ConfigApp;
 import com.dic.bill.Lock;
 import com.dic.bill.dao.ParamDAO;
 import com.dic.bill.model.scott.Param;
 import com.ric.cmn.Utl;
-
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import javax.annotation.PostConstruct;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import java.util.*;
 
 /**
  * Конфигуратор приложения
+ *
  * @author lev
  * @version 1.01
  */
@@ -31,175 +24,182 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ConfigImpl implements ConfigApp {
 
-	@PersistenceContext
-	private EntityManager em;
+    @PersistenceContext
+    private EntityManager em;
 
-	@Autowired
-	ParamDAO paramDao;
+    @Autowired
+    ParamDAO paramDao;
 
-	// даты текущего периода (не зависимо от перерасчета)
-	Date curDt1;
-	Date curDt2;
+    // даты текущего периода (не зависимо от перерасчета)
+    Date curDt1;
+    Date curDt2;
 
-	// номер текущего запроса
-	private int reqNum = 0;
+    // номер текущего запроса
+    private int reqNum = 0;
 
-	//private List<Integer> workLst; // обрабатываемые лицевые счета
+    //private List<Integer> workLst; // обрабатываемые лицевые счета
 
-	// текущий период (для партицирования и проч.)
-	String period;
-	// период +1 месяц
-	String periodNext;
-	// период -1 месяц
-	String periodBack;
+    // текущий период (для партицирования и проч.)
+    String period;
+    // период +1 месяц
+    String periodNext;
+    // период -1 месяц
+    String periodBack;
 
-	// прогресс текущего формирования
-	Integer progress;
+    // прогресс текущего формирования
+    Integer progress;
 
-	// запретить начислять по лиц.счетам, если формируется глобальное начисление
-	Boolean isRestrictChrgLsk = false;
-
-
-	// блокировщик выполнения процессов
-	private Lock lock;
-
-	@PostConstruct
-	private void setUp() {
-		log.info("");
-		log.info("-----------------------------------------------------------------");
-		log.info("Версия модуля - {}", "1.0.2");
-
-		log.info("Начало расчетного периода = {}", getCurDt1());
-		log.info("Конец расчетного периода = {}", getCurDt2());
-		log.info("-----------------------------------------------------------------");
-		log.info("");
-
-		TimeZone.setDefault(TimeZone.getTimeZone("GMT+7"));
-		// блокировщик процессов
-		setLock(new Lock());
-	}
-
-	// Получить Calendar текущего периода
-	////@Cacheable(cacheNames="Config.getCalendarCurrentPeriod") Пока отключил 24.11.2017
-	private List<Calendar> getCalendarCurrentPeriod() {
-			List<Calendar> calendarLst = new ArrayList<Calendar>();
-
-			Param param = em.find(Param.class, 1);
-			if (param == null) {
-				log.error("ВНИМАНИЕ! Установите SCOTT.PARAMS.ID=1");
-			}
-
-			Calendar calendar1, calendar2;
-			calendar1 = new GregorianCalendar();
-			calendar1.clear(Calendar.ZONE_OFFSET);
-
-			calendar2 = new GregorianCalendar();
-			calendar2.clear(Calendar.ZONE_OFFSET);
+    // запретить начислять по лиц.счетам, если формируется глобальное начисление
+    Boolean isRestrictChrgLsk = false;
 
 
-			// получить даты начала и окончания периода
-			Date dt = Utl.getDateFromPeriod(param.getPeriod().concat("01"));
-			Date dt1 = Utl.getFirstDate(dt);
-			Date dt2 = Utl.getLastDate(dt1);
+    // блокировщик выполнения процессов
+    private Lock lock;
 
-			calendar1.setTime(dt1);
-			calendarLst.add(calendar1);
+    @PostConstruct
+    private void setUp() {
+        log.info("");
+        log.info("-----------------------------------------------------------------");
+        log.info("Версия модуля - {}", "1.0.2");
 
-			calendar2.setTime(dt2);
-			calendarLst.add(calendar2);
+        log.info("Начало расчетного периода = {}", getCurDt1());
+        log.info("Конец расчетного периода = {}", getCurDt2());
+        log.info("-----------------------------------------------------------------");
+        log.info("");
 
-			return calendarLst;
-	}
+        TimeZone.setDefault(TimeZone.getTimeZone("GMT+7"));
+        // блокировщик процессов
+        setLock(new Lock());
+    }
 
-	@Override
-	public String getPeriod() {
-		return Utl.getPeriodFromDate(getCalendarCurrentPeriod().get(0).getTime());
-	}
+    // Получить Calendar текущего периода
+    ////@Cacheable(cacheNames="Config.getCalendarCurrentPeriod") Пока отключил 24.11.2017
+    private List<Calendar> getCalendarCurrentPeriod() {
+        List<Calendar> calendarLst = new ArrayList<Calendar>();
 
-	@Override
-	public String getPeriodNext() {
-		return Utl.addMonths(Utl.getPeriodFromDate(getCalendarCurrentPeriod().get(0).getTime()), 1);
-	}
+        Param param = em.find(Param.class, 1);
+        if (param == null) {
+            log.error("ВНИМАНИЕ! Установите SCOTT.PARAMS.ID=1");
+        }
 
-	@Override
-	public String getPeriodBack() {
-		return Utl.addMonths(Utl.getPeriodFromDate(getCalendarCurrentPeriod().get(0).getTime()), -1);
-	}
+        Calendar calendar1, calendar2;
+        calendar1 = new GregorianCalendar();
+        calendar1.clear(Calendar.ZONE_OFFSET);
 
-	@Override
-	public Date getCurDt1() {
-		return getCalendarCurrentPeriod().get(0).getTime();
-	}
+        calendar2 = new GregorianCalendar();
+        calendar2.clear(Calendar.ZONE_OFFSET);
 
-	@Override
-	public Date getCurDt2() {
-		return getCalendarCurrentPeriod().get(1).getTime();
-	}
 
-	// получить следующий номер запроса
-	@Override
-	public synchronized int incNextReqNum() {
-		return this.reqNum++;
-	}
+        // получить даты начала и окончания периода
+        Date dt = Utl.getDateFromPeriod(param.getPeriod().concat("01"));
+        Date dt1 = Utl.getFirstDate(dt);
+        Date dt2 = Utl.getLastDate(dt1);
 
-	public Boolean getIsRestrictChrgLsk() {
-		return isRestrictChrgLsk;
-	}
+        calendar1.setTime(dt1);
+        calendarLst.add(calendar1);
 
-	public void setIsRestrictChrgLsk(Boolean isRestrictChrgLsk) {
-		this.isRestrictChrgLsk = isRestrictChrgLsk;
-	}
+        calendar2.setTime(dt2);
+        calendarLst.add(calendar2);
 
-	@Override
-	public Lock getLock() {
-		return lock;
-	}
+        return calendarLst;
+    }
 
-	private void setLock(Lock lock) {
-		this.lock = lock;
-	}
+    @Override
+    public String getPeriod() {
+        return Utl.getPeriodFromDate(getCalendarCurrentPeriod().get(0).getTime());
+    }
 
-	/**
-	 * Выполнить блокировку лицевого счета
-	 */
-	@Override
-	public boolean aquireLock (int rqn, String lsk) {
-		// блокировка лиц.счета
-		int waitTick = 0;
-		while (!getLock().setLockLsk(rqn, lsk)) {
-			waitTick++;
-			if (waitTick > 60) {
-				log.error(
-						"********ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!");
-				log.error(
-						"********НЕВОЗМОЖНО РАЗБЛОКИРОВАТЬ к lsk={} В ТЕЧЕНИИ 60 сек!{}", lsk);
-				return false;
-			}
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				log.error(Utl.getStackTraceString(e));
-				return false;
-			}
-		}
-		return true;
-	}
+    @Override
+    public String getPeriodNext() {
+        return Utl.addMonths(Utl.getPeriodFromDate(getCalendarCurrentPeriod().get(0).getTime()), 1);
+    }
 
-	@Override
-	public Integer getProgress() {
-		return progress;
-	}
+    @Override
+    public String getPeriodBack() {
+        return Utl.addMonths(Utl.getPeriodFromDate(getCalendarCurrentPeriod().get(0).getTime()), -1);
+    }
 
-	@Override
-	public void setProgress(Integer progress) {
-		this.progress = progress;
-	}
+    /**
+     * Получить первую дату текущего месяца
+     * @return
+     */
+    @Override
+    public Date getCurDt1() {
+        return getCalendarCurrentPeriod().get(0).getTime();
+    }
 
-	@Override
-	public void incProgress() {
-		progress++;
-	}
+    /**
+     * Получить последнюю дату текущего периода
+     * @return
+     */
+    @Override
+    public Date getCurDt2() {
+        return getCalendarCurrentPeriod().get(1).getTime();
+    }
 
+    // получить следующий номер запроса
+    @Override
+    public synchronized int incNextReqNum() {
+        return this.reqNum++;
+    }
+
+    public Boolean getIsRestrictChrgLsk() {
+        return isRestrictChrgLsk;
+    }
+
+    public void setIsRestrictChrgLsk(Boolean isRestrictChrgLsk) {
+        this.isRestrictChrgLsk = isRestrictChrgLsk;
+    }
+
+    @Override
+    public Lock getLock() {
+        return lock;
+    }
+
+    private void setLock(Lock lock) {
+        this.lock = lock;
+    }
+
+    /**
+     * Выполнить блокировку лицевого счета
+     */
+    @Override
+    public boolean aquireLock(int rqn, String lsk) {
+        // блокировка лиц.счета
+        int waitTick = 0;
+        while (!getLock().setLockLsk(rqn, lsk)) {
+            waitTick++;
+            if (waitTick > 60) {
+                log.error(
+                        "********ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!");
+                log.error(
+                        "********НЕВОЗМОЖНО РАЗБЛОКИРОВАТЬ lsk={} В ТЕЧЕНИИ 60 сек!{}", lsk);
+                return false;
+            }
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                log.error(Utl.getStackTraceString(e));
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public Integer getProgress() {
+        return progress;
+    }
+
+    @Override
+    public void setProgress(Integer progress) {
+        this.progress = progress;
+    }
+
+    @Override
+    public void incProgress() {
+        progress++;
+    }
 
 
 }

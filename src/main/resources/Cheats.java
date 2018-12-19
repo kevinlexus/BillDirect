@@ -239,7 +239,7 @@ public interface ThreadMng<T> {
             allEntries = true)
     public Future<Result> chrgLsk(RequestConfig reqConfig, Kart kart,
 
-// Вызов хранимой процедуры:
+// Вызов хранимой функции:
       @Override
       @Transactional(readOnly = false, propagation = Propagation.REQUIRED)
       public Integer execProc(Integer var, Integer id, Integer sel) {
@@ -249,9 +249,10 @@ public interface ThreadMng<T> {
 
         switch (var) {
             case 4:
-            case 5:
-            case 6:
-            case 7:
+            case 5: {
+                log.info("Сюда зайдут варианты 4 и 5!")
+                break;
+            }
             case 38:
                 // проверка ошибок
                 qr = em.createStoredProcedureQuery("scott.p_thread.smpl_chk");

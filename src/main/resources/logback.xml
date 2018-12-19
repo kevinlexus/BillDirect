@@ -15,7 +15,7 @@
                 <pattern>%d{dd-MM-yyyy HH:mm:ss} %msg%n</pattern>
             </encoder>
   </appender>
-        
+
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
     <!-- Log message format -->
     <encoder>
@@ -24,9 +24,9 @@
     </encoder>
   </appender>
 
-<!--   <logger name="org.hibernate.type" level="TRACE" /> 
+<!--   <logger name="org.hibernate.type" level="TRACE" />
   <logger name="org.hibernate" level="TRACE" />
- -->  
+ -->
   <logger name="org.hibernate.engine.loading.internal.CollectionLoadContext" level="ERROR"/>
   <logger name="com.ric" level="INFO"/>
   <logger name="org.apache.xml.security.Init" level="INFO"/> <!-- не работает почему то -->
@@ -37,7 +37,7 @@
 <!--   <logger name="org.apache.catalina.core" level="DEBUG"/>
   <logger name="org.apache.catalina.session.level" level="DEBUG"/>
   <logger name="java.util.logging.ConsoleHandler.level" level="DEBUG"/>
- -->  
+ -->
   <!--<logger name="org.springframework.security" level="TRACE"/>-->
 
   <!-- Setting the root level of logging to INFO - Здесь менять уровни логгинга в Spring Boot-->
