@@ -47,7 +47,7 @@ public class DebitThrMngImpl implements DebitThrMng {
 	@Override
 	public List<SumDebRec> genDebitUsl(Kart kart, UslOrg u, CalcStore calcStore, CalcStoreLocal localStore) throws ErrorWhileChrgPen {
 		// дата начала расчета
-		Date dt1 = calcStore.getDt1();
+		Date dt1 = calcStore.getCurDt1();
 		// дата окончания расчета
 		Date dt2 = calcStore.getGenDt();
 		// загрузить услугу

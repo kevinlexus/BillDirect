@@ -79,7 +79,7 @@ public class ConfigImpl implements ConfigApp {
 
         Param param = em.find(Param.class, 1);
         if (param == null) {
-            log.error("ВНИМАНИЕ! Установите SCOTT.PARAMS.ID=1");
+            log.error("ВНИМАНИЕ! Установить SCOTT.PARAMS.ID=1");
         }
 
         Calendar calendar1, calendar2;

@@ -1,24 +1,18 @@
 package com.dic.app.mm.impl;
 
-import com.dic.app.mm.*;
-import com.dic.bill.RequestConfig;
+import com.dic.app.mm.ConfigApp;
+import com.dic.app.mm.DebitThrMng;
+import com.dic.app.mm.GenPenProcessMng;
+import com.dic.app.mm.ReferenceMng;
 import com.dic.bill.dao.*;
 import com.dic.bill.dto.*;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
-import com.ric.cmn.excp.WrongParam;
-import com.ric.dto.CommonResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Scope;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -28,8 +22,6 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 /**
@@ -70,8 +62,8 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
     /**
      * Рассчитать задолженность и пеню
      *
-     * @param calcStore  - хранилище справочников
-     * @param kart       - лиц.счет
+     * @param calcStore - хранилище справочников
+     * @param kart      - лиц.счет
      */
     public void genDebitPen(CalcStore calcStore, Kart kart) {
         Integer period = calcStore.getPeriod();
@@ -118,7 +110,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         // найти совокупные задолженности каждого дня, обнулить пеню, в тех днях, где задолженность = 0
         // по дням
         Calendar c = Calendar.getInstance();
-        for (c.setTime(calcStore.getDt1()); !c.getTime().after(calcStore.getGenDt()); c.add(Calendar.DATE, 1)) {
+        for (c.setTime(calcStore.getCurDt1()); !c.getTime().after(calcStore.getGenDt()); c.add(Calendar.DATE, 1)) {
             Date curDt = c.getTime();
             // суммировать по дате
             BigDecimal debForPen = lst.stream().filter(t -> t.getDt().equals(curDt))
