@@ -71,15 +71,17 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 if (t.getUsl().isMain()) {
                     // по основным услугам
                     log.info("Usl.id={}, name={}", t.getUsl().getId(), t.getUsl().getName());
+
                     // получить расценки по услуге
-                    PriceRec priceRec = naborMng.getPrices(lst, t.getUsl());
+                    DetailUslPrice detailUslPrice = naborMng.getDetailUslPrice(lst, t);
 
                     // получить кол-во проживающих
                     CountPers countPers = kartPrMng.getCountPersByDate(kart, parVarCntKpr, lstStatesPr, t.getUsl(), curDt);
+
                     // получить наличие счетчика
                     Meter meter = null ;
                     if (t.getUsl().getCounter() != null) {
-                        meter = meterMng.getActualMeterByKoUsl(kart.getKoKw(), t.getUsl().getId(), curDt);
+                        //meter = meterMng.getActualMeterByKoUsl(kart.getKoKw(), t.getUsl().getId(), curDt);
                     }
                     if (meter != null) {
                         log.info("Meter: id={}, dt1={}, dt2={}, usl={}",

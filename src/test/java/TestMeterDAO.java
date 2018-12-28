@@ -1,7 +1,9 @@
 import com.dic.app.Config;
 import com.dic.bill.dao.MeterDAO;
 import com.dic.bill.dto.MeterData;
+import com.dic.bill.dto.SumMeterVol;
 import com.dic.bill.mm.MeterMng;
+import com.dic.bill.model.scott.Ko;
 import com.dic.bill.model.scott.Meter;
 import com.ric.cmn.Utl;
 import lombok.extern.slf4j.Slf4j;
@@ -49,6 +51,7 @@ public class TestMeterDAO {
 	@Rollback(true)
     public void isWorkKartDAOFindByKulNdKw() throws Exception {
 
+/*
 		int i=0, i2 = 0;
 		log.info("-----------------Begin");
 		// найти счетчики х.в. по объекту Ko
@@ -68,7 +71,20 @@ public class TestMeterDAO {
 		}
 		assertTrue(i==1 && i2==1);
 		log.info("-----------------End");
+*/
     }
+
+	@Test
+	@Rollback(true)
+	public void isWorkFindMeterVolByKlsk() throws Exception {
+		Date dtFrom = Utl.getDateFromStr("01.04.2014");
+		Date dtTo = Utl.getDateFromStr("30.04.2014");
+		List<SumMeterVol> lstVol = meterDao.findMeterVolByKlsk(104882, "011", dtFrom, dtTo);
+		lstVol.forEach(t-> {
+				log.info("t.getMeterId()={}, t.getVol()={}", t.getMeterId(), t.getVol());
+				}
+			);
+	}
 
 	/**
 	 * Тест запроса на поиск счетчика по коду услуги и объекту Ko
