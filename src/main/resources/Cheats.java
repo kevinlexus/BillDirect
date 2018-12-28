@@ -285,3 +285,43 @@ public interface ThreadMng<T> {
 
         }
     }
+
+// ORACLE
+
+    CREATE OR REPLACE PACKAGE UTILS2 IS
+        TYPE l_test IS table of saldo_usl%rowtype;
+            l_tab l_test;
+    END UTILS2;
+
+    CREATE OR REPLACE PACKAGE BODY UTILS2 IS
+        // передача коллекции из запроса в другую процедуру
+        procedure check2(p_var in number) is
+        begin
+            dbms_output.enable(10000);
+            select t.* bulk collect into l_tab from saldo_usl t
+                where t.lsk='00000217';
+            show(l_tab);
+
+            for i in l_tab.first .. l_tab.last loop
+                dbms_output.put_line('2='||l_tab(i).usl||', '||l_tab(i).summa);
+            end loop;
+
+        end;
+
+
+        procedure show(p_tab in out l_tab%type) is
+        begin
+            dbms_output.put_line('111');
+
+        for i in p_tab.first .. p_tab.last loop
+            dbms_output.put_line('1='||p_tab(i).usl||', '||p_tab(i).summa);
+            p_tab(i).usl:='xxx';
+            p_tab.extend;
+        end loop;
+
+
+        end;
+    END UTILS2;
+
+
+

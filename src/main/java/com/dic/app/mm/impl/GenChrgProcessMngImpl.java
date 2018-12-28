@@ -2,10 +2,7 @@ package com.dic.app.mm.impl;
 
 import com.dic.app.mm.GenChrgProcessMng;
 import com.dic.bill.dao.StatesPrDAO;
-import com.dic.bill.dto.CalcStore;
-import com.dic.bill.dto.ChrgCount;
-import com.dic.bill.dto.ChrgVol;
-import com.dic.bill.dto.CountPers;
+import com.dic.bill.dto.*;
 import com.dic.bill.mm.KartPrMng;
 import com.dic.bill.mm.MeterMng;
 import com.dic.bill.mm.NaborMng;
@@ -22,6 +19,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Сервис расчета начисления
@@ -70,41 +68,61 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             log.info("Date={}", curDt);
             List<Nabor> lst = naborMng.getValidNabor(kart, curDt);
             lst.forEach(t -> {
-                log.info("Usl.id={}, name={}", t.getUsl().getId(), t.getUsl().getName());
-                // получить кол-во проживающих
-                CountPers countPers = kartPrMng.getCountPersByDate(kart, parVarCntKpr, lstStatesPr, t.getUsl(), curDt);
-                // получить наличие счетчика
-                Meter meter = null ;
-                if (t.getUsl().getCounter() != null) {
-                    meter = meterMng.getActualMeterByKoUsl(kart.getKoKw(), t.getUsl().getId(), curDt);
+                if (t.getUsl().isMain()) {
+                    // по основным услугам
+                    log.info("Usl.id={}, name={}", t.getUsl().getId(), t.getUsl().getName());
+                    // получить расценки по услуге
+                    PriceRec priceRec = naborMng.getPrices(lst, t.getUsl());
+
+                    // получить кол-во проживающих
+                    CountPers countPers = kartPrMng.getCountPersByDate(kart, parVarCntKpr, lstStatesPr, t.getUsl(), curDt);
+                    // получить наличие счетчика
+                    Meter meter = null ;
+                    if (t.getUsl().getCounter() != null) {
+                        meter = meterMng.getActualMeterByKoUsl(kart.getKoKw(), t.getUsl().getId(), curDt);
+                    }
+                    if (meter != null) {
+                        log.info("Meter: id={}, dt1={}, dt2={}, usl={}",
+                                meter.getId(), meter.getDt1(), meter.getDt2(), meter.getUsl().getId());
+                    }
+                    // сгруппировать
+                    UslOrgPers uslOrgPers = UslOrgPers.UslOrgPersBuilder.anUslOrgPers()
+                            .withDtFrom(curDt).withDtTo(curDt).withDtFrom(curDt).withUsl(t.getUsl()).withOrg(t.getOrg())
+                            .withIsCounter(meter != null).withIsEmpty(countPers.isEmpty)
+                            .withKpr(countPers.kpr).withKprOt(countPers.kprOt).withKprWr(countPers.kprWr)
+                            .withSocStdt(new BigDecimal("10.55")).withPartDayMonth(calcStore.getPartDayMonth())
+                            .build();
+                    UslPriceVol uslPriceVol = UslPriceVol.UslPriceVolBuilder.anUslPriceVol()
+                            .withDtFrom(curDt).withDtTo(curDt).withDtFrom(curDt).withUslFact(t.getUsl())
+                            .withVol(new BigDecimal("5.256")).withTypeVol(0).withPrice(new BigDecimal("11.25"))
+                            .withArea(kart.getOpl()).withPartDayMonth(calcStore.getPartDayMonth())
+                            .build();
+
+                    chrgCount.groupUslOrgPers(uslOrgPers);
+                    chrgCount.groupUslPriceVol(uslPriceVol);
                 }
-                if (meter != null) {
-                    log.info("Meter: id={}, dt1={}, dt2={}, usl={}",
-                            meter.getId(), meter.getDt1(), meter.getDt2(), meter.getUsl().getId());
-                }
-                // сгруппировать
-                addChrgVol(chrgCount, t.getUsl(), meter != null,
-                        calcStore.getDayPartMonth(), countPers);
             });
         }
         // получить кол-во проживающих по лиц.счету
         log.info("Расчет:");
-        for (Map.Entry<Usl, Integer> e : chrgCount.getMapKprMax().entrySet()) {
-            log.info("usl={} kprMax={}", e.getKey().getId(), e.getValue());
+        log.info("UslOrgPers:");
+        for (UslOrgPers t : chrgCount.getLstUslOrgPers().stream().filter(t->t.usl.getId().equals("011")).collect(Collectors.toList())
+                ) {
+            log.info("t.dtFrom={}, t.dtTo={}, t.usl.getId()={}, t.org.getId()={}, t.isCounter={}, t.isEmpty={}, " +
+                            "t.socStdt={}, t.kpr={}, t.kprOt={}, t.kprWr={}",
+                    Utl.getStrFromDate(t.dtFrom), Utl.getStrFromDate(t.dtTo), t.usl.getId(), t.org.getId(),
+                    t.isCounter, t.isEmpty, t.socStdt,
+                    t.kpr.setScale(5, BigDecimal.ROUND_HALF_UP), t.kprOt.setScale(5, BigDecimal.ROUND_HALF_UP),
+                    t.kprWr.setScale(5, BigDecimal.ROUND_HALF_UP));
         }
 
-
-        for (Map.Entry<Usl, List<ChrgVol>> e : chrgCount.getMapChrgVol().entrySet()) {
-            log.info("usl={} ", e.getKey().getId());
-            for (ChrgVol t : e.getValue()) {
-                log.info("ChrgVol: t.isCounter={}, t.isEmpty={}, t.kpr={}, t.kprNorm={}, t.kprOt={}, t.kprWr={}",
-                        t.isCounter, t.isEmpty, t.kpr.setScale(5, BigDecimal.ROUND_HALF_UP),
-                        t.kprNorm.setScale(5, BigDecimal.ROUND_HALF_UP), t.kprOt.setScale(5,
-                        BigDecimal.ROUND_HALF_UP), t.kprWr.setScale(5, BigDecimal.ROUND_HALF_UP));
-            }
-
+        log.info("UslPriceVol:");
+        for (UslPriceVol t : chrgCount.getLstUslPriceVol()) {
+            log.info("t.dtFrom={}, t.dtTo={}, t.uslFact.getId()={}, t.typeVol={}, t.price={}, t.vol={}, t.area={}",
+                    Utl.getStrFromDate(t.dtFrom), Utl.getStrFromDate(t.dtTo),
+                    t.uslFact.getId(), t.typeVol, t.price, t.vol.setScale(5, BigDecimal.ROUND_HALF_UP),
+                    t.area.setScale(5, BigDecimal.ROUND_HALF_UP));
         }
-
     }
 
     /**
@@ -115,15 +133,16 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * @param dayPartMonth - доля дня в месяце
      * @param countPers - кол-во проживающих
      */
+/*
     private void addChrgVol(ChrgCount chrgCount, Usl usl,
                             boolean isCounter,
                             BigDecimal dayPartMonth, CountPers countPers) {
-        List<ChrgVol> lstChrgVol = chrgCount.getMapChrgVol().get(usl);
+        List<UslOrgPers> lstChrgVol = chrgCount.getMapChrgVol().get(usl);
         if (lstChrgVol == null) {
             lstChrgVol = new ArrayList<>();
             chrgCount.getMapChrgVol().put(usl, lstChrgVol);
         }
-        ChrgVol foundChrgVol = null;
+        UslOrgPers foundChrgVol = null;
         if (lstChrgVol.size() !=0) {
             // получить записи с такими же ключевыми параметрами - наличия счетчика и пустой квартиры
             lstChrgVol.forEach(t-> log.info("TEST t.isCounter={}, t.isEmpty={}", t.isCounter, t.isEmpty));
@@ -133,7 +152,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         }
         if (lstChrgVol.size()==0 || foundChrgVol == null) {
             // создать запись
-            ChrgVol chrgVol = new ChrgVol(usl, countPers.isEmpty, isCounter);
+            UslOrgPers chrgVol = new UslOrgPers(usl, countPers.isEmpty, isCounter);
             chrgVol.kpr = dayPartMonth.multiply(BigDecimal.valueOf(countPers.kpr));
             chrgVol.kprNorm = dayPartMonth.multiply(BigDecimal.valueOf(countPers.kprNorm));
             chrgVol.kprWr = dayPartMonth.multiply(BigDecimal.valueOf(countPers.kprWr));
@@ -158,5 +177,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             chrgCount.getMapKprMax().put(usl, countPers.kprMax);
         }
     }
+*/
 
 }
