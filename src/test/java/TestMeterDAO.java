@@ -81,7 +81,8 @@ public class TestMeterDAO {
 		Date dtTo = Utl.getDateFromStr("30.04.2014");
 		List<SumMeterVol> lstVol = meterDao.findMeterVolByKlsk(104882, "011", dtFrom, dtTo);
 		lstVol.forEach(t-> {
-				log.info("t.getMeterId()={}, t.getVol()={}", t.getMeterId(), t.getVol());
+				log.info("t.getMeterId()={}, t.getDtFrom={}, t.getDtTo={}, t.getVol()={}",
+						t.getMeterId(), t.getDtFrom(), t.getDtTo(), t.getVol());
 				}
 			);
 	}

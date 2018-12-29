@@ -1,6 +1,7 @@
 package com.dic.app.mm.impl;
 
 import com.dic.app.mm.GenChrgProcessMng;
+import com.dic.bill.dao.MeterDAO;
 import com.dic.bill.dao.StatesPrDAO;
 import com.dic.bill.dto.*;
 import com.dic.bill.mm.KartPrMng;
@@ -41,6 +42,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
     @Autowired
     private MeterMng meterMng;
     @Autowired
+    private MeterDAO meterDao;
+    @Autowired
     private SprParamMng sprParamMng;
     @PersistenceContext
     private EntityManager em;
@@ -61,6 +64,15 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                                                                     // в Oracle использовало NVL от NULL параметра...
 
         ChrgCount chrgCount = new ChrgCount();
+
+        // получить все действующие счетчики квартиры и их объемы
+        chrgCount.setLstMeterVol(meterDao.findMeterVolByKlsk(kart.getKoKw().getId(),
+                    calcStore.getCurDt1(), calcStore.getCurDt2()));
+
+
+        Map<String, BigDecimal> mapDayMeterVol = meterMng.getPartDayMeterVol(chrgCount,
+                calcStore);
+
         // цикл по дням месяца
         Calendar c = Calendar.getInstance();
         for (c.setTime(calcStore.getCurDt1()); !c.getTime().after(calcStore.getCurDt2()); c.add(Calendar.DATE, 1)) {
@@ -72,6 +84,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // по основным услугам
                     log.info("Usl.id={}, name={}", t.getUsl().getId(), t.getUsl().getName());
 
+
                     // получить расценки по услуге
                     DetailUslPrice detailUslPrice = naborMng.getDetailUslPrice(lst, t);
 
@@ -79,18 +92,23 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     CountPers countPers = kartPrMng.getCountPersByDate(kart, parVarCntKpr, lstStatesPr, t.getUsl(), curDt);
 
                     // получить наличие счетчика
-                    Meter meter = null ;
+                    boolean isMeterExist = false;
                     if (t.getUsl().getCounter() != null) {
-                        //meter = meterMng.getActualMeterByKoUsl(kart.getKoKw(), t.getUsl().getId(), curDt);
+                        // узнать, работал ли хоть один счетчик в данном дне
+                        isMeterExist = meterMng.isExistAnyMeter(chrgCount, t.getUsl().getId(), curDt);
+                        if (isMeterExist) {
+                            // получить объем по счетчику в пропорции на 1 день его работы
+                            BigDecimal dayVol = mapDayMeterVol.get(t.getUsl().getId());
+                        } else {
+                            // рассчитать объем по нормативу TODO
+
+                        }
                     }
-                    if (meter != null) {
-                        log.info("Meter: id={}, dt1={}, dt2={}, usl={}",
-                                meter.getId(), meter.getDt1(), meter.getDt2(), meter.getUsl().getId());
-                    }
+
                     // сгруппировать
                     UslOrgPers uslOrgPers = UslOrgPers.UslOrgPersBuilder.anUslOrgPers()
                             .withDtFrom(curDt).withDtTo(curDt).withDtFrom(curDt).withUsl(t.getUsl()).withOrg(t.getOrg())
-                            .withIsCounter(meter != null).withIsEmpty(countPers.isEmpty)
+                            .withIsCounter(isMeterExist).withIsEmpty(countPers.isEmpty)
                             .withKpr(countPers.kpr).withKprOt(countPers.kprOt).withKprWr(countPers.kprWr)
                             .withSocStdt(new BigDecimal("10.55")).withPartDayMonth(calcStore.getPartDayMonth())
                             .build();
