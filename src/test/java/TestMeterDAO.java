@@ -79,7 +79,7 @@ public class TestMeterDAO {
 	public void isWorkFindMeterVolByKlsk() throws Exception {
 		Date dtFrom = Utl.getDateFromStr("01.04.2014");
 		Date dtTo = Utl.getDateFromStr("30.04.2014");
-		List<SumMeterVol> lstVol = meterDao.findMeterVolByKlsk(104882, "011", dtFrom, dtTo);
+		List<SumMeterVol> lstVol = meterDao.findMeterVolByKlsk(104882, dtFrom, dtTo);
 		lstVol.forEach(t-> {
 				log.info("t.getMeterId()={}, t.getDtFrom={}, t.getDtTo={}, t.getVol()={}",
 						t.getMeterId(), t.getDtFrom(), t.getDtTo(), t.getVol());

@@ -68,8 +68,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         // получить все действующие счетчики квартиры и их объемы
         chrgCount.setLstMeterVol(meterDao.findMeterVolByKlsk(kart.getKoKw().getId(),
                     calcStore.getCurDt1(), calcStore.getCurDt2()));
-
-
+        chrgCount.getLstMeterVol().forEach(t-> {
+            log.info("Check2: {}, {}, {}, {}, {}", t.getMeterId(), t.getUslId(), t.getVol(), t.getDtFrom(), t.getDtTo());
+        });
+        // получить объемы по счетчикам в пропорции на 1 день их работы
         Map<String, BigDecimal> mapDayMeterVol = meterMng.getPartDayMeterVol(chrgCount,
                 calcStore);
 
@@ -82,10 +84,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             lst.forEach(t -> {
                 if (t.getUsl().isMain()) {
                     // по основным услугам
-                    log.info("Usl.id={}, name={}", t.getUsl().getId(), t.getUsl().getName());
-
-
-                    // получить расценки по услуге
+                    log.info("lsk={}, Usl.id={}, name={}", kart.getLsk(), t.getUsl().getId(), t.getUsl().getName());
+                    // получить цены по услуге
                     DetailUslPrice detailUslPrice = naborMng.getDetailUslPrice(lst, t);
 
                     // получить кол-во проживающих
@@ -99,9 +99,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         if (isMeterExist) {
                             // получить объем по счетчику в пропорции на 1 день его работы
                             BigDecimal dayVol = mapDayMeterVol.get(t.getUsl().getId());
+                            log.info("uslId={}, dt={}, dayVol={}", t.getUsl().getId(), curDt, dayVol);
                         } else {
                             // рассчитать объем по нормативу TODO
-
+                            log.info("uslId={}, dt={}, нет счетчика!", t.getUsl().getId(), curDt);
                         }
                     }
 
