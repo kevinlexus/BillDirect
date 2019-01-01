@@ -84,7 +84,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             lst.forEach(t -> {
                 if (t.getUsl().isMain()) {
                     // по основным услугам
-                    log.info("lsk={}, Usl.id={}, name={}", kart.getLsk(), t.getUsl().getId(), t.getUsl().getName());
+                    //log.info("lsk={}, Usl.id={}, name={}", kart.getLsk(), t.getUsl().getId(), t.getUsl().getName());
                     // получить цены по услуге
                     DetailUslPrice detailUslPrice = naborMng.getDetailUslPrice(lst, t);
 
@@ -93,29 +93,49 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
                     // получить наличие счетчика
                     boolean isMeterExist = false;
+                    BigDecimal dayVol = BigDecimal.ZERO;
                     if (t.getUsl().getCounter() != null) {
                         // узнать, работал ли хоть один счетчик в данном дне
                         isMeterExist = meterMng.isExistAnyMeter(chrgCount, t.getUsl().getId(), curDt);
                         if (isMeterExist) {
                             // получить объем по счетчику в пропорции на 1 день его работы
-                            BigDecimal dayVol = mapDayMeterVol.get(t.getUsl().getId());
+                            dayVol = mapDayMeterVol.get(t.getUsl().getId());
+                            // в данном случае - объем уже в пропорции на 1 день
                             log.info("uslId={}, dt={}, dayVol={}", t.getUsl().getId(), curDt, dayVol);
                         } else {
-                            // рассчитать объем по нормативу TODO
-                            log.info("uslId={}, dt={}, нет счетчика!", t.getUsl().getId(), curDt);
+                            // получить объем по нормативу в доле на 1 день
+                            dayVol = kartPrMng.getSocStdtVol(t, countPers);
+                            dayVol = dayVol.multiply(calcStore.getPartDayMonth());
+                            log.info("uslId={}, dt={}, нет счетчика! объем по нормативу={}",
+                                    t.getUsl().getId(), curDt, dayVol);
                         }
                     }
+
+                    // РАСЧЕТ начисления
+                    switch (t.getUsl().getFkCalcTp()) {
+                        case 17 : // х.в., г.в. без соц.норм, с расценкой 0 прожив.
+                        case 18 : {
+                            if (countPers.kpr !=0) {
+
+                            }
+                        }
+
+                        case 19 :
+
+                    }
+
+
 
                     // сгруппировать
                     UslOrgPers uslOrgPers = UslOrgPers.UslOrgPersBuilder.anUslOrgPers()
                             .withDtFrom(curDt).withDtTo(curDt).withDtFrom(curDt).withUsl(t.getUsl()).withOrg(t.getOrg())
                             .withIsCounter(isMeterExist).withIsEmpty(countPers.isEmpty)
                             .withKpr(countPers.kpr).withKprOt(countPers.kprOt).withKprWr(countPers.kprWr)
-                            .withSocStdt(new BigDecimal("10.55")).withPartDayMonth(calcStore.getPartDayMonth())
+                            .withSocStdt(t.getNorm()).withPartDayMonth(calcStore.getPartDayMonth())
                             .build();
                     UslPriceVol uslPriceVol = UslPriceVol.UslPriceVolBuilder.anUslPriceVol()
                             .withDtFrom(curDt).withDtTo(curDt).withDtFrom(curDt).withUslFact(t.getUsl())
-                            .withVol(new BigDecimal("5.256")).withTypeVol(0).withPrice(new BigDecimal("11.25"))
+                            .withVol(dayVol).withTypeVol(0).withPrice(new BigDecimal("11.25"))
                             .withArea(kart.getOpl()).withPartDayMonth(calcStore.getPartDayMonth())
                             .build();
 
@@ -124,6 +144,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 }
             });
         }
+
         // получить кол-во проживающих по лиц.счету
         log.info("Расчет:");
         log.info("UslOrgPers:");

@@ -5,6 +5,7 @@ import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.CountPers;
 import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.KartPrMng;
+import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.StatePr;
 import com.dic.bill.model.scott.Usl;
@@ -34,9 +35,9 @@ import java.util.List;
 public class TestKartPrMng {
 
 	@Autowired
-	private KartMng kartMng;
-	@Autowired
 	private KartPrMng kartPrMng;
+	@Autowired
+	private TestDataBuilder testDataBuilder;
 	@Autowired
 	private ProcessMng processMng;
 	@Autowired
@@ -56,7 +57,7 @@ public class TestKartPrMng {
 		// загрузить справочники
 		CalcStore calcStore = processMng.buildCalcStore(Utl.getDateFromStr("15.04.2014"), 0);
 		// построить лиц.счет
-		Kart kart = kartMng.buildKartForTest("0000000X", true, true, true);
+		Kart kart = testDataBuilder.buildKartForTest("0000000X", true, true, true);
 		em.persist(kart);
 
 		List<StatePr> lstStatesPr = statesPrDao.findByDate(kart.getLsk(),

@@ -4,6 +4,7 @@ import com.dic.app.mm.ProcessMng;
 import com.dic.bill.dao.StatesPrDAO;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.mm.KartMng;
+import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.WrongParam;
@@ -36,6 +37,8 @@ import static junit.framework.TestCase.assertTrue;
 @Slf4j
 public class TestKart {
 
+	@Autowired
+	private TestDataBuilder testDataBuilder;
 	@Autowired
 	private KartMng kartMng;
 	@Autowired
@@ -75,7 +78,7 @@ public class TestKart {
 		// загрузить справочники
 		CalcStore calcStore = processMng.buildCalcStore(Utl.getDateFromStr("15.04.2014"), 0);
 		// построить лиц.счет
-		Kart kart = kartMng.buildKartForTest("0000000X", true, true, true);
+		Kart kart = testDataBuilder.buildKartForTest("0000000X", true, true, true);
 
 		// выполнить расчет
 		genChrgProcessMng.genChrg(calcStore, kart);
@@ -92,16 +95,16 @@ public class TestKart {
 		log.info("Test checkStatesPrDaoGetByDate");
 
 		// создание сущностей
-		Kart kart = kartMng.buildKartForTest("0000000X", false, false, true);
+		Kart kart = testDataBuilder.buildKartForTest("0000000X", false, false, true);
 		// проживающие
-		KartPr kartPr = kartMng.addKartPrForTest(kart, 1, 3, "Антонов", "01.01.1973",
+		KartPr kartPr = testDataBuilder.addKartPrForTest(kart, 1, 3, "Антонов", "01.01.1973",
 				"01.04.2014", "20.04.2014");
 
-		kartMng.addStatePrForTest(kartPr, 4, "01.02.2014", "01.03.2014");
-		kartMng.addStatePrForTest(kartPr, 1, "02.03.2014", "09.04.2014");
-		kartMng.addStatePrForTest(kartPr, 2, "10.04.2014", "13.04.2014");
-		kartMng.addStatePrForTest(kartPr, 3, "14.04.2014", "20.04.2014");
-		kartMng.addStatePrForTest(kartPr, 4, "21.04.2014", "27.04.2014");
+		testDataBuilder.addStatePrForTest(kartPr, 4, "01.02.2014", "01.03.2014");
+		testDataBuilder.addStatePrForTest(kartPr, 1, "02.03.2014", "09.04.2014");
+		testDataBuilder.addStatePrForTest(kartPr, 2, "10.04.2014", "13.04.2014");
+		testDataBuilder.addStatePrForTest(kartPr, 3, "14.04.2014", "20.04.2014");
+		testDataBuilder.addStatePrForTest(kartPr, 4, "21.04.2014", "27.04.2014");
 
 		em.persist(kart);
 
@@ -134,7 +137,7 @@ public class TestKart {
 		i=0;
 		// обработать пустой период
 		kartPr.getStatePr().clear();
-		kartMng.addStatePrForTest(kartPr, 1, null, "11.04.2015");
+		testDataBuilder.addStatePrForTest(kartPr, 1, null, "11.04.2015");
 		statePr = statesPrDao.findByDate(kart.getLsk(), Utl.getDateFromStr("01.04.2014"),
 				Utl.getDateFromStr("30.04.2014"));
 
@@ -152,7 +155,7 @@ public class TestKart {
 
 		// обработать полностью пустой период
 		kartPr.getStatePr().clear();
-		kartMng.addStatePrForTest(kartPr, 2, null, null);
+		testDataBuilder.addStatePrForTest(kartPr, 2, null, null);
 		statePr = statesPrDao.findByDate(kart.getLsk(), Utl.getDateFromStr("01.04.2014"),
 				Utl.getDateFromStr("30.04.2014"));
 
