@@ -8,7 +8,7 @@ import com.dic.bill.mm.*;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.Ko;
 import com.dic.bill.model.scott.Nabor;
-import com.dic.bill.model.scott.StatePr;
+import com.dic.bill.model.scott.Vvod;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.WrongParam;
@@ -97,10 +97,23 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             for (Nabor nabor : lstNabor) {
                 if (nabor.getUsl().isMain()) {
                     // по основным услугам
+                    Integer fkCalcTp = nabor.getUsl().getFkCalcTp();
+                    BigDecimal naborNorm = Utl.nvl(nabor.getNorm(), BigDecimal.ZERO);
+                    BigDecimal naborVol = Utl.nvl(nabor.getVol(), BigDecimal.ZERO);
+
                     log.info("РАСЧЕТ: dt={}, lsk={}, Usl.id={}, fkCalcTp={}, name={}", Utl.getStrFromDate(curDt),
-                            nabor.getKart().getLsk(), nabor.getUsl().getId(), nabor.getUsl().getFkCalcTp(), nabor.getUsl().getName());
+                            nabor.getKart().getLsk(), nabor.getUsl().getId(), fkCalcTp, nabor.getUsl().getName());
+
                     // получить цены по услуге по лицевому счету из набора услуг!
                     DetailUslPrice detailUslPrice = naborMng.getDetailUslPrice(nabor);
+
+                    // ввод
+                    Vvod vvod = nabor.getVvod();
+                    // тип распределения ввода
+                    Integer distTp = 0;
+                    if (vvod != null) {
+                        distTp = vvod.getDistTp();
+                    }
 
                     // получить кол-во проживающих по лицевому счету из набора услуг!
                     CountPers countPers = kartPrMng.getCountPersByDate(kartMain, nabor, parVarCntKpr, curDt);
@@ -118,12 +131,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     BigDecimal areaOverSoc = BigDecimal.ZERO;
                     BigDecimal areaEmpty = BigDecimal.ZERO;
 
-                    if (Utl.in(nabor.getUsl().getFkCalcTp(), 25)) {
+                    if (Utl.in(fkCalcTp, 25)) {
                         // Текущее содержание и подобные услуги (без свыше соц.нормы и без 0 проживающих)
                         area = Utl.nvl(kartMain.getOpl(), BigDecimal.ZERO);
                         dayVol = area.multiply(calcStore.getPartDayMonth());
                         socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
-                    } else if (Utl.in(nabor.getUsl().getFkCalcTp(), 17, 18)) {
+                    } else if (Utl.in(fkCalcTp, 17, 18)) {
                         // Х.В., Г.В., без уровня соцнормы/свыше
                         // получить объем по нормативу в доле на 1 день
                         // узнать, работал ли хоть один счетчик в данном дне
@@ -133,10 +146,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         area = Utl.nvl(kartMain.getOpl(), BigDecimal.ZERO);
                         if (isMeterExist) {
                             // для водоотведения
-                            if (nabor.getUsl().getFkCalcTp().equals(17)) {
-                                isExistsMeterColdWater=true;
-                            } else if (nabor.getUsl().getFkCalcTp().equals(18)) {
-                                isExistsMeterHotWater=true;
+                            if (fkCalcTp.equals(17)) {
+                                isExistsMeterColdWater = true;
+                            } else if (fkCalcTp.equals(18)) {
+                                isExistsMeterHotWater = true;
                             }
                             // получить объем по счетчику в пропорции на 1 день его работы
                             tempVol = mapDayMeterVol.get(nabor.getUsl().getId());
@@ -155,13 +168,13 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             dayVol = tempVol;
                         }
                         // для водоотведения
-                        if (nabor.getUsl().getFkCalcTp().equals(17)) {
-                            volMeterColdWater=tempVol;
-                        } else if (nabor.getUsl().getFkCalcTp().equals(18)) {
-                            volMeterHotWater=tempVol;
+                        if (fkCalcTp.equals(17)) {
+                            volMeterColdWater = tempVol;
+                        } else if (fkCalcTp.equals(18)) {
+                            volMeterHotWater = tempVol;
                         }
 
-                    } else if (Utl.in(nabor.getUsl().getFkCalcTp(), 19)) {
+                    } else if (Utl.in(fkCalcTp, 19)) {
                         // Водоотведение без уровня соцнормы/свыше
                         // получить объем по нормативу в доле на 1 день
                         // узнать, работал ли хоть один счетчик в данном дне
@@ -171,10 +184,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         area = Utl.nvl(kartMain.getOpl(), BigDecimal.ZERO);
 
                         if (isExistsMeterColdWater || isExistsMeterHotWater) {
-                            isMeterExist=true;
+                            isMeterExist = true;
                         }
                         // сложить предварительно рассчитанные объемы х.в.+г.в.
-                        tempVol=volMeterColdWater.add(volMeterHotWater);
+                        tempVol = volMeterColdWater.add(volMeterHotWater);
                         if (countPers.isEmpty) {
                             // пустая квартира
                             dayVolEmpty = tempVol;
@@ -182,14 +195,50 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             // квартира с проживающими
                             dayVol = tempVol;
                         }
-                    } else if (Utl.in(nabor.getUsl().getFkCalcTp(), 14)) {
-                        // Отопление гкал.
+
+                    } else if (Utl.in(fkCalcTp, 14)) {
+                        // Отопление гкал. без уровня соцнормы/свыше
+                        area = Utl.nvl(kartMain.getOpl(), BigDecimal.ZERO);
+                        socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
+                        if (!Utl.nvl(kartMain.getPot(), BigDecimal.ZERO).equals(BigDecimal.ZERO)) {
+                            // есть показания по Индивидуальному счетчику отопления (Бред!)
+                            tempVol = Utl.nvl(kartMain.getMot(), BigDecimal.ZERO);
+                        } else {
+                            if (!area.equals(BigDecimal.ZERO)) {
+                                if (distTp.equals(1)) {
+                                    // есть ОДПУ по отоплению гкал, начислить по распределению
+                                    tempVol = naborVol;
+                                } else if (Utl.in(distTp,4, 5)) {
+                                    // есть ОДПУ по отоплению гкал, начислить по нормативу с учётом отопительного сезона
+                                    if (vvod.getIsChargeInNotHeatingPeriod()) {
+                                        // начислять и в НЕотопительном периоде
+                                        tempVol = area.multiply(naborNorm);
+                                    } else {
+                                        // начислять только в отопительном периоде
+                                        if (Utl.between(curDt, sprParamMng.getD1("MONTH_HEAT3"),
+                                                sprParamMng.getD1("MONTH_HEAT4"))) {
+                                            tempVol = area.multiply(naborNorm);
+                                        }
+                                    }
+                                }
+                            }
+
+                        }
+                        if (countPers.isEmpty) {
+                            // пустая квартира
+                            dayVolEmpty = tempVol;
+                        } else {
+                            // квартира с проживающими
+                            dayVol = tempVol;
+                        }
+                    } else if (Utl.in(fkCalcTp, 11111111)) { // TODO
+                        // Отопление гкал. с учетом соцнормы/свыше
                         // получить соцнорму
                         socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
                         area = Utl.nvl(kartMain.getOpl(), BigDecimal.ZERO);
 
                     } else {
-                        throw new ErrorWhileChrg("ОШИБКА! По услуге fkCalcTp="+nabor.getUsl().getFkCalcTp()+
+                        throw new ErrorWhileChrg("ОШИБКА! По услуге fkCalcTp=" + fkCalcTp +
                                 " не определён блок if в GenChrgProcessMngImpl.genChrg");
                     }
 
@@ -225,7 +274,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         log.info("ИТОГО:");
         log.info("UslPriceVol:");
         for (UslPriceVol t : chrgCount.getLstUslPriceVol()) {
-            if (t.usl.getId().equals("013")) {
+            if (t.usl.getId().equals("053")) {
                 log.info("dt1={} dt2={} usl={} org={} cnt={} " +
                                 "empt={} stdt={} " +
                                 "prc={} prcOvSc={} prcEmpt={} " +
