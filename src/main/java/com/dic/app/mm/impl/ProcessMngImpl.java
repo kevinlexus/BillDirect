@@ -11,6 +11,7 @@ import javax.persistence.PersistenceContext;
 
 import com.dic.app.mm.*;
 import com.dic.bill.model.scott.*;
+import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.WrongParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
@@ -111,7 +112,7 @@ public class ProcessMngImpl implements ProcessMng {
         // вызвать в потоках
         try {
             threadMng.invokeThreads(reverse, CNT_THREADS, lstItem, mark);
-        } catch (InterruptedException | ExecutionException | WrongParam e) {
+        } catch (InterruptedException | ExecutionException | WrongParam | ErrorWhileChrg e) {
             log.error(Utl.getStackTraceString(e));
             throw new ErrorWhileChrgPen("ОШИБКА во время расчета!");
         }
@@ -163,7 +164,7 @@ public class ProcessMngImpl implements ProcessMng {
     @Async
     @Override
     @Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
-    public Future<CommonResult> genProcess(String lsk, CalcStore calcStore, RequestConfig reqConf) throws WrongParam {
+    public Future<CommonResult> genProcess(String lsk, CalcStore calcStore, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО процесса по типу={}, по лиц.счету {}", reqConf.getTp(), lsk);
         try {
@@ -176,7 +177,7 @@ public class ProcessMngImpl implements ProcessMng {
             switch (reqConf.getTp()) {
                 case 0: {
                     // начисление
-                    genChrgProcessMng.genChrg(calcStore, kart);
+                    genChrgProcessMng.genChrg(calcStore, kart.getKoKw().getId());
                 }
                 case 1: {
                     // расчет ДОЛГА и ПЕНИ

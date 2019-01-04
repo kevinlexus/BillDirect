@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
+import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.WrongParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -388,7 +389,7 @@ public class GenMainMngImpl implements GenMainMng {
         try {
             // вызвать потоки, проверять наличие маркера работы процесса
             threadMng.invokeThreads(reverse, 1, lst, "AmountGeneration");
-        } catch (InterruptedException | ExecutionException |WrongParam e) {
+        } catch (InterruptedException | ExecutionException | WrongParam | ErrorWhileChrg e) {
             log.error(Utl.getStackTraceString(e));
             return false;
         }

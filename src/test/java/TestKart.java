@@ -7,6 +7,7 @@ import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
+import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
@@ -72,7 +73,7 @@ public class TestKart {
 	@Test
 	@Rollback(true)
 	@Transactional
-	public void genChrgProcessMngGenChrg() throws WrongParam {
+	public void genChrgProcessMngGenChrg() throws WrongParam, ErrorWhileChrg {
 		log.info("Test genChrgProcessMngGenChrg");
 
 		// загрузить справочники
@@ -81,7 +82,7 @@ public class TestKart {
 		Kart kart = testDataBuilder.buildKartForTest("0000000X", true, true, true);
 
 		// выполнить расчет
-		genChrgProcessMng.genChrg(calcStore, kart);
+		genChrgProcessMng.genChrg(calcStore, kart.getKoKw().getId());
 
 	}
 

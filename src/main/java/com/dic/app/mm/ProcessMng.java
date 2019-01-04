@@ -5,6 +5,7 @@ import java.util.concurrent.Future;
 
 import com.dic.bill.RequestConfig;
 import com.dic.bill.dto.CalcStore;
+import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
 import com.ric.cmn.excp.WrongParam;
 import com.ric.dto.CommonResult;
@@ -19,5 +20,5 @@ public interface ProcessMng {
 
     CalcStore buildCalcStore(Date genDt, Integer debugLvl);
 
-    Future<CommonResult> genProcess(String lsk, CalcStore calcStore, RequestConfig reqConf) throws WrongParam;
+    Future<CommonResult> genProcess(String lsk, CalcStore calcStore, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg;
 }

@@ -11,6 +11,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import com.dic.bill.model.scott.*;
+import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.WrongParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -88,7 +89,7 @@ public class MigrateMngImpl implements MigrateMng {
 		// вызвать в потоках
 		try {
 			threadMng.invokeThreads(reverse, 15, lstItem, null);
-		} catch (InterruptedException | ExecutionException | WrongParam e) {
+		} catch (InterruptedException | ExecutionException | WrongParam | ErrorWhileChrg e) {
 			log.error(Utl.getStackTraceString(e));
 			throw new ErrorWhileDistDeb("ОШИБКА во время миграции задолженности!");
 		}

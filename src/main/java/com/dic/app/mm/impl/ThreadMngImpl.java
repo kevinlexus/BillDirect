@@ -9,6 +9,7 @@ import java.util.concurrent.Future;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
+import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.WrongParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -53,7 +54,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 	@Override
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor=Exception.class)
 	public void invokeThreads(PrepThread<T> reverse,
-			int cntThreads, List<T> lstItem, String mark) throws InterruptedException, ExecutionException, WrongParam {
+			int cntThreads, List<T> lstItem, String mark) throws InterruptedException, ExecutionException, WrongParam, ErrorWhileChrg {
 		long startTime = System.currentTimeMillis();
 		// размер очереди
 		int lstSize = lstItem.size();

@@ -48,6 +48,7 @@ public class TestKartPrMng {
 	/**
 	 * Проверка корректности получения кол-ва проживающих
 	 */
+/*
 	@Test
 	@Rollback(true)
 	@Transactional
@@ -71,6 +72,7 @@ public class TestKartPrMng {
 				countPers.kprWr, countPers.kprOt);
 
 	}
+*/
 
 
 
