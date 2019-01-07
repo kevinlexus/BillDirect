@@ -10,6 +10,8 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import com.dic.app.mm.*;
+import com.dic.bill.dto.ChrgCount;
+import com.dic.bill.dto.ChrgCountHouse;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.WrongParam;
@@ -20,6 +22,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +32,6 @@ import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dao.PenDtDAO;
 import com.dic.bill.dao.PenRefDAO;
 import com.dic.bill.dto.CalcStore;
-import com.dic.bill.dto.CalcStoreLocal;
 import com.ric.dto.CommonResult;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
@@ -94,18 +96,20 @@ public class ProcessMngImpl implements ProcessMng {
         }
 
         long startTime = System.currentTimeMillis();
-        log.info("НАЧАЛО расчета по типу={}", reqConf.getTp());
+        log.info("НАЧАЛО обработки всех объектов, по типу={}", reqConf.getTp());
 
         // загрузить справочники
         CalcStore calcStore = buildCalcStore(genDt, debugLvl);
         // получить список лицевых счетов
         List<String> lstItem;
-        lstItem = kartDao.getRangeLsk(lskFrom, lskTo)
+        lstItem = kartDao.getListLsk(lskFrom, lskTo)
                 .stream().map(t -> t.getLsk()).collect(Collectors.toList());
 
         // lambda, будет выполнено позже, в создании потока
         PrepThread<String> reverse = (item, proc) -> {
+            log.info("************** 1");
             ProcessMng processMng = ctx.getBean(ProcessMng.class);
+            log.info("************** 2");
             return processMng.genProcess(item, calcStore, reqConf);
         };
 
@@ -119,7 +123,7 @@ public class ProcessMngImpl implements ProcessMng {
 
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
-        log.info("ОКОНЧАНИЕ процесса по типу={} - Общее время выполнения={}",reqConf.getTp(), totalTime);
+        log.info("ОКОНЧАНИЕ обработки всех объектов, по типу={} - Общее время выполнения={}",reqConf.getTp(), totalTime);
     }
 
     /**
@@ -149,6 +153,8 @@ public class ProcessMngImpl implements ProcessMng {
         log.info("Загружен справочник дат начала обязательства по оплате");
         // справочник ставок рефинансирования
         calcStore.setLstPenRef(penRefDao.findAll());
+        // хранилище параметров по дому (для ОДН и прочих нужд)
+        calcStore.setChrgCountHouse(new ChrgCountHouse());
 
         log.info("Загружен справочник ставок рефинансирования");
         return calcStore;
@@ -163,16 +169,20 @@ public class ProcessMngImpl implements ProcessMng {
      */
     @Async
     @Override
-    @Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    @Transactional(readOnly = false,
+            propagation = Propagation.REQUIRES_NEW, // новая транзакция, Не ставить Propagation.MANADATORY! - не даёт запустить поток!
+            isolation = Isolation.READ_COMMITTED, // читать только закомиченные данные, не ставить другое, не даст запустить поток!
+            rollbackFor = Exception.class) //
     public Future<CommonResult> genProcess(String lsk, CalcStore calcStore, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
         long startTime = System.currentTimeMillis();
-        log.info("НАЧАЛО процесса по типу={}, по лиц.счету {}", reqConf.getTp(), lsk);
+        log.info("НАЧАЛО потока по типу={}, по лиц.счету {}", reqConf.getTp(), lsk);
         try {
             // заблокировать лиц.счет для расчета
             if (!config.aquireLock(reqConf.getRqn(), lsk)) {
                 throw new RuntimeException("ОШИБКА БЛОКИРОВКИ лc.=" + lsk);
             }
             Kart kart = em.find(Kart.class, lsk);
+            log.info("******* kart.lsk={}", kart.getLsk());
 
             switch (reqConf.getTp()) {
                 case 0: {
@@ -194,7 +204,7 @@ public class ProcessMngImpl implements ProcessMng {
         CommonResult res = new CommonResult(lsk, 0);
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
-        log.info("ОКОНЧАНИЕ расчета по типу={}, по лиц.счету {} Время расчета={} мс", reqConf.getTp(), lsk, totalTime);
+        log.info("ОКОНЧАНИЕ потока по типу={}, по лиц.счету {} Время расчета={} мс", reqConf.getTp(), lsk, totalTime);
         return new AsyncResult<CommonResult>(res);
     }
 

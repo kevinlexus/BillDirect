@@ -3,6 +3,9 @@ import com.dic.app.mm.GenChrgProcessMng;
 import com.dic.app.mm.ProcessMng;
 import com.dic.bill.dao.StatesPrDAO;
 import com.dic.bill.dto.CalcStore;
+import com.dic.bill.dto.ChrgCount;
+import com.dic.bill.dto.CountPers;
+import com.dic.bill.dto.UslPriceVol;
 import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
@@ -26,8 +29,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import java.math.BigDecimal;
-import java.util.Iterator;
-import java.util.List;
+import java.util.stream.Collectors;
 
 import static junit.framework.TestCase.assertTrue;
 
@@ -68,113 +70,84 @@ public class TestKart {
 	}
 
 	/**
-	 * Проверка корректности расчета начисления
+	 * Проверка корректности расчета начисления по квартире
 	 */
 	@Test
 	@Rollback(true)
 	@Transactional
-	public void genChrgProcessMngGenChrg() throws WrongParam, ErrorWhileChrg {
-		log.info("Test genChrgProcessMngGenChrg");
+	public void genChrgProcessMngGenChrgAppartment() throws WrongParam, ErrorWhileChrg {
+		log.info("Test genChrgProcessMngGenChrgAppartment");
 
 		// загрузить справочники
 		CalcStore calcStore = processMng.buildCalcStore(Utl.getDateFromStr("15.04.2014"), 0);
-		// построить лиц.счет
-		Kart kart = testDataBuilder.buildKartForTest("0000000X", true, true, true);
+
+		// дом
+		House house = em.find(House.class, 6091);
+
+		// построить лицевые счета по квартире
+		Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52), 3, true, true, true);
 
 		// выполнить расчет
-		genChrgProcessMng.genChrg(calcStore, kart.getKoKw().getId());
+		genChrgProcessMng.genChrg(calcStore, ko.getId());
 
 	}
 
 	/**
-	 * Проверка корректности получения статусов DAO уровнем
+	 * Проверка корректности расчета начисления по дому
 	 */
 	@Test
 	@Rollback(true)
 	@Transactional
-	public void checkStatesPrDaoGetByDate() {
-		log.info("Test checkStatesPrDaoGetByDate");
+	public void genChrgProcessMngGenChrgHouse() throws WrongParam, ErrorWhileChrg {
+		log.info("Test genChrgProcessMngGenChrgHouse Start!");
 
-		// создание сущностей
-		Kart kart = testDataBuilder.buildKartForTest("0000000X", false, false, true);
-		// проживающие
-		KartPr kartPr = testDataBuilder.addKartPrForTest(kart, 1, 3, "Антонов", "01.01.1973",
-				"01.04.2014", "20.04.2014");
+		// загрузить справочники
+		CalcStore calcStore = processMng.buildCalcStore(Utl.getDateFromStr("15.04.2014"), 0);
+		// дом
+		House house = new House();
+		Ko houseKo = new Ko();
 
-		testDataBuilder.addStatePrForTest(kartPr, 4, "01.02.2014", "01.03.2014");
-		testDataBuilder.addStatePrForTest(kartPr, 1, "02.03.2014", "09.04.2014");
-		testDataBuilder.addStatePrForTest(kartPr, 2, "10.04.2014", "13.04.2014");
-		testDataBuilder.addStatePrForTest(kartPr, 3, "14.04.2014", "20.04.2014");
-		testDataBuilder.addStatePrForTest(kartPr, 4, "21.04.2014", "27.04.2014");
+		house.setKo(houseKo);
+		house.setKul("0001");
+		house.setNd("000001");
+		/*em.persist(houseKo);
+		em.persist(house);
+*/
+		// построить лицевые счета по квартире
+		testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52), 3,true, true, true);
+		testDataBuilder.buildKartForTest(house, "0002", BigDecimal.valueOf(50.24), 2,true, true, true);
+		testDataBuilder.buildKartForTest(house, "0003", BigDecimal.valueOf(75.89), 2,true, true, true);
+		testDataBuilder.buildKartForTest(house, "0004", BigDecimal.valueOf(22.01), 1,true, true, true);
+		testDataBuilder.buildKartForTest(house, "0005", BigDecimal.valueOf(67.1), 4,true, true, true);
 
-		em.persist(kart);
+		// получить distinct klsk помещений, выполнить расчет
+		for (Integer t : house.getKart().stream()
+				.map(t->t.getKoKw().getId()).distinct().collect(Collectors.toList())) {
+			genChrgProcessMng.genChrg(calcStore, t);
+			//log.info("***************** ={}", calcStore.getChrgCountHouse().getLstUslPriceVol().size());
+		}
 
-		// запрос
-		//List<StatePr> statePr = statesPrDao.findByDate(kart.getLsk(), Utl.getDateFromStr("01.04.2014"),
-		//		Utl.getDateFromStr("30.04.2014"));
-		List<StatePr> statePr = statesPrDao.findByDate(kart.getLsk(), Utl.getDateFromStr("01.04.2014"),
-				Utl.getDateFromStr("30.04.2014"));
-		log.info("Выборка:");
-		int i=0;
-		for (StatePr pr : statePr) {
-			i++;
-			log.info("fio={}, dt1={}, dt2={}, statusId={}",
-					pr.getKartPr().getFio(), pr.getDtFrom(), pr.getDtTo(), pr.getStatusPr().getId());
-			if (Utl.between(Utl.getDateFromStr("10.04.2014"),
-					pr.getDtFrom(), pr.getDtTo()) && pr.getKartPr().getFio().equals("Антонов")) {
-				assertTrue(pr.getStatusPr().getId().equals(2));
-			}
-			if (Utl.between(Utl.getDateFromStr("15.04.2014"),
-					pr.getDtFrom(), pr.getDtTo()) && pr.getKartPr().getFio().equals("Антонов")) {
-				assertTrue(pr.getStatusPr().getId().equals(3));
-			}
-			if (Utl.between(Utl.getDateFromStr("22.04.2014"),
-					pr.getDtFrom(), pr.getDtTo()) && pr.getKartPr().getFio().equals("Антонов")) {
-				assertTrue(pr.getStatusPr().getId().equals(4));
+		// объемы по дому:
+		for (UslPriceVol t : calcStore.getChrgCountHouse().getLstUslPriceVol()) {
+			if (Utl.in(t.usl.getId(),"003")) {
+				log.info("usl={} cnt={} " +
+								"empt={} " +
+								"vol={} volOvSc={} volEmpt={} area={} areaOvSc={} " +
+								"areaEmpt={} kpr={} kprOt={} kprWr={}",
+						t.usl.getId(), t.isCounter, t.isEmpty,
+						t.vol.setScale(5, BigDecimal.ROUND_HALF_UP),
+						t.volOverSoc.setScale(5, BigDecimal.ROUND_HALF_UP),
+						t.volEmpty.setScale(5, BigDecimal.ROUND_HALF_UP),
+						t.area.setScale(5, BigDecimal.ROUND_HALF_UP),
+						t.areaOverSoc.setScale(5, BigDecimal.ROUND_HALF_UP),
+						t.areaEmpty.setScale(5, BigDecimal.ROUND_HALF_UP),
+						t.kpr.setScale(5, BigDecimal.ROUND_HALF_UP),
+						t.kprOt.setScale(5, BigDecimal.ROUND_HALF_UP),
+						t.kprWr.setScale(5, BigDecimal.ROUND_HALF_UP));
 			}
 		}
-		assertTrue(i==4);
 
-		i=0;
-		// обработать пустой период
-		kartPr.getStatePr().clear();
-		testDataBuilder.addStatePrForTest(kartPr, 1, null, "11.04.2015");
-		statePr = statesPrDao.findByDate(kart.getLsk(), Utl.getDateFromStr("01.04.2014"),
-				Utl.getDateFromStr("30.04.2014"));
+		log.info("Test genChrgProcessMngGenChrgHouse End!");
 
-		log.info("Выборка: пустой период");
-		for (StatePr pr : statePr) {
-			i++;
-			log.info("fio={}, dt1={}, dt2={}, statusId={}",
-					pr.getKartPr().getFio(), pr.getDtFrom(), pr.getDtTo(), pr.getStatusPr().getId());
-			if (Utl.between(Utl.getDateFromStr("10.04.2014"),
-					pr.getDtFrom(), pr.getDtTo()) && pr.getKartPr().getFio().equals("Антонов")) {
-				assertTrue(pr.getStatusPr().getId().equals(1));
-			}
-		}
-		assertTrue(i==1);
-
-		// обработать полностью пустой период
-		kartPr.getStatePr().clear();
-		testDataBuilder.addStatePrForTest(kartPr, 2, null, null);
-		statePr = statesPrDao.findByDate(kart.getLsk(), Utl.getDateFromStr("01.04.2014"),
-				Utl.getDateFromStr("30.04.2014"));
-
-		log.info("Выборка: полностью пустой период");
-		for (StatePr pr : statePr) {
-			i++;
-			log.info("fio={}, dt1={}, dt2={}, statusId={}",
-					pr.getKartPr().getFio(), pr.getDtFrom(), pr.getDtTo(), pr.getStatusPr().getId());
-			if (Utl.between(Utl.getDateFromStr("30.05.2014"),
-					pr.getDtFrom(), pr.getDtTo()) && pr.getKartPr().getFio().equals("Антонов")) {
-				assertTrue(pr.getStatusPr().getId().equals(2));
-			}
-		}
-		assertTrue(i==2);
-
-		log.info("Test end");
 	}
-
-
-
 }

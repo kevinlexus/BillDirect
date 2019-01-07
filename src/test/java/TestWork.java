@@ -2,6 +2,11 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import com.dic.app.mm.ProcessMng;
+import com.dic.bill.dto.CalcStore;
+import com.dic.bill.mm.TestDataBuilder;
+import com.dic.bill.model.scott.House;
+import com.dic.bill.model.scott.Kart;
+import com.dic.bill.model.scott.Ko;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +30,7 @@ import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes=Config.class)
@@ -39,29 +45,23 @@ public class TestWork {
 	@Autowired
 	private ConfigApp config;
 	@Autowired
-	private ThreadMng threadMng;
+	private TestDataBuilder testDataBuilder;
 	@Autowired
 	private ProcessMng processMng;
 
-	@Autowired
-	private KartDAO kartDao;
-
-	@Autowired
-	private DebDAO debPenUslDao;
-	@Autowired
-	private RedirPayDAO redirPayDao;
 	@PersistenceContext
     private EntityManager em;
 
 	/**
-	 * Проверка расчета начисления, задолжности и пени
+	 * Проверка расчета задолжности и пени
 	 * @throws ErrorWhileChrgPen
 	 */
     @Test
     @Rollback(true)
     @Repeat(value = 1)
+	@Transactional
     public void mainWork() throws ErrorWhileChrgPen {
-		log.info("Test start");
+		log.info("Test mainWork");
 
 		log.info("Текущий период: dt1={}, dt2={}", config.getCurDt1(), config.getCurDt2());
 		// конфиг запроса
@@ -70,11 +70,11 @@ public class TestWork {
 				.withRqn(config.incNextReqNum()) // уникальный номер запроса
 				.withTp(1) // тип операции
 				.build();
-		processMng.genProcessAll("00000000", "00000085",
-					Utl.getDateFromStr("15.04.2014"),
+
+		processMng.genProcessAll("00000008", "00000008",
+				Utl.getDateFromStr("15.04.2014"),
 				0, reqConf);
 
-		log.info("Test end");
 	}
 
 
