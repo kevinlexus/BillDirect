@@ -102,12 +102,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     BigDecimal naborVolAdd = Utl.nvl(nabor.getVolAdd(), BigDecimal.ZERO);
                     // услуга с которой получить объем (иногда выполняется перенаправление, например для fkCalcTp=31)
                     Usl factUslVol = nabor.getUsl().getFactUslVol();
-/*
-                    log.info("РАСЧЕТ: dt={}, lsk={}, Usl.id={}, fkCalcTp={}, name={}, factUslVol={}", Utl.getStrFromDate(curDt),
-                            nabor.getKart().getLsk(), nabor.getUsl().getId(), fkCalcTp, nabor.getUsl().getName(),
-                            factUslVol.getId());
-*/
-
                     // ввод
                     Vvod vvod = nabor.getVvod();
                     // тип распределения ввода
@@ -325,12 +319,35 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                                 .withKpr(countPers.kpr).withKprOt(countPers.kprOt).withKprWr(countPers.kprWr)
                                 .withPartDayMonth(calcStore.getPartDayMonth())
                                 .build();
+
+/*
+                        if (Utl.in(uslPriceVol.usl.getId(),"003")) {
+                            log.info("РАСЧЕТ ДНЯ:");
+                            log.info("dt:{}-{} usl={} org={} cnt={} " +
+                                            "empt={} stdt={} " +
+                                            "prc={} prcOv={} prcEm={} " +
+                                            "vol={} volOv={} volEm={} ar={} arOv={} " +
+                                            "arEm={} Kpr={} Ot={} Wrz={}",
+                                    Utl.getStrFromDate(uslPriceVol.dtFrom, "dd"), Utl.getStrFromDate(uslPriceVol.dtTo, "dd"),
+                                    uslPriceVol.usl.getId(), uslPriceVol.org.getId(), uslPriceVol.isCounter, uslPriceVol.isEmpty,
+                                    uslPriceVol.socStdt, uslPriceVol.price, uslPriceVol.priceOverSoc, uslPriceVol.priceEmpty,
+                                    uslPriceVol.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVol.volOverSoc.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVol.volEmpty.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVol.area.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVol.areaOverSoc.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVol.areaEmpty.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVol.kpr.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVol.kprOt.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVol.kprWr.setScale(4, BigDecimal.ROUND_HALF_UP));
+                        }
+*/
                         // сохранить рассчитанный объем по расчетному дню
                         mapUslPriceVol.put(nabor.getUsl().getId(), uslPriceVol);
                         chrgCount.groupUslPriceVol(uslPriceVol);
 
                         // сохранить в объемы дома
-                        calcStore.getChrgCountHouse().groupUslPriceVol(uslPriceVol);
+                        calcStore.getChrgCountHouse().groupUslPriceVol(kartMain, uslPriceVol);
                     }
                 }
             }
@@ -343,8 +360,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         log.info("UslPriceVol:");
         BigDecimal amntVol = BigDecimal.ZERO;
 
+/*
         for (UslPriceVol t : chrgCount.getLstUslPriceVol()) {
-            if (Utl.in(t.usl.getId(),"141")) {
+            if (Utl.in(t.usl.getId(),"003")) {
                 log.info("dt:{}-{} usl={} org={} cnt={} " +
                                 "empt={} stdt={} " +
                                 "prc={} prcOv={} prcEm={} " +
@@ -366,60 +384,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             }
         }
         log.info("Итоговый объем:={}", amntVol);
-    }
-
-    /**
-     * Добавить и сгруппировать объем по услуге
-     * @param chrgCount - объемы и кол-во прожив. по услуге
-     * @param usl - услуга
-     * @param isCounter - наличие счетчика
-     * @param dayPartMonth - доля дня в месяце
-     * @param countPers - кол-во проживающих
-     */
-/*
-    private void addChrgVol(ChrgCount chrgCount, Usl usl,
-                            boolean isCounter,
-                            BigDecimal dayPartMonth, CountPers countPers) {
-        List<UslOrgPers> lstChrgVol = chrgCount.getMapChrgVol().get(usl);
-        if (lstChrgVol == null) {
-            lstChrgVol = new ArrayList<>();
-            chrgCount.getMapChrgVol().put(usl, lstChrgVol);
-        }
-        UslOrgPers foundChrgVol = null;
-        if (lstChrgVol.size() !=0) {
-            // получить записи с такими же ключевыми параметрами - наличия счетчика и пустой квартиры
-            lstChrgVol.forEach(t-> log.info("TEST t.isCounter={}, t.isEmpty={}", t.isCounter, t.isEmpty));
-            foundChrgVol = lstChrgVol.stream()
-                    .filter(t -> t.isCounter == isCounter && t.isEmpty == countPers.isEmpty)
-                    .findFirst().orElse(null);
-        }
-        if (lstChrgVol.size()==0 || foundChrgVol == null) {
-            // создать запись
-            UslOrgPers chrgVol = new UslOrgPers(usl, countPers.isEmpty, isCounter);
-            chrgVol.kpr = dayPartMonth.multiply(BigDecimal.valueOf(countPers.kpr));
-            chrgVol.kprNorm = dayPartMonth.multiply(BigDecimal.valueOf(countPers.kprNorm));
-            chrgVol.kprWr = dayPartMonth.multiply(BigDecimal.valueOf(countPers.kprWr));
-            chrgVol.kprOt = dayPartMonth.multiply(BigDecimal.valueOf(countPers.kprOt));
-            chrgVol.isEmpty = countPers.isEmpty;
-            // добавить долю дня
-            chrgVol.partMonth = chrgVol.partMonth.add(dayPartMonth);
-            lstChrgVol.add(chrgVol);
-        } else {
-            // добавить в существующую запись объема
-            foundChrgVol.kpr = foundChrgVol.kpr.add(dayPartMonth.multiply(BigDecimal.valueOf(countPers.kpr)));
-            foundChrgVol.kprNorm = foundChrgVol.kprNorm.add(dayPartMonth.multiply(BigDecimal.valueOf(countPers.kprNorm)));
-            foundChrgVol.kprWr = foundChrgVol.kprWr.add(dayPartMonth.multiply(BigDecimal.valueOf(countPers.kprWr)));
-            foundChrgVol.kprOt = foundChrgVol.kprOt.add(dayPartMonth.multiply(BigDecimal.valueOf(countPers.kprOt)));
-            // добавить долю дня
-            foundChrgVol.partMonth = foundChrgVol.partMonth.add(dayPartMonth);
-        }
-
-        // сохранить максимальное кол-во проживающих, по услуге
-        Integer kprMax = chrgCount.getMapKprMax().get(usl);
-        if (kprMax == null ||countPers.kprMax > kprMax) {
-            chrgCount.getMapKprMax().put(usl, countPers.kprMax);
-        }
-    }
 */
-
+    }
 }
