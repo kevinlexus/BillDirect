@@ -164,16 +164,16 @@ public class ConfigImpl implements ConfigApp {
      * Выполнить блокировку лицевого счета
      */
     @Override
-    public boolean aquireLock(int rqn, String lsk) {
+    public boolean aquireLock(int rqn, int klskId) {
         // блокировка лиц.счета
         int waitTick = 0;
-        while (!getLock().setLockLsk(rqn, lsk)) {
+        while (!getLock().setLockLsk(rqn, klskId)) {
             waitTick++;
-            if (waitTick > 60) {
+            if (waitTick > 120) { // 2 минуты ожидать блокировку
                 log.error(
                         "********ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!");
                 log.error(
-                        "********НЕВОЗМОЖНО РАЗБЛОКИРОВАТЬ lsk={} В ТЕЧЕНИИ 60 сек!{}", lsk);
+                        "********НЕВОЗМОЖНО РАЗБЛОКИРОВАТЬ klskId={} В ТЕЧЕНИИ 60 сек!{}", klskId);
                 return false;
             }
             try {

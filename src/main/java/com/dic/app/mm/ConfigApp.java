@@ -20,7 +20,7 @@ public interface ConfigApp {
 
 	Lock getLock();
 
-	boolean aquireLock(int rqn, String lsk);
+	boolean aquireLock(int rqn, int klskId);
 
 	int incNextReqNum();
 

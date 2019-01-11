@@ -29,6 +29,7 @@ import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static junit.framework.TestCase.assertTrue;
 
@@ -128,29 +129,38 @@ public class TestKart {
 
 		// объемы по дому:
 		log.info("Объемы по дому:");
-		for (UslPriceVolHouse t : calcStore.getChrgCountHouse().getLstUslPriceVol()) {
-			if (Utl.in(t.usl.getId(),"003")) {
-				log.info("usl={} cnt={} " +
-								"empt={} cntLsk={} " +
-								"vol={} volOvSc={} volEmpt={} area={} areaOvSc={} " +
-								"areaEmpt={} kpr={} kprOt={} kprWr={}",
-						t.usl.getId(), t.isCounter, t.isEmpty, t.cntLsk,
-						t.vol.setScale(5, BigDecimal.ROUND_HALF_UP),
-						t.volOverSoc.setScale(5, BigDecimal.ROUND_HALF_UP),
-						t.volEmpty.setScale(5, BigDecimal.ROUND_HALF_UP),
-						t.area.setScale(5, BigDecimal.ROUND_HALF_UP),
-						t.areaOverSoc.setScale(5, BigDecimal.ROUND_HALF_UP),
-						t.areaEmpty.setScale(5, BigDecimal.ROUND_HALF_UP),
-						t.kpr.setScale(5, BigDecimal.ROUND_HALF_UP),
-						t.kprOt.setScale(5, BigDecimal.ROUND_HALF_UP),
-						t.kprWr.setScale(5, BigDecimal.ROUND_HALF_UP));
+		for (ChrgCount d : calcStore.getChrgCountHouse().getLstChrgCount()) {
+			for (UslPriceVol t : d.getLstUslPriceVol()) {
+				if (Utl.in(t.usl.getId(),"003")) {
+					log.info("lsk={} usl={} cnt={} " +
+									"empt={} " +
+									"vol={} volOvSc={} volEmpt={} area={} areaOvSc={} " +
+									"areaEmpt={} kpr={} kprOt={} kprWr={}",
+							t.kart.getLsk(),
+							t.usl.getId(), t.isCounter, t.isEmpty,
+							t.vol.setScale(5, BigDecimal.ROUND_HALF_UP),
+							t.volOverSoc.setScale(5, BigDecimal.ROUND_HALF_UP),
+							t.volEmpty.setScale(5, BigDecimal.ROUND_HALF_UP),
+							t.area.setScale(5, BigDecimal.ROUND_HALF_UP),
+							t.areaOverSoc.setScale(5, BigDecimal.ROUND_HALF_UP),
+							t.areaEmpty.setScale(5, BigDecimal.ROUND_HALF_UP),
+							t.kpr.setScale(5, BigDecimal.ROUND_HALF_UP),
+							t.kprOt.setScale(5, BigDecimal.ROUND_HALF_UP),
+							t.kprWr.setScale(5, BigDecimal.ROUND_HALF_UP));
+				}
 			}
 		}
 
-		log.info("Кол-во лиц.счетов по дому:");
-		for (Map.Entry<Usl, Set<Kart>> entry : calcStore.getChrgCountHouse().getMapUslLsk().entrySet()) {
-			log.info("usl={}, cntLsk={}", entry.getKey().getId(), entry.getValue().stream().count());
-		}
+		log.info("Кол-во квартир по дому:");
+
+		Stream<Usl> streamUsl = calcStore.getChrgCountHouse().getLstChrgCount().stream()
+				.flatMap(t -> t.getLstUslPriceVol().stream()).map(t -> t.usl).distinct();
+		streamUsl.forEach(s-> {
+			long cntKo = calcStore.getChrgCountHouse().getLstChrgCount().stream()
+					.filter(t -> t.getLstUslPriceVol().stream().anyMatch(d -> d.usl.equals(s)))
+					.distinct().count();
+			log.info("usl={}, cntKo={}", s.getId(), cntKo);
+		});
 
 		log.info("Test genChrgProcessMngGenChrgHouse End!");
 

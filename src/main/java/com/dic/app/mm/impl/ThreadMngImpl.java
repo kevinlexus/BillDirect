@@ -46,21 +46,21 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
      * @param reverse-   lambda функция
      * @param cntThreads - кол-во потоков
      * @param lstItem    - список Id на обработку
-     * @param mark       - наименование потока, если заполнен, проверять остановку главного процесса
+     * @param stopMark       - наименование потока, если заполнен, проверять остановку главного процесса
      * @throws ExecutionException
      * @throws InterruptedException
      */
     @Override
     @Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public void invokeThreads(PrepThread<T> reverse,
-                              int cntThreads, List<T> lstItem, String mark) throws InterruptedException, ExecutionException, WrongParam, ErrorWhileChrg {
+                              int cntThreads, List<T> lstItem, String stopMark) throws InterruptedException, ExecutionException, WrongParam, ErrorWhileChrg {
         long startTime = System.currentTimeMillis();
         // размер очереди
         int lstSize = lstItem.size();
         int curSize = lstSize;
         // если указано имя маркера, то проверять остановку процесса
         boolean isCheckStop;
-        if (mark != null) {
+        if (stopMark != null) {
             isCheckStop = true;
         } else {
             isCheckStop = false;
@@ -81,7 +81,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
             // флаг наличия потоков
             isStop = true;
             for (Iterator<Future<CommonResult>> itr = frl.iterator(); itr.hasNext(); ) {
-                if (isCheckStop && config.getLock().isStopped(mark)) {
+                if (isCheckStop && config.getLock().isStopped(stopMark)) {
                     // если процесс был остановлен, выход
                     isStopProcess = true;
                     break;

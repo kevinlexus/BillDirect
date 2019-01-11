@@ -49,13 +49,14 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
     /**
      * Рассчитать начисление
+     * Внимание! Расчет идёт по квартире (помещению), но информация группируется по лиц.счету(Kart)
+     * так как теоретически может быть одинаковая услуга на разных лиц.счетах, но на одной квартире!
      *
      * @param calcStore - хранилище справочников
-     * @param klskId    - Klsk Id квартиры
+     * @param ko - Ko квартиры
      */
     @Override
-    public void genChrg(CalcStore calcStore, Integer klskId) throws WrongParam, ErrorWhileChrg {
-        Ko ko = em.find(Ko.class, klskId);
+    public void genChrg(CalcStore calcStore, Ko ko) throws WrongParam, ErrorWhileChrg {
         // получить основной лиц счет по связи klsk квартиры
         Kart kartMainByKlsk = kartMng.getKartMain(ko);
         // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
@@ -67,6 +68,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
         ChrgCount chrgCount = new ChrgCount();
 
+        // сохранить помещение
+        chrgCount.setKo(ko);
         // получить все действующие счетчики квартиры и их объемы
         chrgCount.setLstMeterVol(meterDao.findMeterVolByKlsk(ko.getId(),
                 calcStore.getCurDt1(), calcStore.getCurDt2()));
@@ -91,7 +94,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             BigDecimal volMeterHotWater = BigDecimal.ZERO;
 
             // объем по услуге, за рассчитанный день
-            Map<String, UslPriceVol> mapUslPriceVol = new HashMap<>(30);
+            Map<Usl, UslPriceVol> mapUslPriceVol = new HashMap<>(30);
 
             for (Nabor nabor : lstNabor) {
                 if (nabor.getUsl().isMain()) {
@@ -270,14 +273,15 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         // Повыш.коэфф
                         if (nabor.getUsl().getParentUsl()!=null) {
                             // получить объем из родительской услуги
-                            UslPriceVol uslPriceVol = mapUslPriceVol.get(nabor.getUsl().getParentUsl().getId());
-                            if (!uslPriceVol.isCounter) {
+                            UslPriceVol uslPriceVol = mapUslPriceVol.get(nabor.getUsl().getParentUsl());
+                            if (uslPriceVol!=null && !uslPriceVol.isCounter) {
                                 // только если нет счетчика в родительской услуге
                                 area = kartArea;
                                 // сложить все объемы родит.услуги, умножить на норматив текущей услуги
                                 dayVol = (uslPriceVol.vol.add(uslPriceVol.volOverSoc).add(uslPriceVol.volEmpty))
                                         .multiply(naborNorm);
                             }
+
                         } else {
                             throw new ErrorWhileChrg("ОШИБКА! По услуге usl.id="+nabor.getUsl().getId()+
                                 " отсутствует PARENT_USL");
@@ -301,6 +305,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     if (!dayVol.equals(BigDecimal.ZERO) || !dayVolOverSoc.equals(BigDecimal.ZERO)
                             || !dayVolEmpty.equals(BigDecimal.ZERO)) {
                         UslPriceVol uslPriceVol = UslPriceVol.UslPriceVolBuilder.anUslPriceVol()
+                                .withKart(nabor.getKart()) // группировать по лиц.счету из nabor!
                                 .withDtFrom(curDt).withDtTo(curDt).withDtFrom(curDt)
                                 .withUsl(nabor.getUsl())
                                 .withOrg(nabor.getOrg())
@@ -342,12 +347,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                                     uslPriceVol.kprWr.setScale(4, BigDecimal.ROUND_HALF_UP));
                         }
 */
-                        // сохранить рассчитанный объем по расчетному дню
-                        mapUslPriceVol.put(nabor.getUsl().getId(), uslPriceVol);
+                        // сохранить рассчитанный объем по расчетному дню, для услуги Повыш коэфф.
+                        mapUslPriceVol.put(nabor.getUsl(), uslPriceVol);
+                        // сгруппировать по лиц.счету, услуге
                         chrgCount.groupUslPriceVol(uslPriceVol);
-
-                        // сохранить в объемы дома
-                        calcStore.getChrgCountHouse().groupUslPriceVol(kartMain, uslPriceVol);
                     }
                 }
             }
@@ -355,12 +358,15 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             // Блок умножения объем на цену (расчет в рублях)
         }
 
+        // сохранить в объемы дома (для расчета ОДН и прочих распределений во вводах)
+        calcStore.getChrgCountHouse().addChrgCount(chrgCount);
+
         // получить кол-во проживающих по лиц.счету
+/*
         log.info("ИТОГО:");
         log.info("UslPriceVol:");
         BigDecimal amntVol = BigDecimal.ZERO;
 
-/*
         for (UslPriceVol t : chrgCount.getLstUslPriceVol()) {
             if (Utl.in(t.usl.getId(),"003")) {
                 log.info("dt:{}-{} usl={} org={} cnt={} " +

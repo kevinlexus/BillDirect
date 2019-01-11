@@ -1,5 +1,6 @@
 package com.dic.app.mm.impl;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -59,7 +60,7 @@ public class ProcessMngImpl implements ProcessMng {
     @Autowired
     private KartDAO kartDao;
     @Autowired
-    private ThreadMng<String> threadMng;
+    private ThreadMng<Integer> threadMng;
     @Autowired
     private GenPenProcessMng genPenProcessMng;
     @Autowired
@@ -72,41 +73,58 @@ public class ProcessMngImpl implements ProcessMng {
     private EntityManager em;
 
     /**
-     * Выполнение процесса формирования
+     * Выполнение процесса формирования либо по квартире, по дому, по вводу
      *
-     * @param lskFrom  - начальный лиц.счет, если отсутствует - весь фонд
-     * @param lskTo    - конечный лиц.счет, если отсутствует - весь фонд
-     * @param genDt    - дата расчета
-     * @param debugLvl - уровень отладочной информации (0-нет, 1-отобразить)
      * @param reqConf  - конфиг запроса
+     * @param calcStore - хранилище справочников
      * @throws ErrorWhileChrgPen
      */
     @Override
     @CacheEvict(value = {"ReferenceMng.getUslOrgRedirect"}, allEntries = true)
     @Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
-    public void genProcessAll(String lskFrom, String lskTo, Date genDt,
-                              Integer debugLvl, RequestConfig reqConf) throws ErrorWhileChrgPen {
-        // маркер, для проверки необходимости остановки
-        String mark = null;
-        if (!lskFrom.equals(lskTo)) {
-            // по нескольким лиц.счетам
-            mark = "processMng.genProcessAll";
-            // установить маркер процесса
-            config.getLock().setLockProc(reqConf.getRqn(), mark);
-        }
+    public void genProcessAll(RequestConfig reqConf, CalcStore calcStore) throws ErrorWhileChrgPen {
 
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО обработки всех объектов, по типу={}", reqConf.getTp());
 
-        // загрузить справочники
-        CalcStore calcStore = buildCalcStore(genDt, debugLvl);
-        // получить список лицевых счетов
-        List<String> lstItem;
-        lstItem = kartDao.getListLsk(lskFrom, lskTo)
-                .stream().map(t -> t.getLsk()).collect(Collectors.toList());
+        // получить список квартир
+        List<Integer> lstItem = null;
+        String stopMark = null;
+        List<Integer> lstMark = new ArrayList<>();
+        // тип выборки
+        int tpSel;
+        Ko ko = reqConf.getKo();
+        House house = reqConf.getHouse();
+        Vvod vvod = reqConf.getVvod();
+        if (ko != null) {
+            // по квартире
+            tpSel = 1;
+            lstItem = new ArrayList<>(1);
+            lstItem.add(ko.getId());
+            lstMark.add(ko.getId());
+            lstMark.add(house.getKo().getId());
+        } else if (house != null) {
+            // по дому
+            tpSel = 2;
+            lstItem = kartDao.getKoByHouse(house).stream().map(t->t.getId()).collect(Collectors.toList());
+            lstMark.add(house.getKo().getId());
+        } else if (vvod != null) {
+            // по вводу
+            tpSel = 3;
+            lstItem = kartDao.getKoByVvod(vvod).stream().map(t->t.getId()).collect(Collectors.toList());
+        } else {
+            tpSel = 0;
+            // по всему фонду
+            lstItem = kartDao.getKoAll().stream().map(t->t.getId()).collect(Collectors.toList());
+            // маркер, для проверки необходимости остановки (только если весь фонд задан для расчета)
+            stopMark = "processMng.genProcess";
+            // установить маркер процесса
+            config.getLock().setLockProc(reqConf.getRqn(), stopMark);
+        }
+
 
         // lambda, будет выполнено позже, в создании потока
-        PrepThread<String> reverse = (item, proc) -> {
+        PrepThread<Integer> reverse = (item, proc) -> {
             log.info("************** 1");
             ProcessMng processMng = ctx.getBean(ProcessMng.class);
             log.info("************** 2");
@@ -115,10 +133,15 @@ public class ProcessMngImpl implements ProcessMng {
 
         // вызвать в потоках
         try {
-            threadMng.invokeThreads(reverse, CNT_THREADS, lstItem, mark);
+            threadMng.invokeThreads(reverse, CNT_THREADS, lstItem, stopMark);
         } catch (InterruptedException | ExecutionException | WrongParam | ErrorWhileChrg e) {
             log.error(Utl.getStackTraceString(e));
             throw new ErrorWhileChrgPen("ОШИБКА во время расчета!");
+        } finally {
+            if (tpSel==0) {
+                // снять маркер процесса
+                config.getLock().unlockProc(reqConf.getRqn(), stopMark);
+            }
         }
 
         long endTime = System.currentTimeMillis();
@@ -161,9 +184,9 @@ public class ProcessMngImpl implements ProcessMng {
     }
 
     /**
-     * Процессинг расчета по одному лиц.счету
+     * Процессинг расчета по одной квартире
      *
-     * @param lsk       - лиц.счет
+     * @param klskId - Id квартиры
      * @param calcStore - хранилище справочников
      * @param reqConf   - конфиг запроса
      */
@@ -173,25 +196,25 @@ public class ProcessMngImpl implements ProcessMng {
             propagation = Propagation.REQUIRES_NEW, // новая транзакция, Не ставить Propagation.MANADATORY! - не даёт запустить поток!
             isolation = Isolation.READ_COMMITTED, // читать только закомиченные данные, не ставить другое, не даст запустить поток!
             rollbackFor = Exception.class) //
-    public Future<CommonResult> genProcess(String lsk, CalcStore calcStore, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
+    public Future<CommonResult> genProcess(int klskId, CalcStore calcStore, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
         long startTime = System.currentTimeMillis();
-        log.info("НАЧАЛО потока по типу={}, по лиц.счету {}", reqConf.getTp(), lsk);
+        log.info("НАЧАЛО потока по типу={}, по klskId={}", reqConf.getTp(), klskId);
         try {
-            // заблокировать лиц.счет для расчета
-            if (!config.aquireLock(reqConf.getRqn(), lsk)) {
-                throw new RuntimeException("ОШИБКА БЛОКИРОВКИ лc.=" + lsk);
+            // заблокировать объект Ko для расчета
+            if (!config.aquireLock(reqConf.getRqn(), klskId)) {
+                throw new RuntimeException("ОШИБКА БЛОКИРОВКИ klskId=" + klskId);
             }
-            Kart kart = em.find(Kart.class, lsk);
-            log.info("******* kart.lsk={}", kart.getLsk());
+            Ko ko = em.find(Ko.class, klskId);
+            log.info("******* klskId={}", klskId);
 
             switch (reqConf.getTp()) {
                 case 0: {
                     // начисление
-                    genChrgProcessMng.genChrg(calcStore, kart.getKoKw().getId());
+                    genChrgProcessMng.genChrg(calcStore, ko);
                 }
                 case 1: {
-                    // расчет ДОЛГА и ПЕНИ
-                    genPenProcessMng.genDebitPen(calcStore, kart);
+                    // расчет ДОЛГА и ПЕНИ -  TODO переделать на Ko!!! ред. 11.01.19
+                    //genPenProcessMng.genDebitPen(calcStore, kart);
                     break;
                 }
                 default:
@@ -199,12 +222,12 @@ public class ProcessMngImpl implements ProcessMng {
             }
         } finally {
             // разблокировать лицевой счет
-            config.getLock().unlockLsk(reqConf.getRqn(), lsk);
+            config.getLock().unlockLsk(reqConf.getRqn(), klskId);
         }
-        CommonResult res = new CommonResult(lsk, 0);
+        CommonResult res = new CommonResult(klskId, 0);
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
-        log.info("ОКОНЧАНИЕ потока по типу={}, по лиц.счету {} Время расчета={} мс", reqConf.getTp(), lsk, totalTime);
+        log.info("ОКОНЧАНИЕ потока по типу={}, по klskId {} Время расчета={} мс", reqConf.getTp(), klskId, totalTime);
         return new AsyncResult<CommonResult>(res);
     }
 
