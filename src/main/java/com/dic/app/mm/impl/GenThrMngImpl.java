@@ -39,7 +39,7 @@ public class GenThrMngImpl implements GenThrMng {
 	 */
 	@Async
 	@Override
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
+	@Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
 	public Future<CommonResult> doJob(Integer var, Integer id, SprGenItm spr, double proc) {
 		switch (var) {
 		case 1:
@@ -70,7 +70,7 @@ public class GenThrMngImpl implements GenThrMng {
 		// сохранить процент выполнения
 		execMng.setMenuElemPercent(spr, proc);
 
-		CommonResult res = new CommonResult(null, 0);
-		return new AsyncResult<CommonResult>(res);
+		CommonResult res = new CommonResult(0, 0);
+		return new AsyncResult<>(res);
 	}
 }

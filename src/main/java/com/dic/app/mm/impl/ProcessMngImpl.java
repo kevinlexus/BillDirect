@@ -1,21 +1,21 @@
 package com.dic.app.mm.impl;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.stream.Collectors;
-
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-
 import com.dic.app.mm.*;
-import com.dic.bill.dto.ChrgCount;
+import com.dic.bill.RequestConfig;
+import com.dic.bill.dao.KartDAO;
+import com.dic.bill.dao.PenDtDAO;
+import com.dic.bill.dao.PenRefDAO;
+import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.ChrgCountHouse;
-import com.dic.bill.model.scott.*;
+import com.dic.bill.model.scott.House;
+import com.dic.bill.model.scott.Ko;
+import com.dic.bill.model.scott.Vvod;
+import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrg;
+import com.ric.cmn.excp.ErrorWhileChrgPen;
 import com.ric.cmn.excp.WrongParam;
+import com.ric.dto.CommonResult;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationContext;
@@ -27,17 +27,14 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.dic.app.mm.ProcessMng;
-import com.dic.bill.RequestConfig;
-import com.dic.bill.dao.KartDAO;
-import com.dic.bill.dao.PenDtDAO;
-import com.dic.bill.dao.PenRefDAO;
-import com.dic.bill.dto.CalcStore;
-import com.ric.dto.CommonResult;
-import com.ric.cmn.Utl;
-import com.ric.cmn.excp.ErrorWhileChrgPen;
-
-import lombok.extern.slf4j.Slf4j;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 /**
  * Сервис выполнения процессов формирования
@@ -75,22 +72,21 @@ public class ProcessMngImpl implements ProcessMng {
     /**
      * Выполнение процесса формирования либо по квартире, по дому, по вводу
      *
-     * @param reqConf  - конфиг запроса
+     * @param reqConf   - конфиг запроса
      * @param calcStore - хранилище справочников
-     * @throws ErrorWhileChrgPen
+     * @throws ErrorWhileChrgPen - ошибка начисления
      */
     @Override
     @CacheEvict(value = {"ReferenceMng.getUslOrgRedirect"}, allEntries = true)
-    @Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
+    @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public void genProcessAll(RequestConfig reqConf, CalcStore calcStore) throws ErrorWhileChrgPen {
 
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО обработки всех объектов, по типу={}", reqConf.getTp());
 
         // получить список квартир
-        List<Integer> lstItem = null;
+        List<Integer> lstItem;
         String stopMark = null;
-        List<Integer> lstMark = new ArrayList<>();
         // тип выборки
         int tpSel;
         Ko ko = reqConf.getKo();
@@ -101,29 +97,25 @@ public class ProcessMngImpl implements ProcessMng {
             tpSel = 1;
             lstItem = new ArrayList<>(1);
             lstItem.add(ko.getId());
-            lstMark.add(ko.getId());
-            lstMark.add(house.getKo().getId());
         } else if (house != null) {
             // по дому
             tpSel = 2;
-            lstItem = kartDao.getKoByHouse(house).stream().map(t->t.getId()).collect(Collectors.toList());
-            lstMark.add(house.getKo().getId());
+            lstItem = kartDao.getKoByHouse(house).stream().map(Ko::getId).collect(Collectors.toList());
         } else if (vvod != null) {
             // по вводу
             tpSel = 3;
-            lstItem = kartDao.getKoByVvod(vvod).stream().map(t->t.getId()).collect(Collectors.toList());
+            lstItem = kartDao.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
         } else {
             tpSel = 0;
             // по всему фонду
-            lstItem = kartDao.getKoAll().stream().map(t->t.getId()).collect(Collectors.toList());
-            // маркер, для проверки необходимости остановки (только если весь фонд задан для расчета)
+            lstItem = kartDao.getKoAll().stream().map(Ko::getId).collect(Collectors.toList());
+            // маркер, для проверки необходимости остановки потоков(только если весь фонд задан для расчета)
             stopMark = "processMng.genProcess";
             // установить маркер процесса
             config.getLock().setLockProc(reqConf.getRqn(), stopMark);
         }
 
-
-        // lambda, будет выполнено позже, в создании потока
+        // LAMBDA, будет выполнено позже, в создании потока
         PrepThread<Integer> reverse = (item, proc) -> {
             log.info("************** 1");
             ProcessMng processMng = ctx.getBean(ProcessMng.class);
@@ -131,14 +123,22 @@ public class ProcessMngImpl implements ProcessMng {
             return processMng.genProcess(item, calcStore, reqConf);
         };
 
-        // вызвать в потоках
+        // ВЫЗОВ
         try {
-            threadMng.invokeThreads(reverse, CNT_THREADS, lstItem, stopMark);
+            if (reqConf.isMultiThreads()) {
+                // вызвать в потоках
+                threadMng.invokeThreads(reverse, CNT_THREADS, lstItem, stopMark);
+            } else {
+                // вызвать в одном потоке, последовательно для Unit тестов
+                for (Integer klskId : lstItem) {
+                    selectInvokeProcess(reqConf, calcStore, em.find(Ko.class, klskId));
+                }
+            }
         } catch (InterruptedException | ExecutionException | WrongParam | ErrorWhileChrg e) {
             log.error(Utl.getStackTraceString(e));
             throw new ErrorWhileChrgPen("ОШИБКА во время расчета!");
         } finally {
-            if (tpSel==0) {
+            if (tpSel == 0) {
                 // снять маркер процесса
                 config.getLock().unlockProc(reqConf.getRqn(), stopMark);
             }
@@ -146,14 +146,16 @@ public class ProcessMngImpl implements ProcessMng {
 
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
-        log.info("ОКОНЧАНИЕ обработки всех объектов, по типу={} - Общее время выполнения={}",reqConf.getTp(), totalTime);
+        log.info("ОКОНЧАНИЕ обработки всех объектов, по типу={} - Общее время выполнения={}", reqConf.getTp(), totalTime);
+
     }
 
     /**
      * Загрузить справочники в хранилище
-     * @param genDt - дата расчета
+     *
+     * @param genDt    - дата расчета
      * @param debugLvl - уровень отладочной информации (0-нет, 1-отобразить)
-     * @return
+     * @return - хранилище
      */
     @Override
     public CalcStore buildCalcStore(Date genDt, Integer debugLvl) {
@@ -186,13 +188,13 @@ public class ProcessMngImpl implements ProcessMng {
     /**
      * Процессинг расчета по одной квартире
      *
-     * @param klskId - Id квартиры
+     * @param klskId    - Id квартиры
      * @param calcStore - хранилище справочников
      * @param reqConf   - конфиг запроса
      */
     @Async
     @Override
-    @Transactional(readOnly = false,
+    @Transactional(
             propagation = Propagation.REQUIRES_NEW, // новая транзакция, Не ставить Propagation.MANADATORY! - не даёт запустить поток!
             isolation = Isolation.READ_COMMITTED, // читать только закомиченные данные, не ставить другое, не даст запустить поток!
             rollbackFor = Exception.class) //
@@ -207,19 +209,7 @@ public class ProcessMngImpl implements ProcessMng {
             Ko ko = em.find(Ko.class, klskId);
             log.info("******* klskId={}", klskId);
 
-            switch (reqConf.getTp()) {
-                case 0: {
-                    // начисление
-                    genChrgProcessMng.genChrg(calcStore, ko);
-                }
-                case 1: {
-                    // расчет ДОЛГА и ПЕНИ -  TODO переделать на Ko!!! ред. 11.01.19
-                    //genPenProcessMng.genDebitPen(calcStore, kart);
-                    break;
-                }
-                default:
-                    throw new WrongParam("Некорректный параметр reqConf.tp=" + reqConf.getTp());
-            }
+            selectInvokeProcess(reqConf, calcStore, ko);
         } finally {
             // разблокировать лицевой счет
             config.getLock().unlockLsk(reqConf.getRqn(), klskId);
@@ -228,7 +218,36 @@ public class ProcessMngImpl implements ProcessMng {
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
         log.info("ОКОНЧАНИЕ потока по типу={}, по klskId {} Время расчета={} мс", reqConf.getTp(), klskId, totalTime);
-        return new AsyncResult<CommonResult>(res);
+        return new AsyncResult<>(res);
+    }
+
+    /**
+     * Выбрать и вызвать процесс
+     * @param reqConf - конфиг запроса
+     * @param calcStore - хранилище параметров
+     * @param ko - объект
+     * @throws WrongParam
+     * @throws ErrorWhileChrg
+     */
+    private void selectInvokeProcess(RequestConfig reqConf, CalcStore calcStore, Ko ko) throws WrongParam, ErrorWhileChrg {
+        switch (reqConf.getTp()) {
+            case 0: {
+                // начисление
+                genChrgProcessMng.genChrg(calcStore, ko);
+            }
+            case 1: {
+                // расчет ДОЛГА и ПЕНИ -  TODO переделать на Ko!!! ред. 11.01.19
+                //genPenProcessMng.genDebitPen(calcStore, kart);
+                break;
+            }
+            case 2: {
+                // распределение объемов TODO исправить параметр распределения!
+                genChrgProcessMng.genChrg(calcStore, ko);
+                break;
+            }
+            default:
+                throw new WrongParam("Некорректный параметр reqConf.tp=" + reqConf.getTp());
+        }
     }
 
 }

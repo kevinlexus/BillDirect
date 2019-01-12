@@ -63,46 +63,15 @@ public class DistVolMngImpl implements DistVolMng {
      * @param reqConf - параметры запроса
      */
     @Override
-    public void distVolByVvod(RequestConfig reqConf) {
+    public void distVolByVvod(RequestConfig reqConf) throws ErrorWhileChrgPen {
 
         // загрузить справочники
         CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
 
         // сбор информации, для расчета ОДН, подсчета итогов
         // кол-во лиц.счетов, объемы, кол-во прожив.
-
-        // РАСПРЕДЕЛИТЬ объемы в домах с ОДПУ
-
-
-
-
-
-        // РАСПРЕДЕЛИТЬ объемы в домах без ОДПУ
-
-    }
-
-    /**
-     * Распределить объемы в домах с ОДПУ
-     * @param reqConf - параметры запроса
-     * @param calcStore - хранилище справочников
-     */
-    private void distVolWithODPU(RequestConfig reqConf, CalcStore calcStore)
-            throws ErrorWhileChrgPen, WrongParam, ErrorWhileChrg {
-
-
         // собрать информацию об объемах по лиц.счетам принадлежащим вводу
-        if (reqConf.isMultiThreads()) {
-            // в потоках
-            processMng.genProcessAll(reqConf, calcStore);
-        } else {
-            // тестирование, однопоточно, непосредственный вызов
-            // получить distinct klsk помещений, выполнить расчет
-            List<Integer> lstItem = kartDAO.getKoByVvod(reqConf.getVvod()).stream().map(t -> t.getId()).collect(Collectors.toList());
-            for (Integer klskId : lstItem) {
-                genChrgProcessMng.genChrg(calcStore, em.find(Ko.class, klskId));
-            }
-
-        }
+        processMng.genProcessAll(reqConf, calcStore);
 
         // объемы по дому:
         log.info("Объемы по дому:");
@@ -127,6 +96,25 @@ public class DistVolMngImpl implements DistVolMng {
                 }
             }
         }
+
+        // РАСПРЕДЕЛИТЬ объемы в домах с ОДПУ
+
+
+
+
+
+        // РАСПРЕДЕЛИТЬ объемы в домах без ОДПУ
+
+    }
+
+    /**
+     * Распределить объемы в домах с ОДПУ
+     * @param reqConf - параметры запроса
+     * @param calcStore - хранилище справочников
+     */
+    private void distVolWithODPU(RequestConfig reqConf, CalcStore calcStore) {
+
+
 
 
     }

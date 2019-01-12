@@ -1,13 +1,16 @@
 import com.dic.app.Config;
+import com.dic.app.mm.ConfigApp;
+import com.dic.app.mm.DistVolMng;
 import com.dic.app.mm.GenChrgProcessMng;
 import com.dic.app.mm.ProcessMng;
-import com.dic.bill.dao.StatesPrDAO;
+import com.dic.bill.RequestConfig;
 import com.dic.bill.dto.*;
 import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrg;
+import com.ric.cmn.excp.ErrorWhileChrgPen;
 import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
@@ -26,9 +29,6 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import java.math.BigDecimal;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static junit.framework.TestCase.assertTrue;
@@ -49,7 +49,10 @@ public class TestKart {
 	@Autowired
 	private GenChrgProcessMng genChrgProcessMng;
 	@Autowired
-	private StatesPrDAO statesPrDao;
+	private DistVolMng distVolMng;
+	@Autowired
+	private ConfigApp config;
+
 	@PersistenceContext
 	private EntityManager em;
 
@@ -88,7 +91,7 @@ public class TestKart {
 		Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52), 3, true, true, true);
 
 		// выполнить расчет
-		genChrgProcessMng.genChrg(calcStore, ko.getId());
+		genChrgProcessMng.genChrg(calcStore, ko);
 
 	}
 
@@ -98,8 +101,14 @@ public class TestKart {
 	@Test
 	@Rollback(true)
 	@Transactional
-	public void genChrgProcessMngGenChrgHouse() throws WrongParam, ErrorWhileChrg {
+	public void genChrgProcessMngGenChrgHouse() throws WrongParam, ErrorWhileChrg, ErrorWhileChrgPen {
 		log.info("Test genChrgProcessMngGenChrgHouse Start!");
+		// конфиг запроса
+		RequestConfig reqConf =
+				RequestConfig.RequestConfigBuilder.aRequestConfig()
+						.withRqn(config.incNextReqNum()) // уникальный номер запроса
+						.withTp(2) // тип операции - распределение объема
+						.build();
 
 		// загрузить справочники
 		CalcStore calcStore = processMng.buildCalcStore(Utl.getDateFromStr("15.04.2014"), 0);
@@ -110,9 +119,11 @@ public class TestKart {
 		house.setKo(houseKo);
 		house.setKul("0001");
 		house.setNd("000001");
-		/*em.persist(houseKo);
-		em.persist(house);
-*/
+
+		// добавить вводы
+		// Отопление Гкал
+		testDataBuilder.addVvodForTest(house, "053", 1, true);
+
 		// построить лицевые счета по квартире
 		testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52), 3,true, true, true);
 		testDataBuilder.buildKartForTest(house, "0002", BigDecimal.valueOf(50.24), 2,true, true, true);
@@ -120,47 +131,20 @@ public class TestKart {
 		testDataBuilder.buildKartForTest(house, "0004", BigDecimal.valueOf(22.01), 1,true, true, true);
 		testDataBuilder.buildKartForTest(house, "0005", BigDecimal.valueOf(67.1), 4,true, true, true);
 
-		// получить distinct klsk помещений, выполнить расчет
-		for (Integer t : house.getKart().stream()
-				.map(t->t.getKoKw().getId()).distinct().collect(Collectors.toList())) {
-			genChrgProcessMng.genChrg(calcStore, t);
-			//log.info("***************** ={}", calcStore.getChrgCountHouse().getLstUslPriceVol().size());
+		// ВЫЗОВ распределения
+		for (Vvod vvod : house.getVvod()) {
+			reqConf.setVvod(vvod);
+			distVolMng.distVolByVvod(reqConf);
+			log.info("Кол-во квартир по дому:");
+			Stream<Usl> streamUsl = calcStore.getChrgCountHouse().getLstChrgCount().stream()
+					.flatMap(t -> t.getLstUslPriceVol().stream()).map(t -> t.usl).distinct();
+			streamUsl.forEach(s-> {
+				long cntKo = calcStore.getChrgCountHouse().getLstChrgCount().stream()
+						.filter(t -> t.getLstUslPriceVol().stream().anyMatch(d -> d.usl.equals(s)))
+						.distinct().count();
+				log.info("usl={}, cntKo={}", s.getId(), cntKo);
+			});
 		}
-
-		// объемы по дому:
-		log.info("Объемы по дому:");
-		for (ChrgCount d : calcStore.getChrgCountHouse().getLstChrgCount()) {
-			for (UslPriceVol t : d.getLstUslPriceVol()) {
-				if (Utl.in(t.usl.getId(),"003")) {
-					log.info("lsk={} usl={} cnt={} " +
-									"empt={} " +
-									"vol={} volOvSc={} volEmpt={} area={} areaOvSc={} " +
-									"areaEmpt={} kpr={} kprOt={} kprWr={}",
-							t.kart.getLsk(),
-							t.usl.getId(), t.isCounter, t.isEmpty,
-							t.vol.setScale(5, BigDecimal.ROUND_HALF_UP),
-							t.volOverSoc.setScale(5, BigDecimal.ROUND_HALF_UP),
-							t.volEmpty.setScale(5, BigDecimal.ROUND_HALF_UP),
-							t.area.setScale(5, BigDecimal.ROUND_HALF_UP),
-							t.areaOverSoc.setScale(5, BigDecimal.ROUND_HALF_UP),
-							t.areaEmpty.setScale(5, BigDecimal.ROUND_HALF_UP),
-							t.kpr.setScale(5, BigDecimal.ROUND_HALF_UP),
-							t.kprOt.setScale(5, BigDecimal.ROUND_HALF_UP),
-							t.kprWr.setScale(5, BigDecimal.ROUND_HALF_UP));
-				}
-			}
-		}
-
-		log.info("Кол-во квартир по дому:");
-
-		Stream<Usl> streamUsl = calcStore.getChrgCountHouse().getLstChrgCount().stream()
-				.flatMap(t -> t.getLstUslPriceVol().stream()).map(t -> t.usl).distinct();
-		streamUsl.forEach(s-> {
-			long cntKo = calcStore.getChrgCountHouse().getLstChrgCount().stream()
-					.filter(t -> t.getLstUslPriceVol().stream().anyMatch(d -> d.usl.equals(s)))
-					.distinct().count();
-			log.info("usl={}, cntKo={}", s.getId(), cntKo);
-		});
 
 		log.info("Test genChrgProcessMngGenChrgHouse End!");
 

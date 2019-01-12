@@ -295,7 +295,7 @@ public class MigrateMngImpl implements MigrateMng {
 
 		log.info("ОКОНЧАНИЕ РАСПРЕДЕЛЕНИЯ лиц.счета={}", lsk);
 		log.info("");
-		CommonResult res = new CommonResult(lsk, 1111111111); // TODO 111111
+		CommonResult res = new CommonResult(0, 1111111111); // TODO 111111
 		return new AsyncResult<CommonResult>(res);
 	}
 

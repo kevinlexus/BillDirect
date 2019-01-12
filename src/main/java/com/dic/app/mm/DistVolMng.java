@@ -13,5 +13,5 @@ import java.util.concurrent.Future;
 
 public interface DistVolMng {
 
-    void distVolByVvod(RequestConfig reqConf);
+    void distVolByVvod(RequestConfig reqConf) throws ErrorWhileChrgPen;
 }
