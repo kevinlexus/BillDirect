@@ -6,7 +6,7 @@ import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dao.PenDtDAO;
 import com.dic.bill.dao.PenRefDAO;
 import com.dic.bill.dto.CalcStore;
-import com.dic.bill.dto.ChrgCountHouse;
+import com.dic.bill.dto.ChrgCountAmount;
 import com.dic.bill.model.scott.House;
 import com.dic.bill.model.scott.Ko;
 import com.dic.bill.model.scott.Vvod;
@@ -179,7 +179,7 @@ public class ProcessMngImpl implements ProcessMng {
         // справочник ставок рефинансирования
         calcStore.setLstPenRef(penRefDao.findAll());
         // хранилище параметров по дому (для ОДН и прочих нужд)
-        calcStore.setChrgCountHouse(new ChrgCountHouse());
+        calcStore.setChrgCountAmount(new ChrgCountAmount());
 
         log.info("Загружен справочник ставок рефинансирования");
         return calcStore;

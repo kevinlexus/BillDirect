@@ -88,7 +88,8 @@ public class TestKart {
 		House house = em.find(House.class, 6091);
 
 		// построить лицевые счета по квартире
-		Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52), 3, true, true, true);
+		Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52),
+				3, true, true, true, 1);
 
 		// выполнить расчет
 		genChrgProcessMng.genChrg(calcStore, ko);
@@ -125,25 +126,22 @@ public class TestKart {
 		testDataBuilder.addVvodForTest(house, "053", 1, true);
 
 		// построить лицевые счета по квартире
-		testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52), 3,true, true, true);
-		testDataBuilder.buildKartForTest(house, "0002", BigDecimal.valueOf(50.24), 2,true, true, true);
-		testDataBuilder.buildKartForTest(house, "0003", BigDecimal.valueOf(75.89), 2,true, true, true);
-		testDataBuilder.buildKartForTest(house, "0004", BigDecimal.valueOf(22.01), 1,true, true, true);
-		testDataBuilder.buildKartForTest(house, "0005", BigDecimal.valueOf(67.1), 4,true, true, true);
+		testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52),
+				3,true, true, true, 1);
+		testDataBuilder.buildKartForTest(house, "0002", BigDecimal.valueOf(50.24),
+				2,true, true, true, 1);
+		testDataBuilder.buildKartForTest(house, "0003", BigDecimal.valueOf(75.89),
+				2,true, true, true,1);
+		// нежилое
+		testDataBuilder.buildKartForTest(house, "0004", BigDecimal.valueOf(22.01),
+				1,true, true, true, 9);
+		testDataBuilder.buildKartForTest(house, "0005", BigDecimal.valueOf(67.1),
+				4,true, true, true,1);
 
 		// ВЫЗОВ распределения
 		for (Vvod vvod : house.getVvod()) {
 			reqConf.setVvod(vvod);
 			distVolMng.distVolByVvod(reqConf);
-			log.info("Кол-во квартир по дому:");
-			Stream<Usl> streamUsl = calcStore.getChrgCountHouse().getLstChrgCount().stream()
-					.flatMap(t -> t.getLstUslPriceVol().stream()).map(t -> t.usl).distinct();
-			streamUsl.forEach(s-> {
-				long cntKo = calcStore.getChrgCountHouse().getLstChrgCount().stream()
-						.filter(t -> t.getLstUslPriceVol().stream().anyMatch(d -> d.usl.equals(s)))
-						.distinct().count();
-				log.info("usl={}, cntKo={}", s.getId(), cntKo);
-			});
 		}
 
 		log.info("Test genChrgProcessMngGenChrgHouse End!");

@@ -94,19 +94,19 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             BigDecimal volMeterHotWater = BigDecimal.ZERO;
 
             // объем по услуге, за рассчитанный день
-            Map<Usl, UslPriceVol> mapUslPriceVol = new HashMap<>(30);
+            Map<Usl, UslPriceVolKart> mapUslPriceVol = new HashMap<>(30);
 
             for (Nabor nabor : lstNabor) {
                 if (nabor.getUsl().isMain()) {
                     // по основным услугам
-                    Integer fkCalcTp = nabor.getUsl().getFkCalcTp();
-                    BigDecimal naborNorm = Utl.nvl(nabor.getNorm(), BigDecimal.ZERO);
-                    BigDecimal naborVol = Utl.nvl(nabor.getVol(), BigDecimal.ZERO);
-                    BigDecimal naborVolAdd = Utl.nvl(nabor.getVolAdd(), BigDecimal.ZERO);
+                    final Integer fkCalcTp = nabor.getUsl().getFkCalcTp();
+                    final BigDecimal naborNorm = Utl.nvl(nabor.getNorm(), BigDecimal.ZERO);
+                    final BigDecimal naborVol = Utl.nvl(nabor.getVol(), BigDecimal.ZERO);
+                    final BigDecimal naborVolAdd = Utl.nvl(nabor.getVolAdd(), BigDecimal.ZERO);
                     // услуга с которой получить объем (иногда выполняется перенаправление, например для fkCalcTp=31)
-                    Usl factUslVol = nabor.getUsl().getFactUslVol();
+                    final Usl factUslVol = nabor.getUsl().getFactUslVol();
                     // ввод
-                    Vvod vvod = nabor.getVvod();
+                    final Vvod vvod = nabor.getVvod();
                     // тип распределения ввода
                     Integer distTp = 0;
                     if (vvod != null) {
@@ -120,10 +120,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         kartMain = kartMainByKlsk;
                     }
                     // получить цены по услуге по лицевому счету из набора услуг!
-                    DetailUslPrice detailUslPrice = naborMng.getDetailUslPrice(kartMain, nabor);
+                    final DetailUslPrice detailUslPrice = naborMng.getDetailUslPrice(kartMain, nabor);
 
                     // получить кол-во проживающих по лицевому счету из набора услуг!
-                    CountPers countPers = kartPrMng.getCountPersByDate(kartMain, nabor,
+                    final CountPers countPers = kartPrMng.getCountPersByDate(kartMain, nabor,
                             parVarCntKpr, parCapCalcKprTp, curDt);
                     SocStandart socStandart = null;
                     // получить наличие счетчика
@@ -132,14 +132,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // объемы
                     BigDecimal dayVol = BigDecimal.ZERO;
                     BigDecimal dayVolOverSoc = BigDecimal.ZERO;
-                    BigDecimal dayVolEmpty = BigDecimal.ZERO;
 
                     // площади
-                    BigDecimal kartArea = Utl.nvl(kartMain.getOpl(), BigDecimal.ZERO);
+                    final BigDecimal kartArea = Utl.nvl(kartMain.getOpl(), BigDecimal.ZERO);
 
                     BigDecimal area = BigDecimal.ZERO;
                     BigDecimal areaOverSoc = BigDecimal.ZERO;
-                    BigDecimal areaEmpty = BigDecimal.ZERO;
 
                     if (Utl.in(fkCalcTp, 25)) {
                         // Текущее содержание и подобные услуги (без свыше соц.нормы и без 0 проживающих)
@@ -169,15 +167,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             //log.info("uslId={}, dt={}, нет счетчика! объем по нормативу={}",
                             //        nabor.getUsl().getId(), curDt, tempVol);
                         }
-                        if (countPers.isEmpty) {
-                            // пустая квартира
-                            dayVolEmpty = tempVol;
-                            areaEmpty = kartArea;
-                        } else {
-                            // квартира с проживающими
-                            dayVol = tempVol;
-                            area = kartArea;
-                        }
+                        dayVol = tempVol;
+                        area = kartArea;
+
                         // для водоотведения
                         if (fkCalcTp.equals(17)) {
                             volMeterColdWater = tempVol;
@@ -198,15 +190,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         }
                         // сложить предварительно рассчитанные объемы х.в.+г.в.
                         tempVol = volMeterColdWater.add(volMeterHotWater);
-                        if (countPers.isEmpty) {
-                            // пустая квартира
-                            dayVolEmpty = tempVol;
-                            areaEmpty = kartArea;
-                        } else {
-                            // квартира с проживающими
-                            dayVol = tempVol;
-                            area = kartArea;
-                        }
+                        // квартира с проживающими
+                        dayVol = tempVol;
+                        area = kartArea;
 
                     } else if (Utl.in(fkCalcTp, 14)) {
                         // Отопление гкал. без уровня соцнормы/свыше
@@ -235,15 +221,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
                         }
                         //  в доле на 1 день
-                        if (countPers.isEmpty) {
-                            // пустая квартира
-                            dayVolEmpty = tempVol.multiply(calcStore.getPartDayMonth());
-                            areaEmpty = kartArea;
-                        } else {
-                            // квартира с проживающими
-                            dayVol = tempVol.multiply(calcStore.getPartDayMonth());
-                            area = kartArea;
-                        }
+                        // квартира с проживающими
+                        dayVol = tempVol.multiply(calcStore.getPartDayMonth());
+                        area = kartArea;
                     } else if (fkCalcTp.equals(7) && kartMain.getStatus().getId().equals(1)) {
                         // Найм (только по муниципальным квартирам) расчет на м2
                         area = kartArea;
@@ -273,12 +253,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         // Повыш.коэфф
                         if (nabor.getUsl().getParentUsl()!=null) {
                             // получить объем из родительской услуги
-                            UslPriceVol uslPriceVol = mapUslPriceVol.get(nabor.getUsl().getParentUsl());
-                            if (uslPriceVol!=null && !uslPriceVol.isCounter) {
+                            UslPriceVolKart uslPriceVolKart = mapUslPriceVol.get(nabor.getUsl().getParentUsl());
+                            if (uslPriceVolKart !=null && !uslPriceVolKart.isCounter) {
                                 // только если нет счетчика в родительской услуге
                                 area = kartArea;
                                 // сложить все объемы родит.услуги, умножить на норматив текущей услуги
-                                dayVol = (uslPriceVol.vol.add(uslPriceVol.volOverSoc).add(uslPriceVol.volEmpty))
+                                dayVol = (uslPriceVolKart.vol.add(uslPriceVolKart.volOverSoc))
                                         .multiply(naborNorm);
                             }
 
@@ -302,55 +282,57 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     }
 
                     // сгруппировать, если есть объемы
-                    if (!dayVol.equals(BigDecimal.ZERO) || !dayVolOverSoc.equals(BigDecimal.ZERO)
-                            || !dayVolEmpty.equals(BigDecimal.ZERO)) {
-                        UslPriceVol uslPriceVol = UslPriceVol.UslPriceVolBuilder.anUslPriceVol()
+                    if (!dayVol.equals(BigDecimal.ZERO) || !dayVolOverSoc.equals(BigDecimal.ZERO)) {
+                        UslPriceVolKart uslPriceVolKart = UslPriceVolKart.UslPriceVolBuilder.anUslPriceVol()
                                 .withKart(nabor.getKart()) // группировать по лиц.счету из nabor!
                                 .withDtFrom(curDt).withDtTo(curDt).withDtFrom(curDt)
                                 .withUsl(nabor.getUsl())
                                 .withOrg(nabor.getOrg())
                                 .withIsCounter(isMeterExist)
                                 .withIsEmpty(countPers.isEmpty)
+                                .withIsResidental(kartMain.isResidental())
                                 .withSocStdt(socStandart!=null?socStandart.norm:BigDecimal.ZERO)
                                 .withPrice(detailUslPrice.price)
                                 .withPriceOverSoc(detailUslPrice.priceOverSoc)
                                 .withPriceEmpty(detailUslPrice.priceEmpt)
                                 .withVol(dayVol)
                                 .withVolOverSoc(dayVolOverSoc)
-                                .withVolEmpty(dayVolEmpty)
                                 .withArea(area)
                                 .withAreaOverSoc(areaOverSoc)
-                                .withAreaEmpty(areaEmpty)
                                 .withKpr(countPers.kpr).withKprOt(countPers.kprOt).withKprWr(countPers.kprWr)
                                 .withPartDayMonth(calcStore.getPartDayMonth())
                                 .build();
 
-/*
-                        if (Utl.in(uslPriceVol.usl.getId(),"003")) {
+                        //                        log.info("******* RESID={}", uslPriceVolKart.isResidental);
+
+                        /*
+                        if (Utl.in(uslPriceVolKart.usl.getId(),"003")) {
                             log.info("РАСЧЕТ ДНЯ:");
                             log.info("dt:{}-{} usl={} org={} cnt={} " +
                                             "empt={} stdt={} " +
                                             "prc={} prcOv={} prcEm={} " +
                                             "vol={} volOv={} volEm={} ar={} arOv={} " +
                                             "arEm={} Kpr={} Ot={} Wrz={}",
-                                    Utl.getStrFromDate(uslPriceVol.dtFrom, "dd"), Utl.getStrFromDate(uslPriceVol.dtTo, "dd"),
-                                    uslPriceVol.usl.getId(), uslPriceVol.org.getId(), uslPriceVol.isCounter, uslPriceVol.isEmpty,
-                                    uslPriceVol.socStdt, uslPriceVol.price, uslPriceVol.priceOverSoc, uslPriceVol.priceEmpty,
-                                    uslPriceVol.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
-                                    uslPriceVol.volOverSoc.setScale(4, BigDecimal.ROUND_HALF_UP),
-                                    uslPriceVol.volEmpty.setScale(4, BigDecimal.ROUND_HALF_UP),
-                                    uslPriceVol.area.setScale(4, BigDecimal.ROUND_HALF_UP),
-                                    uslPriceVol.areaOverSoc.setScale(4, BigDecimal.ROUND_HALF_UP),
-                                    uslPriceVol.areaEmpty.setScale(4, BigDecimal.ROUND_HALF_UP),
-                                    uslPriceVol.kpr.setScale(4, BigDecimal.ROUND_HALF_UP),
-                                    uslPriceVol.kprOt.setScale(4, BigDecimal.ROUND_HALF_UP),
-                                    uslPriceVol.kprWr.setScale(4, BigDecimal.ROUND_HALF_UP));
+                                    Utl.getStrFromDate(uslPriceVolKart.dtFrom, "dd"), Utl.getStrFromDate(uslPriceVolKart.dtTo, "dd"),
+                                    uslPriceVolKart.usl.getId(), uslPriceVolKart.org.getId(), uslPriceVolKart.isCounter, uslPriceVolKart.isEmpty,
+                                    uslPriceVolKart.socStdt, uslPriceVolKart.price, uslPriceVolKart.priceOverSoc, uslPriceVolKart.priceEmpty,
+                                    uslPriceVolKart.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVolKart.volOverSoc.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVolKart.volEmpty.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVolKart.area.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVolKart.areaOverSoc.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVolKart.areaEmpty.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVolKart.kpr.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVolKart.kprOt.setScale(4, BigDecimal.ROUND_HALF_UP),
+                                    uslPriceVolKart.kprWr.setScale(4, BigDecimal.ROUND_HALF_UP));
                         }
 */
                         // сохранить рассчитанный объем по расчетному дню, для услуги Повыш коэфф.
-                        mapUslPriceVol.put(nabor.getUsl(), uslPriceVol);
-                        // сгруппировать по лиц.счету, услуге
-                        chrgCount.groupUslPriceVol(uslPriceVol);
+                        mapUslPriceVol.put(nabor.getUsl(), uslPriceVolKart);
+                        // сгруппировать по лиц.счету, услуге, расценке
+                        chrgCount.groupUslPriceVolKart(uslPriceVolKart);
+                        // сгруппировать по лиц.счету, услуге, для распределения по вводу
+                        calcStore.getChrgCountAmount().groupUslVol(uslPriceVolKart);
                     }
                 }
             }
@@ -359,15 +341,15 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         }
 
         // сохранить в объемы дома (для расчета ОДН и прочих распределений во вводах)
-        calcStore.getChrgCountHouse().addChrgCount(chrgCount);
+        //calcStore.getChrgCountAmount().addChrgCount(chrgCount);
 
         // получить кол-во проживающих по лиц.счету
 /*
         log.info("ИТОГО:");
-        log.info("UslPriceVol:");
+        log.info("UslPriceVolKart:");
         BigDecimal amntVol = BigDecimal.ZERO;
 
-        for (UslPriceVol t : chrgCount.getLstUslPriceVol()) {
+        for (UslPriceVolKart t : chrgCount.getLstUslPriceVolKart()) {
             if (Utl.in(t.usl.getId(),"003")) {
                 log.info("dt:{}-{} usl={} org={} cnt={} " +
                                 "empt={} stdt={} " +

@@ -3,40 +3,21 @@ package com.dic.app.mm.impl;
 import com.dic.app.mm.*;
 import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.KartDAO;
-import com.dic.bill.dao.PenDtDAO;
-import com.dic.bill.dao.PenRefDAO;
 import com.dic.bill.dto.CalcStore;
-import com.dic.bill.dto.ChrgCount;
-import com.dic.bill.dto.ChrgCountHouse;
-import com.dic.bill.dto.UslPriceVol;
-import com.dic.bill.model.scott.Kart;
-import com.dic.bill.model.scott.Ko;
+import com.dic.bill.dto.UslVolKart;
+import com.dic.bill.dto.UslVolVvod;
+import com.dic.bill.model.scott.Usl;
 import com.dic.bill.model.scott.Vvod;
 import com.ric.cmn.Utl;
-import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
-import com.ric.cmn.excp.WrongParam;
-import com.ric.dto.CommonResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Scope;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
-import java.util.Date;
-import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Сервис распределения объемов по дому
@@ -74,26 +55,25 @@ public class DistVolMngImpl implements DistVolMng {
         processMng.genProcessAll(reqConf, calcStore);
 
         // объемы по дому:
-        log.info("Объемы по дому:");
-        for (ChrgCount d : calcStore.getChrgCountHouse().getLstChrgCount()) {
-            for (UslPriceVol t : d.getLstUslPriceVol()) {
-                if (Utl.in(t.usl.getId(),"003")) {
-                    log.info("lsk={} usl={} cnt={} " +
-                                    "empt={} " +
-                                    "vol={} volOvSc={} volEmpt={} area={} areaOvSc={} " +
-                                    "areaEmpt={} kpr={} kprOt={} kprWr={}",
-                            t.kart.getLsk(),
-                            t.usl.getId(), t.isCounter, t.isEmpty,
-                            t.vol.setScale(5, BigDecimal.ROUND_HALF_UP),
-                            t.volOverSoc.setScale(5, BigDecimal.ROUND_HALF_UP),
-                            t.volEmpty.setScale(5, BigDecimal.ROUND_HALF_UP),
-                            t.area.setScale(5, BigDecimal.ROUND_HALF_UP),
-                            t.areaOverSoc.setScale(5, BigDecimal.ROUND_HALF_UP),
-                            t.areaEmpty.setScale(5, BigDecimal.ROUND_HALF_UP),
-                            t.kpr.setScale(5, BigDecimal.ROUND_HALF_UP),
-                            t.kprOt.setScale(5, BigDecimal.ROUND_HALF_UP),
-                            t.kprWr.setScale(5, BigDecimal.ROUND_HALF_UP));
-                }
+        log.info("Объемы по лиц.счетам, вводу:");
+        for (UslVolKart t : calcStore.getChrgCountAmount().getLstUslVolKart()) {
+            if (Utl.in(t.usl.getId(),"003")) {
+                log.info("lsk={} usl={} cnt={} " +
+                                "empt={} resid={} " +
+                                "vol={} area={} kpr={}",
+                        t.kart.getLsk(),
+                        t.usl.getId(), t.isCounter, t.isEmpty, t.isResidental,
+                        t.vol.setScale(5, BigDecimal.ROUND_HALF_UP),
+                        t.area.setScale(5, BigDecimal.ROUND_HALF_UP),
+                        t.kpr.setScale(5, BigDecimal.ROUND_HALF_UP));
+            }
+        }
+
+        log.info("Объемы по вводу:");
+        for (UslVolVvod t : calcStore.getChrgCountAmount().getLstUslVolVvod()) {
+            if (Utl.in(t.usl.getId(),"003")) {
+                log.info("usl={}, cnt={}, empt={}, resid={}, t.vol={}, t.area={}",
+                        t.usl.getId(), t.isCounter, t.isEmpty, t.isResidental, t.vol, t.area);
             }
         }
 
