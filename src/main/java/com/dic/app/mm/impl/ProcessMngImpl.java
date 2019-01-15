@@ -233,7 +233,7 @@ public class ProcessMngImpl implements ProcessMng {
         switch (reqConf.getTp()) {
             case 0: {
                 // начисление
-                genChrgProcessMng.genChrg(calcStore, ko);
+                genChrgProcessMng.genChrg(calcStore, ko, reqConf);
             }
             case 1: {
                 // расчет ДОЛГА и ПЕНИ -  TODO переделать на Ko!!! ред. 11.01.19
@@ -241,8 +241,8 @@ public class ProcessMngImpl implements ProcessMng {
                 break;
             }
             case 2: {
-                // распределение объемов TODO исправить параметр распределения!
-                genChrgProcessMng.genChrg(calcStore, ko);
+                // распределение объемов
+                genChrgProcessMng.genChrg(calcStore, ko, reqConf);
                 break;
             }
             default:

@@ -1,6 +1,7 @@
 package com.dic.app.mm.impl;
 
 import com.dic.app.mm.GenChrgProcessMng;
+import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.MeterDAO;
 import com.dic.bill.dao.StatesPrDAO;
 import com.dic.bill.dto.*;
@@ -51,12 +52,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * Рассчитать начисление
      * Внимание! Расчет идёт по квартире (помещению), но информация группируется по лиц.счету(Kart)
      * так как теоретически может быть одинаковая услуга на разных лиц.счетах, но на одной квартире!
-     *
      * @param calcStore - хранилище справочников
      * @param ko - Ko квартиры
+     * @param reqConf - конфиг запроса
      */
     @Override
-    public void genChrg(CalcStore calcStore, Ko ko) throws WrongParam, ErrorWhileChrg {
+    public void genChrg(CalcStore calcStore, Ko ko, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
         // получить основной лиц счет по связи klsk квартиры
         Kart kartMainByKlsk = kartMng.getKartMain(ko);
         // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
@@ -67,6 +68,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 Utl.nvl(sprParamMng.getN1("CAP_CALC_KPR_TP"), 0D).intValue();
 
         ChrgCount chrgCount = new ChrgCount();
+        // выбранные услуги для формирования
+        List<Usl> lstSelUsl = new ArrayList<>();
+        if (reqConf.getTp() == 2) {
+            // распределение по вводу, добавить услуги для ограничения формирования только по ним
+            lstSelUsl.add(reqConf.getVvod().getUsl());
+        }
 
         // сохранить помещение
         chrgCount.setKo(ko);
@@ -79,6 +86,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         // получить объемы по счетчикам в пропорции на 1 день их работы
         Map<String, BigDecimal> mapDayMeterVol = meterMng.getPartDayMeterVol(chrgCount,
                 calcStore);
+
 
         // цикл по дням месяца
         Calendar c = Calendar.getInstance();
@@ -97,8 +105,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             Map<Usl, UslPriceVolKart> mapUslPriceVol = new HashMap<>(30);
 
             for (Nabor nabor : lstNabor) {
-                if (nabor.getUsl().isMain()) {
-                    // по основным услугам
+                if (nabor.getUsl().isMain() && (lstSelUsl.size()==0 || lstSelUsl.contains(nabor.getUsl()))) {
+                    // РАСЧЕТ по основным услугам (из набора услуг или по заданным во вводе)
+                    //log.info("РАСЧЕТ: uslId={}, dt={}", nabor.getUsl().getId(), curDt);
                     final Integer fkCalcTp = nabor.getUsl().getFkCalcTp();
                     final BigDecimal naborNorm = Utl.nvl(nabor.getNorm(), BigDecimal.ZERO);
                     final BigDecimal naborVol = Utl.nvl(nabor.getVol(), BigDecimal.ZERO);
@@ -329,7 +338,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 */
                         // сохранить рассчитанный объем по расчетному дню, для услуги Повыш коэфф.
                         mapUslPriceVol.put(nabor.getUsl(), uslPriceVolKart);
-                        // сгруппировать по лиц.счету, услуге, расценке
+                        // сгруппировать по лиц.счету, услуге, расценке,
+                        // (нужно по лиц.сч.группировать, так как разные лиц.могут входить в одну квартиру)
                         chrgCount.groupUslPriceVolKart(uslPriceVolKart);
                         // сгруппировать по лиц.счету, услуге, для распределения по вводу
                         calcStore.getChrgCountAmount().groupUslVol(uslPriceVolKart);
@@ -337,7 +347,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 }
             }
 
-            // Блок умножения объем на цену (расчет в рублях)
+            // УМНОЖИТЬ объем на цену (расчет в рублях)
         }
 
         // сохранить в объемы дома (для расчета ОДН и прочих распределений во вводах)

@@ -29,7 +29,6 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import java.math.BigDecimal;
-import java.util.stream.Stream;
 
 import static junit.framework.TestCase.assertTrue;
 
@@ -81,6 +80,13 @@ public class TestKart {
 	public void genChrgProcessMngGenChrgAppartment() throws WrongParam, ErrorWhileChrg {
 		log.info("Test genChrgProcessMngGenChrgAppartment");
 
+		// конфиг запроса
+		RequestConfig reqConf =
+				RequestConfig.RequestConfigBuilder.aRequestConfig()
+						.withRqn(config.incNextReqNum()) // уникальный номер запроса
+						.withTp(0) // тип операции - начисление
+						.build();
+
 		// загрузить справочники
 		CalcStore calcStore = processMng.buildCalcStore(Utl.getDateFromStr("15.04.2014"), 0);
 
@@ -92,7 +98,7 @@ public class TestKart {
 				3, true, true, true, 1);
 
 		// выполнить расчет
-		genChrgProcessMng.genChrg(calcStore, ko);
+		genChrgProcessMng.genChrg(calcStore, ko, reqConf);
 
 	}
 
@@ -123,7 +129,8 @@ public class TestKart {
 
 		// добавить вводы
 		// Отопление Гкал
-		testDataBuilder.addVvodForTest(house, "053", 1, true);
+		testDataBuilder.addVvodForTest(house, "053", 1, true,
+				new BigDecimal("500.2568"));
 
 		// построить лицевые счета по квартире
 		testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52),
@@ -138,7 +145,7 @@ public class TestKart {
 		testDataBuilder.buildKartForTest(house, "0005", BigDecimal.valueOf(67.1),
 				4,true, true, true,1);
 
-		// ВЫЗОВ распределения
+		// ВЫЗОВ распределения объемов
 		for (Vvod vvod : house.getVvod()) {
 			reqConf.setVvod(vvod);
 			distVolMng.distVolByVvod(reqConf);
