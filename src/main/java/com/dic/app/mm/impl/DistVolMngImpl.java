@@ -165,28 +165,52 @@ public class DistVolMngImpl implements DistVolMng {
 
     }
 
+    /**
+     * Очистка распределенных объемов
+     * @param vvod
+     */
     private void clearODN(Vvod vvod) {
         // почистить нормативы (ограничения)
+        log.info("Очистка информации usl={}", vvod.getUsl().getId());
         vvod.setNrm(null);
 
         for (Nabor nabor : vvod.getNabor()) {
-            // удалить информацию по распр.ОДН.по информационным записям
-            Iterator<Charge> itr = nabor.getKart().getCharge().iterator();
-            while (itr.hasNext()) {
-                Charge charge = itr.next();
-                if (charge.getUsl().equals(vvod.getUsl()) && charge.getType().equals(5)) {
-                    em.remove(charge);
-                }
-            }
             // удалить информацию по корректировкам ОДН
-            Iterator<ChargePrep> itr2 = nabor.getKart().getChargePrep().iterator();
-            while (itr2.hasNext()) {
-                ChargePrep chargePrep = itr2.next();
-                if (chargePrep.getUsl().equals(vvod.getUsl()) && chargePrep.getType().equals(4)) {
-                    em.remove(chargePrep);
+            if (nabor.getUsl().equals(vvod.getUsl())) {
+                Iterator<ChargePrep> itr = nabor.getKart().getChargePrep().iterator();
+                while (itr.hasNext()) {
+                    ChargePrep chargePrep = itr.next();
+                    if (chargePrep.getUsl().equals(vvod.getUsl())
+                            && chargePrep.getTp().equals(4)) {
+                        itr.remove();
+                    }
+                }
+
+                // удалить по зависимым услугам
+                Iterator<Charge> itr2 = nabor.getKart().getCharge().iterator();
+                while (itr2.hasNext()) {
+                    Charge charge = itr2.next();
+                    if (charge.getUsl().equals(vvod.getUsl().getUslChild())
+                            && charge.getType().equals(5)) {
+                        itr2.remove();
+                    }
+                }
+
+                // занулить по вводу-услуге
+                nabor.setVol(null);
+                nabor.setVolAdd(null);
+                nabor.setLimit(null);
+
+            }
+
+            for (Nabor nabor2 : nabor.getKart().getNabor()) {
+                if (nabor2.getUsl().equals(vvod.getUsl().getUslChild())) {
+                    // занулить по зависимым услугам
+                    nabor2.setVol(null);
+                    nabor2.setVolAdd(null);
+                    nabor2.setLimit(null);
                 }
             }
-            
         }
     }
 

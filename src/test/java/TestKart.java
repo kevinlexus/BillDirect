@@ -11,6 +11,7 @@ import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
+import com.ric.cmn.excp.WrongGetMethod;
 import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
@@ -108,7 +109,7 @@ public class TestKart {
 	@Test
 	@Rollback(true)
 	@Transactional
-	public void genChrgProcessMngGenChrgHouse() throws WrongParam, ErrorWhileChrg, ErrorWhileChrgPen {
+	public void genChrgProcessMngGenChrgHouse() throws WrongParam, ErrorWhileChrg, ErrorWhileChrgPen, WrongGetMethod {
 		log.info("Test genChrgProcessMngGenChrgHouse Start!");
 		// конфиг запроса
 		RequestConfig reqConf =
@@ -128,8 +129,12 @@ public class TestKart {
 		house.setNd("000001");
 
 		// добавить вводы
+		// Х.в.
+		testDataBuilder.addVvodForTest(house, "011", 1, false,
+				new BigDecimal("1012.279"));
+
 		// Отопление Гкал
-		testDataBuilder.addVvodForTest(house, "053", 1, true,
+		testDataBuilder.addVvodForTest(house, "053", 1, false,
 				new BigDecimal("500.2568"));
 
 		// построить лицевые счета по квартире
@@ -149,7 +154,19 @@ public class TestKart {
 		for (Vvod vvod : house.getVvod()) {
 			reqConf.setVvod(vvod);
 			distVolMng.distVolByVvod(reqConf);
+
+			for (Nabor nabor : vvod.getNabor()) {
+				for (Charge charge : nabor.getKart().getCharge()) {
+					log.info("TEST1# charge.id={}, usl={}, type={}, summa={}", charge.getId(), charge.getUsl().getId(),
+							charge.getType(), charge.getSumma());
+				}
+				for (ChargePrep charge : nabor.getKart().getChargePrep()) {
+					log.info("TEST2# chargePrep.id={}, usl={}, type={}, vol={}", charge.getId(), charge.getUsl().getId(),
+							charge.getTp(), charge.getVol());
+				}
+			}
 		}
+
 
 		log.info("Test genChrgProcessMngGenChrgHouse End!");
 
