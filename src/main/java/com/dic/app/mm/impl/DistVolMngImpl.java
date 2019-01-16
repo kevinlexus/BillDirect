@@ -61,10 +61,16 @@ public class DistVolMngImpl implements DistVolMng {
         // загрузить справочники
         CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
         Vvod vvod = reqConf.getVvod();
+        // тип распределения
+        Integer distTp = Utl.nvl(vvod.getDistTp(), 0);
+        // использовать счетчики при распределении?
+        Boolean isUseSch = Utl.nvl(vvod.getIsUseSch(), false);
+
         // объем для распределения
         BigDecimal kub = Utl.nvl(vvod.getKub(), BigDecimal.ZERO);
         Usl usl = vvod.getUsl();
 
+        // тип услуги
         int tp = -1;
         if (Utl.in(usl.getFkCalcTp(), 3, 17, 4, 18, 31, 38, 40)) {
             if (Utl.in(usl.getFkCalcTp(), 3, 17, 38)) {
@@ -77,6 +83,9 @@ public class DistVolMngImpl implements DistVolMng {
                 // эл.эн.
                 tp = 2;
             }
+        } else {
+            // прочие услуги
+            tp = 3;
         }
 
         // сбор информации, для расчета ОДН, подсчета итогов
@@ -99,8 +108,45 @@ public class DistVolMngImpl implements DistVolMng {
             }
         }
 
-        // объемы по вводу
-        if (usl.getFkCalcTp().equals(14)) {
+        // ОЧИСТКА информации ОДН
+        clearODN(vvod);
+
+        // ПОЛУЧИТЬ итоговые объемы по вводу
+        if (Utl.in(tp, 1, 2, 3)) {
+            // х.в. г.в. эл.эн.
+            for (UslVolVvod t : calcStore.getChrgCountAmount().getLstUslVolVvod()) {
+                // сохранить объемы по вводу для статистики
+                if (!t.isResidental) {
+                    // по нежилым помещениям
+                    // площадь
+                    vvod.setOplAr(Utl.nvl(vvod.getOplAr(), BigDecimal.ZERO).add(t.area));
+                    // объем
+                    vvod.setKubAr(Utl.nvl(vvod.getKubAr(), BigDecimal.ZERO).add(t.vol));
+                }
+
+                if (t.isCounter) {
+                    // по счетчикам
+                    // объем
+                    vvod.setKubSch(Utl.nvl(vvod.getKubSch(), BigDecimal.ZERO).add(t.vol));
+                    // кол-во лицевых
+                    vvod.setSchCnt(vvod.getSchCnt().add(new BigDecimal("1")));
+                } else {
+                    // по нормативам
+                    // объем
+                    vvod.setKubNorm(Utl.nvl(vvod.getKubNorm(), BigDecimal.ZERO).add(t.vol));
+                    // кол-во лицевых
+                    vvod.setCntLsk(vvod.getSchCnt().add(new BigDecimal("1")));
+                }
+
+                // площадь по вводу
+                if (!distTp.equals(3) && isUseSch) {
+                    // площадь по вводу
+                    vvod.setOplAdd(Utl.nvl(vvod.getOplAdd(), BigDecimal.ZERO).add(t.area));
+                } else if (!distTp.equals(3) && !isUseSch) {
+
+                }
+            }
+        } else if (usl.getFkCalcTp().equals(14)) {
             // Отопление Гкал
             for (UslVolVvod t : calcStore.getChrgCountAmount().getLstUslVolVvod()) {
                 //log.info("usl={}, cnt={}, empt={}, resid={}, t.vol={}, t.area={}",
@@ -113,7 +159,7 @@ public class DistVolMngImpl implements DistVolMng {
                 // площадь по вводу
                 vvod.setOplAdd(Utl.nvl(vvod.getOplAdd(), BigDecimal.ZERO).add(t.area));
             }
-            // округлить объемы по вводу
+            // округлить площади по вводу
             vvod.setOplAr(vvod.getOplAr().setScale(5, RoundingMode.HALF_UP));
             vvod.setOplAdd(vvod.getOplAdd().setScale(5, RoundingMode.HALF_UP));
         }
@@ -132,11 +178,12 @@ public class DistVolMngImpl implements DistVolMng {
         // получить лимиты распределения по законодательству
         LimitODN limitODN = calcLimit(vvod.getHouse().getKo(), tp, kprAmnt, areaVvod);
 
-        // ОЧИСТКА информации ОДН
-        clearODN(vvod);
-
+        // РАСПРЕДЕЛЕНИЕ
         if (kub != null) {
-            if (usl.getFkCalcTp().equals(14)) {
+            if (Utl.in(tp, 1, 2, 3)) {
+                // х.в. г.в. эл.эн.
+
+            } else if (usl.getFkCalcTp().equals(14)) {
                 // Отопление Гкал, распределить по площади
                 if (!areaVvod.equals(BigDecimal.ZERO)) {
                     for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
@@ -167,12 +214,19 @@ public class DistVolMngImpl implements DistVolMng {
 
     /**
      * Очистка распределенных объемов
+     *
      * @param vvod
      */
     private void clearODN(Vvod vvod) {
         // почистить нормативы (ограничения)
         log.info("Очистка информации usl={}", vvod.getUsl().getId());
-        vvod.setNrm(null);
+        vvod.setNrm(BigDecimal.ZERO);
+        vvod.setCntLsk(BigDecimal.ZERO);
+        vvod.setSchCnt(BigDecimal.ZERO);
+        vvod.setOplAr(BigDecimal.ZERO);
+        vvod.setOplAdd(BigDecimal.ZERO);
+        vvod.setKubNorm(BigDecimal.ZERO);
+        vvod.setKubSch(BigDecimal.ZERO);
 
         for (Nabor nabor : vvod.getNabor()) {
             // удалить информацию по корректировкам ОДН
@@ -216,7 +270,8 @@ public class DistVolMngImpl implements DistVolMng {
 
     /**
      * Рассчитать лимиты распределения по законодательству
-     *  @param houseKo - Ko дома
+     *
+     * @param houseKo - Ko дома
      * @param tp      - тип услуги (0 - х.в., 1- г.в., 2 - эл.эн.)
      * @param cntKpr  - кол во прожив. по вводу
      * @param area    - площадь по вводу

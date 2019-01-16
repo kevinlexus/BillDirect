@@ -116,6 +116,7 @@ public class TestKart {
 				RequestConfig.RequestConfigBuilder.aRequestConfig()
 						.withRqn(config.incNextReqNum()) // уникальный номер запроса
 						.withTp(2) // тип операции - распределение объема
+						.withIsMultiThreads(false) // для Unit - теста однопоточно!
 						.build();
 
 		// загрузить справочники
