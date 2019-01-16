@@ -9,11 +9,12 @@ import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.UslVolKart;
 import com.dic.bill.dto.UslVolKartGrp;
 import com.dic.bill.dto.UslVolVvod;
-import com.dic.bill.model.scott.Nabor;
-import com.dic.bill.model.scott.Usl;
-import com.dic.bill.model.scott.Vvod;
+import com.dic.bill.mm.ObjParMng;
+import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
+import com.ric.cmn.excp.WrongGetMethod;
+import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Iterator;
 
 /**
  * Сервис распределения объемов по дому
@@ -42,6 +44,11 @@ public class DistVolMngImpl implements DistVolMng {
     private KartDAO kartDAO;
     @Autowired
     private GenChrgProcessMng genChrgProcessMng;
+    @Autowired
+    private ObjParMng objParMng;
+
+    // норматив по эл.энерг.
+    final BigDecimal ODN_EL_NORM = new BigDecimal(2.7D);
 
     /**
      * Распределить объемы по вводу (по всем вводам, если reqConf.vvod == null)
@@ -49,7 +56,7 @@ public class DistVolMngImpl implements DistVolMng {
      * @param reqConf - параметры запроса
      */
     @Override
-    public void distVolByVvod(RequestConfig reqConf) throws ErrorWhileChrgPen {
+    public void distVolByVvod(RequestConfig reqConf) throws ErrorWhileChrgPen, WrongParam, WrongGetMethod {
 
         // загрузить справочники
         CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
@@ -71,16 +78,6 @@ public class DistVolMngImpl implements DistVolMng {
                 tp = 2;
             }
         }
-        tp_:=0;
-        --х.в.
-                elsif fk_calc_tp_ in (4, 18, 40)then
-        tp_:=1;
-        --г.в.
-                elsif fk_calc_tp_ in (31) then
-        tp_:=2;
-        --эл.эн.
-                end if ;
-
 
         // сбор информации, для расчета ОДН, подсчета итогов
         // кол-во лиц.счетов, объемы, кол-во прожив.
@@ -121,15 +118,22 @@ public class DistVolMngImpl implements DistVolMng {
             vvod.setOplAdd(vvod.getOplAdd().setScale(5, RoundingMode.HALF_UP));
         }
 
-        // итоговая площадь
+        // ИТОГО:
+        // площадь
         BigDecimal areaVvod = calcStore.getChrgCountAmount().getLstUslVolVvod()
                 .stream().map(t -> t.area).reduce(BigDecimal.ZERO, BigDecimal::add);
-        // итоговый объем
+        // объем
         BigDecimal volAmnt = calcStore.getChrgCountAmount().getLstUslVolVvod()
                 .stream().map(t -> t.vol).reduce(BigDecimal.ZERO, BigDecimal::add);
+        // кол-во прожив
+        BigDecimal kprAmnt = calcStore.getChrgCountAmount().getLstUslVolVvod()
+                .stream().map(t -> t.kpr).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // получить лимиты распределения по законодательству
-        calcLimit(tp);
+        LimitODN limitODN = calcLimit(vvod.getHouse().getKo(), tp, kprAmnt, areaVvod);
+
+        // ОЧИСТКА информации ОДН
+        clearODN(vvod);
 
         if (kub != null) {
             if (usl.getFkCalcTp().equals(14)) {
@@ -161,31 +165,65 @@ public class DistVolMngImpl implements DistVolMng {
 
     }
 
+    private void clearODN(Vvod vvod) {
+        // почистить нормативы (ограничения)
+        vvod.setNrm(null);
+
+        for (Nabor nabor : vvod.getNabor()) {
+            // удалить информацию по распр.ОДН.по информационным записям
+            Iterator<Charge> itr = nabor.getKart().getCharge().iterator();
+            while (itr.hasNext()) {
+                Charge charge = itr.next();
+                if (charge.getUsl().equals(vvod.getUsl()) && charge.getType().equals(5)) {
+                    em.remove(charge);
+                }
+            }
+            // удалить информацию по корректировкам ОДН
+            Iterator<ChargePrep> itr2 = nabor.getKart().getChargePrep().iterator();
+            while (itr2.hasNext()) {
+                ChargePrep chargePrep = itr2.next();
+                if (chargePrep.getUsl().equals(vvod.getUsl()) && chargePrep.getType().equals(4)) {
+                    em.remove(chargePrep);
+                }
+            }
+            
+        }
+    }
+
     /**
      * Рассчитать лимиты распределения по законодательству
-     *
-     * @param tp - тип услуги (0 - х.в., 1- г.в., 2 - эл.эн.)
-     * @param cntKpr - кол во прожив. по вводу
-     * @param area - площадь по вводу
+     *  @param houseKo - Ko дома
+     * @param tp      - тип услуги (0 - х.в., 1- г.в., 2 - эл.эн.)
+     * @param cntKpr  - кол во прожив. по вводу
+     * @param area    - площадь по вводу
      */
-    private void calcLimit(int tp, BigDecimal cntKpr, BigDecimal area) {
+    private LimitODN calcLimit(Ko houseKo, int tp, BigDecimal cntKpr, BigDecimal area) throws WrongParam, WrongGetMethod {
+        LimitODN limitODN = new LimitODN();
+
         if (Utl.in(tp, 0, 1)) {
             // х.в. г.в.
             //расчитать лимит распределения
             //если кол-во прожив. > 0
             if (!cntKpr.equals(BigDecimal.ZERO)) {
+                // площадь на одного проживающего
                 final BigDecimal oplMan = area.divide(cntKpr, 5, BigDecimal.ROUND_HALF_UP);
-                final BigDecimal limitVol = oplLiter(oplMan.intValue())
+                final BigDecimal oplLiter = oplLiter(oplMan.intValue());
+                limitODN.limitVol = oplLiter
                         .divide(BigDecimal.valueOf(1000), 5, BigDecimal.ROUND_HALF_UP);
-                BigDecimal normODN = limitVol;
+                limitODN.odnNorm = limitODN.limitVol;
+                final BigDecimal limitArea = oplLiter
+                        .divide(BigDecimal.valueOf(1000), 5, BigDecimal.ROUND_HALF_UP);
+
             }
 
         } else if (tp == 2) {
             // эл.эн.
-            Остановился на том что надо делать DAO ObjPar
-
+            // площадь общ.имущ., норматив, объем на площадь
+            BigDecimal areaProp = objParMng.getBd(houseKo, "area_general_property");
+            limitODN.odnNorm = ODN_EL_NORM;
         }
 
+        return limitODN;
     }
 
     /**
@@ -372,6 +410,17 @@ public class DistVolMngImpl implements DistVolMng {
         }
 
         return BigDecimal.valueOf(val);
+    }
+
+    /**
+     * DTO для хранения лимитов ОДН
+     */
+    class LimitODN {
+        BigDecimal odnNorm = BigDecimal.ZERO;
+        // допустимый лимит ОДН по законодательству (общий)
+        BigDecimal limitVol = BigDecimal.ZERO;
+        // допустимый лимит ОДН на 1 м2
+        BigDecimal limitArea = BigDecimal.ZERO;
     }
 
 }
