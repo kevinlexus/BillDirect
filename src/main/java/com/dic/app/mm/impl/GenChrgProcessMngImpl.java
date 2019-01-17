@@ -291,26 +291,26 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     }
 
                     // сгруппировать, если есть объемы
-                    if (!dayVol.equals(BigDecimal.ZERO) || !dayVolOverSoc.equals(BigDecimal.ZERO)) {
-                        UslPriceVolKart uslPriceVolKart = UslPriceVolKart.UslPriceVolBuilder.anUslPriceVol()
-                                .withKart(nabor.getKart()) // группировать по лиц.счету из nabor!
-                                .withDtFrom(curDt).withDtTo(curDt).withDtFrom(curDt)
-                                .withUsl(nabor.getUsl())
-                                .withOrg(nabor.getOrg())
-                                .withIsCounter(isMeterExist)
-                                .withIsEmpty(countPers.isEmpty)
-                                .withIsResidental(kartMain.isResidental())
-                                .withSocStdt(socStandart!=null?socStandart.norm:BigDecimal.ZERO)
-                                .withPrice(detailUslPrice.price)
-                                .withPriceOverSoc(detailUslPrice.priceOverSoc)
-                                .withPriceEmpty(detailUslPrice.priceEmpt)
-                                .withVol(dayVol)
-                                .withVolOverSoc(dayVolOverSoc)
-                                .withArea(area)
-                                .withAreaOverSoc(areaOverSoc)
-                                .withKpr(countPers.kpr).withKprOt(countPers.kprOt).withKprWr(countPers.kprWr)
-                                .withPartDayMonth(calcStore.getPartDayMonth())
-                                .build();
+                    //if (!dayVol.equals(BigDecimal.ZERO) || !dayVolOverSoc.equals(BigDecimal.ZERO)) { нужны нулевые объемы!
+                    UslPriceVolKart uslPriceVolKart = UslPriceVolKart.UslPriceVolBuilder.anUslPriceVol()
+                            .withKart(nabor.getKart()) // группировать по лиц.счету из nabor!
+                            .withDtFrom(curDt).withDtTo(curDt).withDtFrom(curDt)
+                            .withUsl(nabor.getUsl())
+                            .withOrg(nabor.getOrg())
+                            .withIsCounter(isMeterExist)
+                            .withIsEmpty(countPers.isEmpty)
+                            .withIsResidental(kartMain.isResidental())
+                            .withSocStdt(socStandart!=null?socStandart.norm:BigDecimal.ZERO)
+                            .withPrice(detailUslPrice.price)
+                            .withPriceOverSoc(detailUslPrice.priceOverSoc)
+                            .withPriceEmpty(detailUslPrice.priceEmpt)
+                            .withVol(dayVol)
+                            .withVolOverSoc(dayVolOverSoc)
+                            .withArea(area)
+                            .withAreaOverSoc(areaOverSoc)
+                            .withKpr(countPers.kpr).withKprOt(countPers.kprOt).withKprWr(countPers.kprWr)
+                            .withPartDayMonth(calcStore.getPartDayMonth())
+                            .build();
 
                         //                        log.info("******* RESID={}", uslPriceVolKart.isResidental);
 
@@ -343,7 +343,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         chrgCount.groupUslPriceVolKart(uslPriceVolKart);
                         // сгруппировать по лиц.счету, услуге, для распределения по вводу
                         calcStore.getChrgCountAmount().groupUslVol(uslPriceVolKart);
-                    }
                 }
             }
 
