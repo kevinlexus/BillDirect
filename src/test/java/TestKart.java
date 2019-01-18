@@ -132,11 +132,11 @@ public class TestKart {
 		// добавить вводы
 		// Х.в.
 		testDataBuilder.addVvodForTest(house, "011", 1, false,
-				new BigDecimal("1012.279"));
+				new BigDecimal("52.279"), true);
 
 		// Отопление Гкал
 		testDataBuilder.addVvodForTest(house, "053", 1, false,
-				new BigDecimal("500.2568"));
+				new BigDecimal("500.2568"), false);
 
 		// построить лицевые счета по квартире
 		testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52),
@@ -153,19 +153,30 @@ public class TestKart {
 
 		// ВЫЗОВ распределения объемов
 		for (Vvod vvod : house.getVvod()) {
+			BigDecimal amntVolChrg = BigDecimal.ZERO;
+			BigDecimal amntVolChrgPrep = BigDecimal.ZERO;
 			reqConf.setVvod(vvod);
 			distVolMng.distVolByVvod(reqConf);
 
 			for (Nabor nabor : vvod.getNabor()) {
-				for (Charge charge : nabor.getKart().getCharge()) {
-					log.info("TEST1# charge.id={}, usl={}, type={}, summa={}", charge.getId(), charge.getUsl().getId(),
-							charge.getType(), charge.getSumma());
-				}
-				for (ChargePrep charge : nabor.getKart().getChargePrep()) {
-					log.info("TEST2# chargePrep.id={}, usl={}, type={}, vol={}", charge.getId(), charge.getUsl().getId(),
-							charge.getTp(), charge.getVol());
+				if (nabor.getUsl().getId().equals("011")) {
+					for (Charge t : nabor.getKart().getCharge()) {
+						log.info("ОДН:Charge lsk={}, usl={}, type={}, testOpl={}", t.getKart().getLsk(), t.getUsl().getId(),
+								t.getType(), t.getTestOpl());
+						amntVolChrg = amntVolChrg.add(t.getTestOpl());
+					}
 				}
 			}
+			for (Nabor nabor : vvod.getNabor()) {
+				if (nabor.getUsl().getId().equals("011")) {
+					for (ChargePrep t : nabor.getKart().getChargePrep()) {
+						log.info("ОДН:ChargePrep lsk={}, usl={}, tp={}, vol={}", t.getKart().getLsk(), t.getUsl().getId(),
+								t.getTp(), t.getVol());
+						amntVolChrgPrep = amntVolChrgPrep.add(t.getVol());
+					}
+				}
+			}
+			log.info("Итоговое распределение ОДН charge={}, chargePrep={}", amntVolChrg, amntVolChrgPrep);
 		}
 
 
