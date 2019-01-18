@@ -170,7 +170,8 @@ public class TestKart {
 			for (Nabor nabor : vvod.getNabor()) {
 				if (nabor.getUsl().getId().equals("011")) {
 					for (ChargePrep t : nabor.getKart().getChargePrep()) {
-						log.info("ОДН:ChargePrep lsk={}, usl={}, tp={}, vol={}", t.getKart().getLsk(), t.getUsl().getId(),
+						log.info("ОДН:ChargePrep lsk={}, usl={}, sch={}, tp={}, vol={}",
+								t.getKart().getLsk(), t.getUsl().getId(), t.isExistMeter(),
 								t.getTp(), t.getVol());
 						amntVolChrgPrep = amntVolChrgPrep.add(t.getVol());
 					}
