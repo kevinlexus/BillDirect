@@ -263,7 +263,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         if (nabor.getUsl().getParentUsl()!=null) {
                             // получить объем из родительской услуги
                             UslPriceVolKart uslPriceVolKart = mapUslPriceVol.get(nabor.getUsl().getParentUsl());
-                            if (uslPriceVolKart !=null && !uslPriceVolKart.isCounter) {
+                            if (uslPriceVolKart !=null && !uslPriceVolKart.isMeter) {
                                 // только если нет счетчика в родительской услуге
                                 area = kartArea;
                                 // сложить все объемы родит.услуги, умножить на норматив текущей услуги
@@ -323,7 +323,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                                             "vol={} volOv={} volEm={} ar={} arOv={} " +
                                             "arEm={} Kpr={} Ot={} Wrz={}",
                                     Utl.getStrFromDate(uslPriceVolKart.dtFrom, "dd"), Utl.getStrFromDate(uslPriceVolKart.dtTo, "dd"),
-                                    uslPriceVolKart.usl.getId(), uslPriceVolKart.org.getId(), uslPriceVolKart.isCounter, uslPriceVolKart.isEmpty,
+                                    uslPriceVolKart.usl.getId(), uslPriceVolKart.org.getId(), uslPriceVolKart.isMeter, uslPriceVolKart.isEmpty,
                                     uslPriceVolKart.socStdt, uslPriceVolKart.price, uslPriceVolKart.priceOverSoc, uslPriceVolKart.priceEmpty,
                                     uslPriceVolKart.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
                                     uslPriceVolKart.volOverSoc.setScale(4, BigDecimal.ROUND_HALF_UP),
@@ -366,7 +366,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                                 "vol={} volOv={} volEm={} ar={} arOv={} " +
                                 "arEm={} Kpr={} Ot={} Wrz={}",
                         Utl.getStrFromDate(t.dtFrom, "dd"), Utl.getStrFromDate(t.dtTo, "dd"),
-                        t.usl.getId(), t.org.getId(), t.isCounter, t.isEmpty,
+                        t.usl.getId(), t.org.getId(), t.isMeter, t.isEmpty,
                         t.socStdt, t.price, t.priceOverSoc, t.priceEmpty,
                         t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
                         t.volOverSoc.setScale(4, BigDecimal.ROUND_HALF_UP),

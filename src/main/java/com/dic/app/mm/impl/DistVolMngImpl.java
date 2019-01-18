@@ -16,6 +16,7 @@ import com.ric.cmn.excp.ErrorWhileChrgPen;
 import com.ric.cmn.excp.WrongGetMethod;
 import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
+import org.javatuples.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -23,8 +24,10 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -78,6 +81,9 @@ public class DistVolMngImpl implements DistVolMng {
         List<UslVolKart> lstUslVolKart =
                 calcStore.getChrgCountAmount().getLstUslVolKart().stream()
                         .filter(t -> t.usl.equals(usl)).collect(Collectors.toList());
+        List<UslVolKartGrp> lstUslVolKartGrp =
+                calcStore.getChrgCountAmount().getLstUslVolKartGrp().stream()
+                        .filter(t -> t.usl.equals(usl)).collect(Collectors.toList());
 
         // тип услуги
         int tp = -1;
@@ -110,7 +116,7 @@ public class DistVolMngImpl implements DistVolMng {
                                 "empt={} resid={} " +
                                 "vol={} area={} kpr={}",
                         t.kart.getLsk(),
-                        t.usl.getId(), t.isCounter, t.isEmpty, t.isResidental,
+                        t.usl.getId(), t.isMeter, t.isEmpty, t.isResidental,
                         t.vol.setScale(5, BigDecimal.ROUND_HALF_UP),
                         t.area.setScale(5, BigDecimal.ROUND_HALF_UP),
                         t.kpr.setScale(5, BigDecimal.ROUND_HALF_UP));
@@ -128,7 +134,7 @@ public class DistVolMngImpl implements DistVolMng {
                 // сохранить объемы по вводу для статистики
                 if (t.isResidental) {
                     // по жилым помещениям
-                    if (t.isCounter) {
+                    if (t.isMeter) {
                         // по счетчикам
                         // объем
                         vvod.setKubSch(vvod.getKubSch().add(t.vol));
@@ -154,12 +160,14 @@ public class DistVolMngImpl implements DistVolMng {
                     vvod.setKubAr(vvod.getKubAr().add(t.vol));
                 }
 
+                // получить совокупный объем
+                UslVolKartGrp uslVolKartGrp = getUslVolKartGrp(calcStore, t);
+
+                // учитывать ли объем
+                boolean isCountVol = getIsCountVol(distTp, isUseSch, uslVolKartGrp);
+
                 // площадь по вводу
-                if (!distTp.equals(3) && isUseSch || // в том числе лиц.счета со счетчиками
-                        !isUseSch && !getIsCountMeterCurPeriod(calcStore, t) || // или исключая лиц.счета со счетчиками
-                        distTp.equals(3) && (!t.kart.isResidental() || getIsCountPersCurPeriod(calcStore, t))// или
-                    // тип 3 и арендатор или кто нить должен быть прописан
-                        ) {
+                if (isCountVol) {
                     vvod.setOplAdd(Utl.nvl(vvod.getOplAdd(), BigDecimal.ZERO).add(t.area));
                 }
             }
@@ -167,7 +175,7 @@ public class DistVolMngImpl implements DistVolMng {
             // Отопление Гкал
             for (UslVolVvod t : calcStore.getChrgCountAmount().getLstUslVolVvod()) {
                 //log.info("usl={}, cnt={}, empt={}, resid={}, t.vol={}, t.area={}",
-                //        t.usl.getId(), t.isCounter, t.isEmpty, t.isResidental, t.vol, t.area);
+                //        t.usl.getId(), t.isMeter, t.isEmpty, t.isResidental, t.vol, t.area);
                 if (!t.isResidental) {
                     // сохранить объемы по вводу для статистики
                     // площадь по нежилым помещениям
@@ -204,41 +212,101 @@ public class DistVolMngImpl implements DistVolMng {
                     if (diff.compareTo(BigDecimal.ZERO) > 0) {
                         // ПЕРЕРАСХОД
                         // доначисление пропорционально площади (в т.ч.арендаторы), если небаланс > 0
+                        for (UslVolKartGrp t : lstUslVolKartGrp) {
+                            Nabor naborChild = t.kart.getNabor().stream()
+                                    .filter(d -> d.getUsl().equals(t.usl.getUslChild()))
+                                    .findAny().orElse(null);
 
-                        if (!distTp.equals(3) && isUseSch) {
-                            // в том числе лиц.счета со счетчиками)
+                            // учитывать ли объем
+                            boolean isCountVol = getIsCountVol(distTp, isUseSch, t);
+                            if (naborChild != null && isCountVol) {
+                                // рассчитать долю объема
+                                BigDecimal proc = t.area.divide(areaVvod, 20, BigDecimal.ROUND_HALF_UP);
+                                BigDecimal volDist = proc.multiply(diff).setScale(5, BigDecimal.ROUND_HALF_UP);
+                                naborChild.setVolAdd(volDist);
+                                // лимит (информационно)
+                                BigDecimal limit = null;
+                                if (Utl.in(tp, 0, 1)) {
+                                    // х.в. г.в.
+                                    limit = limitODN.limitArea.multiply(t.area);
+                                } else if (tp == 2) {
+                                    // эл.эн.
+                                    limit = limitODN.odnNorm.multiply(limitODN.areaProp) // взято из P_VVOD строка 591
+                                            .multiply(t.area).divide(areaVvod);
+                                }
+                                naborChild.setLimit(limit);
+                                // добавить инфу по ОДН.
+                                if (!volDist.equals(BigDecimal.ZERO)) {
+                                    Charge charge = new Charge();
+                                    t.kart.getCharge().add(charge);
+                                    charge.setKart(t.kart);
+                                    charge.setUsl(t.usl.getUslChild());
+                                    charge.setTestOpl(volDist);
+                                    charge.setType(5);
+                                }
+                            }
+                        }
+                    } else {
+                        // ЭКОНОМИЯ - рассчитывается пропорционально кол-во проживающих
+                        if (!kprAmnt.equals(BigDecimal.ZERO)) {
+                            BigDecimal volPerPers = diff.divide(kprAmnt).setScale(20, BigDecimal.ROUND_HALF_UP).abs();
+
+                            // лиц.счет, объем, лимит
+                            // по счетчику
+                            Map<Kart, Pair<BigDecimal, BigDecimal>> mapDistMeterVol = new HashMap<>();
+                            // по нормативу
+                            Map<Kart, Pair<BigDecimal, BigDecimal>> mapDistNormVol = new HashMap<>();
+
                             for (UslVolKart t : lstUslVolKart) {
                                 Nabor naborChild = t.kart.getNabor().stream()
                                         .filter(d -> d.getUsl().equals(t.usl.getUslChild()))
                                         .findAny().orElse(null);
-                                if (naborChild != null) {
-                                    // рассчитать долю объема
-                                    BigDecimal proc = t.area.divide(areaVvod, 20, BigDecimal.ROUND_HALF_UP);
-                                    BigDecimal volDist = proc.multiply(diff).setScale(5, BigDecimal.ROUND_HALF_UP);
-                                    naborChild.setVolAdd(volDist);
+
+                                // получить совокупный объем
+                                UslVolKartGrp uslVolKartGrp = getUslVolKartGrp(calcStore, t);
+                                // учитывать ли объем
+                                boolean isCountVol = getIsCountVol(distTp, isUseSch, uslVolKartGrp);
+                                if (naborChild != null && isCountVol) {
+                                    // рассчитать долю объема на лиц.счет
+                                    BigDecimal volDistKart = uslVolKartGrp.kpr.multiply(volPerPers);
+                                    // ограничить объем экономии текущим общим объемом норматив+счетчик
+                                    if (volDistKart.compareTo(uslVolKartGrp.vol) > 0) {
+                                        volDistKart = uslVolKartGrp.vol;
+                                    }
+
                                     // лимит (информационно)
+                                    BigDecimal limit = null;
                                     if (Utl.in(tp, 0, 1)) {
                                         // х.в. г.в.
-                                        limit = limitODN.limitArea.multiply(t.area);
+                                        limit = limitODN.limitArea.multiply(uslVolKartGrp.area);
                                     } else if (tp == 2) {
                                         // эл.эн.
                                         limit = limitODN.odnNorm.multiply(limitODN.areaProp) // взято из P_VVOD строка 591
-                                                .multiply(t.area).divide(areaVvod);
+                                                .multiply(uslVolKartGrp.area).divide(areaVvod,20, BigDecimal.ROUND_HALF_UP);
+                                    }
+
+                                    // установить лимит (не эффективно, по одним и тем же записям - много раз)
+                                    naborChild.setLimit(limit);
+
+                                    if (!volDistKart.equals(BigDecimal.ZERO)) {
+                                        // рассчитать долю объема на данную информационную строку UslVolKart
+                                        BigDecimal proc = t.vol.divide(uslVolKartGrp.vol, 20, BigDecimal.ROUND_HALF_UP);
+                                        BigDecimal vol = proc.multiply(volDistKart);
+                                        // добавить объем
+                                        if (t.isMeter) {
+                                            addDistVol(mapDistMeterVol, t, limit, vol);
+                                        } else {
+                                            addDistVol(mapDistNormVol, t, limit, vol);
+                                        }
                                     }
                                 }
-
                             }
 
-
-                        } else if (!isUseSch && countMeterCurPeriod == 0L) {
-                            // или исключая лиц.счета со счетчиками
-
-                        } else if (distTp.equals(3) && (!t.kart.isResidental() || countPersCurPeriod > 0)) {
-                            // или тип 3 и арендатор или кто нить должен быть прописан
-
+                            // добавить объем экономии и инфу по ОДН.
+                            for (Map.Entry<Kart, Pair<BigDecimal, BigDecimal>> t : mapDistMeterVol.entrySet()) {
+                                addChargePrep(usl, t, false);
+                            }
                         }
-                    } else {
-                        // ЭКОНОМИЯ
                     }
                 }
 
@@ -272,37 +340,75 @@ public class DistVolMngImpl implements DistVolMng {
     }
 
     /**
-     * Получить наличие проживающих в текущем периоде
-     *
-     * @param calcStore - хранилище данных
-     * @param t         - запись объема по услуге в лиц.счете
-     * @return
+     * Добавить информацию
+     * @param usl - услуга
+     * @param entry - информационная строка
+     * @param isExistMeter - наличие счетчика
      */
-    private boolean getIsCountPersCurPeriod(CalcStore calcStore, UslVolKart t) {
-        if (calcStore.getChrgCountAmount().getLstUslVolKartGrp().stream()
-                .filter(d -> d.kart.equals(t.kart) && d.usl.equals(t.usl)
-                        && d.isExistPersCurrPeriod).count() > 0) {
-            return true;
+    private void addChargePrep(Usl usl, Map.Entry<Kart, Pair<BigDecimal, BigDecimal>> entry, boolean isExistMeter) {
+        Kart kart = entry.getKey();
+        Pair<BigDecimal, BigDecimal> mapVal = entry.getValue();
+        ChargePrep chargePrep = new ChargePrep();
+        kart.getChargePrep().add(chargePrep);
+        chargePrep.setKart(kart);
+        chargePrep.setUsl(usl);
+        chargePrep.setVol(mapVal.getValue0().multiply(new BigDecimal("-1")));
+        chargePrep.setTp(4);
+        chargePrep.setExistMeter(isExistMeter);
+
+        Charge charge = new Charge();
+        kart.getCharge().add(charge);
+        charge.setKart(kart);
+        charge.setUsl(usl.getUslChild());
+        charge.setTestOpl(mapVal.getValue0().multiply(new BigDecimal("-1")));
+        charge.setType(5);
+    }
+
+    private void addDistVol(Map<Kart, Pair<BigDecimal, BigDecimal>> mapDistMeterVol,
+                            UslVolKart t, BigDecimal limit, BigDecimal vol) {
+        Pair<BigDecimal, BigDecimal> mapVal = mapDistMeterVol.get(t.kart);
+        if (mapVal == null) {
+            mapDistMeterVol.put(t.kart,
+                    new Pair<>(vol, limit));
         } else {
-            return false;
+            mapVal = mapDistMeterVol.get(t.kart);
+            mapVal.setAt0(mapVal.getValue0().add(vol));
+            mapVal.setAt1(limit);
         }
     }
 
     /**
-     * Получить наличие счетчика в текущем периоде
+     * Учитывать ли объем?
+     *
+     * @param distTp        - тип распределения
+     * @param isUseSch      - учитывать счетчики?
+     * @param uslVolKartGrp - запись объема сгруппированная
+     * @return
+     */
+    private boolean getIsCountVol(Integer distTp, Boolean isUseSch, UslVolKartGrp uslVolKartGrp) {
+        boolean isCountVol = true;
+        if (!distTp.equals(3) && !isUseSch) {
+            // тип распр.<>3 контролировать или нет наличие счетчиков
+            isCountVol = uslVolKartGrp.isExistMeterCurrPeriod;
+        } else if (distTp.equals(3)) {
+            // тип распр.=3 то либо арендатор, либо должен кто-то быть прописан
+            isCountVol = !uslVolKartGrp.kart.isResidental() || uslVolKartGrp.isExistPersCurrPeriod;
+        }
+        return isCountVol;
+    }
+
+
+    /**
+     * получить совокупные объемы по лиц счету
      *
      * @param calcStore - хранилище данных
      * @param t         - запись объема по услуге в лиц.счете
      * @return
      */
-    private boolean getIsCountMeterCurPeriod(CalcStore calcStore, UslVolKart t) {
-        if (calcStore.getChrgCountAmount().getLstUslVolKartGrp().stream()
-                .filter(d -> d.kart.equals(t.kart) && d.usl.equals(t.usl)
-                        && d.isExistMeterCurrPeriod).count() > 0) {
-            return true;
-        } else {
-            return false;
-        }
+    private UslVolKartGrp getUslVolKartGrp(CalcStore calcStore, UslVolKart t) {
+        return calcStore.getChrgCountAmount().getLstUslVolKartGrp().stream()
+                .filter(d -> d.kart.equals(t.kart) && d.usl.equals(t.usl))
+                .findAny().orElse(null);
     }
 
     /**
