@@ -75,6 +75,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         if (reqConf.getTp() == 2) {
             // распределение по вводу, добавить услуги для ограничения формирования только по ним
             lstSelUsl.add(reqConf.getVvod().getUsl());
+            log.info("********* Начислить только по lsk={}, usl={}", kartMainByKlsk.getLsk(), reqConf.getVvod().getUsl().getId());
+        } else {
+            log.info("********* Начислить все услуги! lsk={}", kartMainByKlsk.getLsk());
         }
 
         // сохранить помещение
@@ -109,7 +112,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             Map<Usl, UslPriceVolKart> mapUslPriceVol = new HashMap<>(30);
 
             for (Nabor nabor : lstNabor) {
-                if (nabor.getUsl().isMain() && (lstSelUsl.size()==0 || lstSelUsl.contains(nabor.getUsl()))) {
+                if (nabor.getUsl().isMain() && (lstSelUsl.size() == 0 || lstSelUsl.contains(nabor.getUsl()))) {
                     // РАСЧЕТ по основным услугам (из набора услуг или по заданным во вводе)
                     //log.info("РАСЧЕТ: uslId={}, dt={}", nabor.getUsl().getId(), curDt);
                     final Integer fkCalcTp = nabor.getUsl().getFkCalcTp();
@@ -354,7 +357,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         }
 
         // распределить экономию ОДН по услуге, пропорционально объемам
-        distODNeconomy(calcStore, ko);
+        distODNeconomy(calcStore, ko, lstSelUsl);
 
         // УМНОЖИТЬ объем на цену (расчет в рублях)
 
@@ -397,12 +400,13 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * Получить объемы экономии по услугам лиц.счетов, рассчитанных по квартире
      * @param calcStore - хранилище объемов
      * @param ko - квартира
+     * @param lstSelUsl - список ограничения услуг (например при распределении ОДН)
      */
-    private void distODNeconomy(CalcStore calcStore, Ko ko) throws ErrorWhileChrg {
+    private void distODNeconomy(CalcStore calcStore, Ko ko, List<Usl> lstSelUsl) throws ErrorWhileChrg {
         // получить объемы экономии по всем лиц.счетам квартиры
         List<ChargePrep> lstChargePrep = ko.getKart().stream()
                 .flatMap(t -> t.getChargePrep().stream())
-                .filter(t -> t.getTp().equals(5))
+                .filter(t -> t.getTp().equals(4) && lstSelUsl.size() == 0)
                 .collect(Collectors.toList());
 
         // распределить экономию
@@ -410,16 +414,31 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
             // распределить весь объем экономии по элементам объема в лиц.счете (когда были проживающие)
             List<UslVolKart> lstUslVolKart = calcStore.getChrgCountAmount().getLstUslVolKart().stream()
-                    .filter(d -> d.kart.equals(t.getKart()) && !d.kpr.equals(BigDecimal.ZERO))
+                    .filter(d -> d.kart.equals(t.getKart()) && !d.kpr.equals(BigDecimal.ZERO) && d.usl.equals(t.getUsl()))
                     .collect(Collectors.toList());
 
             // специфика работы метода: распределяемый объем - положительное значение (t.getVol().abs())
             Utl.distBigDecimalByList(t.getVol().abs(), lstUslVolKart, 5);
 
             // по сгруппированным объемам до лиц.счетов, просто провести объем
-            calcStore.getChrgCountAmount().getLstUslVolKartGrp().stream()
-                    .filter(d -> d.kart.equals(t.getKart()))
-                    .findFirst().ifPresent(d->d.vol = d.vol.add(t.getVol()));
+            UslVolKartGrp uslValKartGrp = calcStore.getChrgCountAmount().getLstUslVolKartGrp().stream()
+                    .filter(d -> d.kart.equals(t.getKart()) && d.usl.equals(t.getUsl()))
+                    .findFirst().orElse(null);
+            if (uslValKartGrp != null) {
+                if (uslValKartGrp.vol.compareTo(BigDecimal.ZERO) > 0
+                        && uslValKartGrp.vol.compareTo(t.getVol().abs()) > 0) {
+                    uslValKartGrp.vol = uslValKartGrp.vol.add(t.getVol());
+                } else {
+                    throw new ErrorWhileChrg("ОШИБКА! Объем экономии ОДН ="+t.getVol()
+                            +" больше чем собственный объем="+uslValKartGrp.vol
+                            +" по лиц. lsk="
+                            +t.getKart().getLsk());
+                }
+            } else {
+                throw new ErrorWhileChrg("ОШИБКА! Не найден объем для распределения экономии ОДН по лиц. lsk="
+                        +t.getKart().getLsk());
+
+            }
 
         }
     }

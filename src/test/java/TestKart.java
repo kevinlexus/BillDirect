@@ -122,8 +122,6 @@ public class TestKart {
 						.withIsMultiThreads(false) // для Unit - теста однопоточно!
 						.build();
 
-		// загрузить справочники
-		CalcStore calcStore = processMng.buildCalcStore(Utl.getDateFromStr("15.04.2014"), 0);
 		// дом
 		House house = new House();
 		Ko houseKo = new Ko();
@@ -154,12 +152,15 @@ public class TestKart {
 		testDataBuilder.buildKartForTest(house, "0005", BigDecimal.valueOf(67.1),
 				4,true, true, true,1);
 
+		// загрузить справочники
+		CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
+
 		// ВЫЗОВ распределения объемов
 		for (Vvod vvod : house.getVvod()) {
 			BigDecimal amntVolChrg = BigDecimal.ZERO;
 			BigDecimal amntVolChrgPrep = BigDecimal.ZERO;
 			reqConf.setVvod(vvod);
-			distVolMng.distVolByVvod(reqConf);
+			distVolMng.distVolByVvod(reqConf, calcStore);
 
 			for (Nabor nabor : vvod.getNabor()) {
 				if (nabor.getUsl().getId().equals("011")) {
@@ -183,16 +184,37 @@ public class TestKart {
 			log.info("Итоговое распределение ОДН charge={}, chargePrep={}", amntVolChrg, amntVolChrgPrep);
 		}
 
+		// получить объемы
+		for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
+			if (Utl.in(t.usl.getId(),"011")) {
+				log.info("CHECK1 lsk={}, usl={} vol={} ar={} Kpr={}",
+						t.kart.getLsk(), t.usl.getId(),
+						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
+						t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
+						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
+			}
+		}
+
 		reqConf.setVvod(null);
 		reqConf.setHouse(house);
 		reqConf.setTp(0);
+
+		// загрузить справочники todo еще раз??????????
+		calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
+
 		// вызов начисления
-		// опять загрузить справочники FIXME?
-		calcStore = processMng.buildCalcStore(Utl.getDateFromStr("15.04.2014"), 0);
 		processMng.genProcessAll(reqConf, calcStore);
 
-
+		// получить объемы
+		for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
+			if (Utl.in(t.usl.getId(),"011")) {
+				log.info("CHECK2 lsk={}, usl={} vol={} ar={} Kpr={}",
+						t.kart.getLsk(), t.usl.getId(),
+						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
+						t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
+						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
+			}
+		}
 		log.info("Test genChrgProcessMngGenChrgHouse End!");
-
 	}
 }

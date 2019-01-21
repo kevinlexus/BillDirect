@@ -60,12 +60,11 @@ public class DistVolMngImpl implements DistVolMng {
      * Распределить объемы по вводу (по всем вводам, если reqConf.vvod == null)
      *
      * @param reqConf - параметры запроса
+     * @param calcStore - хранилище справочников, объемов начисления
      */
     @Override
-    public void distVolByVvod(RequestConfig reqConf) throws ErrorWhileChrgPen, WrongParam, WrongGetMethod {
+    public void distVolByVvod(RequestConfig reqConf, CalcStore calcStore) throws ErrorWhileChrgPen, WrongParam, WrongGetMethod {
 
-        // загрузить справочники
-        CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
         Vvod vvod = reqConf.getVvod();
         // тип распределения
         Integer distTp = Utl.nvl(vvod.getDistTp(), 0);
@@ -94,6 +93,9 @@ public class DistVolMngImpl implements DistVolMng {
             tp = 3;
         }
 
+        // ОЧИСТКА информации ОДН
+        clearODN(vvod);
+
         // СБОР ИНФОРМАЦИИ, для расчета ОДН, подсчета итогов
         // кол-во лиц.счетов, объемы, кол-во прожив.
         // собрать информацию об объемах по лиц.счетам принадлежащим вводу
@@ -108,6 +110,7 @@ public class DistVolMngImpl implements DistVolMng {
                         .filter(t -> t.usl.equals(usl)).collect(Collectors.toList());
 
 
+/*
         log.info("Объемы по лиц.счетам, вводу:");
         for (UslVolKart t : calcStore.getChrgCountAmount().getLstUslVolKart()) {
             if (Utl.in(t.usl.getId(), "011")) {
@@ -121,9 +124,7 @@ public class DistVolMngImpl implements DistVolMng {
                         t.kpr.setScale(5, BigDecimal.ROUND_HALF_UP));
             }
         }
-
-        // ОЧИСТКА информации ОДН
-        clearODN(vvod);
+*/
 
         // ПОЛУЧИТЬ итоговые объемы по вводу
         if (Utl.in(tp, 0, 1, 2)) {

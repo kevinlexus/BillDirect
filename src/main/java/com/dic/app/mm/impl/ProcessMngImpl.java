@@ -234,6 +234,7 @@ public class ProcessMngImpl implements ProcessMng {
             case 0: {
                 // начисление
                 genChrgProcessMng.genChrg(calcStore, ko, reqConf);
+                break;
             }
             case 1: {
                 // расчет ДОЛГА и ПЕНИ -  TODO переделать на Ko!!! ред. 11.01.19

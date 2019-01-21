@@ -14,5 +14,5 @@ import java.util.concurrent.Future;
 
 public interface DistVolMng {
 
-    void distVolByVvod(RequestConfig reqConf) throws ErrorWhileChrgPen, WrongParam, WrongGetMethod;
+    void distVolByVvod(RequestConfig reqConf, CalcStore calcStore) throws ErrorWhileChrgPen, WrongParam, WrongGetMethod;
 }
