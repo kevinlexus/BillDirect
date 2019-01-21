@@ -108,10 +108,9 @@ public class DistVolMngImpl implements DistVolMng {
                         .filter(t -> t.usl.equals(usl)).collect(Collectors.toList());
 
 
-/*
         log.info("Объемы по лиц.счетам, вводу:");
         for (UslVolKart t : calcStore.getChrgCountAmount().getLstUslVolKart()) {
-            if (Utl.in(t.usl.getId(), "053")) {
+            if (Utl.in(t.usl.getId(), "011")) {
                 log.info("lsk={} usl={} cnt={} " +
                                 "empt={} resid={} " +
                                 "vol={} area={} kpr={}",
@@ -122,7 +121,6 @@ public class DistVolMngImpl implements DistVolMng {
                         t.kpr.setScale(5, BigDecimal.ROUND_HALF_UP));
             }
         }
-*/
 
         // ОЧИСТКА информации ОДН
         clearODN(vvod);
@@ -198,7 +196,7 @@ public class DistVolMngImpl implements DistVolMng {
         // площадь по вводу
         BigDecimal areaVvod = vvod.getOplAdd();
 
-        log.info("*** Ввод id={}, услуга usl={}, площадь={}, кол-во прож.={}, объем={}, объем к распр.={}",
+        log.info("*** Ввод id={}, услуга usl={}, площадь={}, кол-во прож.={}, объем={}, введено={}",
                 vvod.getId(), vvod.getUsl().getId(), areaVvod, kprAmnt, volAmnt, kub);
 
         BigDecimal amntKprDet = lstUslVolKart.stream().map(t -> t.kpr).reduce(BigDecimal.ZERO, BigDecimal::add);

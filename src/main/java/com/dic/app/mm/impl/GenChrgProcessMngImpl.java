@@ -19,6 +19,8 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Сервис расчета начисления
@@ -80,9 +82,11 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         // получить все действующие счетчики квартиры и их объемы
         chrgCount.setLstMeterVol(meterDao.findMeterVolByKlsk(ko.getId(),
                 calcStore.getCurDt1(), calcStore.getCurDt2()));
+/*
         chrgCount.getLstMeterVol().forEach(t -> {
             log.info("Check2: {}, {}, {}, {}, {}", t.getMeterId(), t.getUslId(), t.getVol(), t.getDtFrom(), t.getDtTo());
         });
+*/
         // получить объемы по счетчикам в пропорции на 1 день их работы
         Map<String, BigDecimal> mapDayMeterVol = meterMng.getPartDayMeterVol(chrgCount,
                 calcStore);
@@ -176,6 +180,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             //log.info("uslId={}, dt={}, нет счетчика! объем по нормативу={}",
                             //        nabor.getUsl().getId(), curDt, tempVol);
                         }
+
                         dayVol = tempVol;
                         area = kartArea;
 
@@ -346,8 +351,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 }
             }
 
-            // УМНОЖИТЬ объем на цену (расчет в рублях)
         }
+
+        // распределить экономию ОДН по услуге, пропорционально объемам
+        distODNeconomy(calcStore, ko);
+
+        // УМНОЖИТЬ объем на цену (расчет в рублях)
 
         // сохранить в объемы дома (для расчета ОДН и прочих распределений во вводах)
         //calcStore.getChrgCountAmount().addChrgCount(chrgCount);
@@ -382,5 +391,36 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         }
         log.info("Итоговый объем:={}", amntVol);
 */
+    }
+
+    /**
+     * Получить объемы экономии по услугам лиц.счетов, рассчитанных по квартире
+     * @param calcStore - хранилище объемов
+     * @param ko - квартира
+     */
+    private void distODNeconomy(CalcStore calcStore, Ko ko) throws ErrorWhileChrg {
+        // получить объемы экономии по всем лиц.счетам квартиры
+        List<ChargePrep> lstChargePrep = ko.getKart().stream()
+                .flatMap(t -> t.getChargePrep().stream())
+                .filter(t -> t.getTp().equals(5))
+                .collect(Collectors.toList());
+
+        // распределить экономию
+        for (ChargePrep t : lstChargePrep) {
+
+            // распределить весь объем экономии по элементам объема в лиц.счете (когда были проживающие)
+            List<UslVolKart> lstUslVolKart = calcStore.getChrgCountAmount().getLstUslVolKart().stream()
+                    .filter(d -> d.kart.equals(t.getKart()) && !d.kpr.equals(BigDecimal.ZERO))
+                    .collect(Collectors.toList());
+
+            // специфика работы метода: распределяемый объем - положительное значение (t.getVol().abs())
+            Utl.distBigDecimalByList(t.getVol().abs(), lstUslVolKart, 5);
+
+            // по сгруппированным объемам до лиц.счетов, просто провести объем
+            calcStore.getChrgCountAmount().getLstUslVolKartGrp().stream()
+                    .filter(d -> d.kart.equals(t.getKart()))
+                    .findFirst().ifPresent(d->d.vol = d.vol.add(t.getVol()));
+
+        }
     }
 }

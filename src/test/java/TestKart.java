@@ -56,6 +56,9 @@ public class TestKart {
 	@PersistenceContext
 	private EntityManager em;
 
+
+
+
 	/**
 	 * Тест запроса на поиск k_lsk_id квартиры по параметрам
 	 * @throws Exception
@@ -179,6 +182,14 @@ public class TestKart {
 			}
 			log.info("Итоговое распределение ОДН charge={}, chargePrep={}", amntVolChrg, amntVolChrgPrep);
 		}
+
+		reqConf.setVvod(null);
+		reqConf.setHouse(house);
+		reqConf.setTp(0);
+		// вызов начисления
+		// опять загрузить справочники FIXME?
+		calcStore = processMng.buildCalcStore(Utl.getDateFromStr("15.04.2014"), 0);
+		processMng.genProcessAll(reqConf, calcStore);
 
 
 		log.info("Test genChrgProcessMngGenChrgHouse End!");
