@@ -82,7 +82,7 @@ public class ProcessMngImpl implements ProcessMng {
     public void genProcessAll(RequestConfig reqConf, CalcStore calcStore) throws ErrorWhileChrgPen {
 
         long startTime = System.currentTimeMillis();
-        log.info("НАЧАЛО обработки всех объектов, по типу={}", reqConf.getTp());
+        log.info("НАЧАЛО процесса {} заданных объектов", reqConf.getTpName());
 
         // получить список квартир
         List<Integer> lstItem;
@@ -146,7 +146,7 @@ public class ProcessMngImpl implements ProcessMng {
 
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
-        log.info("ОКОНЧАНИЕ обработки всех объектов, по типу={} - Общее время выполнения={}", reqConf.getTp(), totalTime);
+        log.info("ОКОНЧАНИЕ процесса {} заданных объектов - Общее время выполнения={}", reqConf.getTpName(), totalTime);
 
     }
 
@@ -200,7 +200,7 @@ public class ProcessMngImpl implements ProcessMng {
             rollbackFor = Exception.class) //
     public Future<CommonResult> genProcess(int klskId, CalcStore calcStore, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
         long startTime = System.currentTimeMillis();
-        log.info("НАЧАЛО потока по типу={}, по klskId={}", reqConf.getTp(), klskId);
+        log.info("НАЧАЛО потока {}, по klskId={}", reqConf.getTpName(), klskId);
         try {
             // заблокировать объект Ko для расчета
             if (!config.aquireLock(reqConf.getRqn(), klskId)) {
@@ -217,7 +217,7 @@ public class ProcessMngImpl implements ProcessMng {
         CommonResult res = new CommonResult(klskId, 0);
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
-        log.info("ОКОНЧАНИЕ потока по типу={}, по klskId {} Время расчета={} мс", reqConf.getTp(), klskId, totalTime);
+        log.info("ОКОНЧАНИЕ потока {}, по klskId {} Время расчета={} мс", reqConf.getTpName(), klskId, totalTime);
         return new AsyncResult<>(res);
     }
 
