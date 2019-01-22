@@ -25,6 +25,7 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StopWatch;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -168,6 +169,8 @@ public class TestKart {
 		// загрузить справочники
 		CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
 
+		StopWatch sw = new org.springframework.util.StopWatch();
+		sw.start("TIMING:Распределение объемов");
 		// ВЫЗОВ распределения объемов
 		for (Vvod vvod : house.getVvod()) {
 			BigDecimal amntVolChrg = BigDecimal.ZERO;
@@ -198,7 +201,7 @@ public class TestKart {
 			log.info("Итоговое распределение ОДН charge={}, chargePrep={}", amntVolChrg, amntVolChrgPrep);
 */
 		}
-
+		sw.stop();
 		// получить объемы
 		for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
 			if (t.kart.getLsk().equals("РСО_0001") && Utl.in(t.usl.getId(),"099")) {
@@ -217,9 +220,10 @@ public class TestKart {
 		// загрузить справочники todo еще раз??????????
 		calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
 
+		sw.start("TIMING:Начисление");
 		// вызов начисления
 		processMng.genProcessAll(reqConf, calcStore);
-
+		sw.stop();
 		log.info("");
 		// получить объемы
 /*
@@ -289,6 +293,7 @@ public class TestKart {
 			}
 		}
 */
+		System.out.println(sw.prettyPrint());
 		log.info("Test genChrgProcessMngGenChrgHouse End!");
 	}
 }

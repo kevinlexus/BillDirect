@@ -466,9 +466,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 */
                 // сохранить рассчитанный объем по расчетному дню, (используется для услуги Повыш коэфф.)
                 mapUslPriceVol.put(nabor.getUsl(), uslPriceVolKart);
-                // сгруппировать по лиц.счету, услуге, расценке,
-                // (нужно по лиц.сч.группировать, так как разные лиц.могут входить в одну квартиру)
-                //chrgCount.groupUslPriceVolKart(uslPriceVolKart);
+
+                // note исключить ненужные услуги из добавления в группировку по дням, иначе будет долго работать
                 // сгруппировать по лиц.счету, услуге, для распределения по вводу
                 calcStore.getChrgCountAmount().groupUslVol(uslPriceVolKart);
 
