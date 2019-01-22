@@ -72,7 +72,7 @@ public class DistVolMngImpl implements DistVolMng {
         Boolean isUseSch = Utl.nvl(vvod.getIsUseSch(), false);
 
         // объем для распределения
-        BigDecimal kub = Utl.nvl(vvod.getKub(), BigDecimal.ZERO);
+        BigDecimal kub = Utl.nvl(vvod.getKub(), BigDecimal.ZERO).setScale(5, BigDecimal.ROUND_HALF_UP);
         Usl usl = vvod.getUsl();
 
         // тип услуги
@@ -224,6 +224,7 @@ public class DistVolMngImpl implements DistVolMng {
                             log.info("*** перерасход={}", diff);
                             // ПЕРЕРАСХОД
                             // доначисление пропорционально площади (в т.ч.арендаторы), если небаланс > 0
+                            BigDecimal diffDistributed = BigDecimal.ZERO;
                             for (UslVolKartGrp t : lstUslVolKartGrp) {
                                 Nabor naborChild = t.kart.getNabor().stream()
                                         .filter(d -> d.getUsl().equals(t.usl.getUslChild()))
@@ -231,6 +232,7 @@ public class DistVolMngImpl implements DistVolMng {
 
                                 // учитывать ли объем
                                 boolean isCountVol = getIsCountVol(distTp, isUseSch, t);
+                                // по дочерним услугам
                                 if (naborChild != null && isCountVol) {
                                     // рассчитать долю объема
                                     BigDecimal proc = t.area.divide(areaVvod, 20, BigDecimal.ROUND_HALF_UP);
@@ -255,9 +257,14 @@ public class DistVolMngImpl implements DistVolMng {
                                         charge.setUsl(t.usl.getUslChild());
                                         charge.setTestOpl(volDist);
                                         charge.setType(5);
+
+                                        diffDistributed = diffDistributed.add(volDist);
                                     }
                                 }
                             }
+                            log.info("*** итоговое распределение перерасхода={}", diffDistributed);
+
+
                         } else {
                             // ЭКОНОМИЯ - рассчитывается пропорционально кол-во проживающих, кроме Нежилых
                             if (!kprAmnt.equals(BigDecimal.ZERO)) {
@@ -305,7 +312,7 @@ public class DistVolMngImpl implements DistVolMng {
                                                         .multiply(uslVolKartGrp.area).divide(areaVvod, 20, BigDecimal.ROUND_HALF_UP);
                                             }
 
-                                            // установить лимит (не эффективно, по одним и тем же записям - много раз)
+                                            // установить лимит (неэффективно, по одним и тем же записям - много раз)
                                             naborChild.setLimit(limit);
 
                                             if (!volDistKart.equals(BigDecimal.ZERO)) {

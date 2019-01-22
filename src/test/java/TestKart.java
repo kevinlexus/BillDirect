@@ -133,11 +133,11 @@ public class TestKart {
 		// добавить вводы
 		// Х.в.
 		testDataBuilder.addVvodForTest(house, "011", 1, false,
-				new BigDecimal("52.279"), true);
+				new BigDecimal("110.279"), true);
 
 		// Г.в.
 		testDataBuilder.addVvodForTest(house, "015", 1, false,
-				new BigDecimal("48.23"), true);
+				new BigDecimal("82.23"), true);
 
 		// Отопление Гкал
 		testDataBuilder.addVvodForTest(house, "053", 1, false,
@@ -201,7 +201,7 @@ public class TestKart {
 
 		// получить объемы
 		for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
-			if (Utl.in(t.usl.getId(),"011")) {
+			if (t.kart.getLsk().equals("РСО_0001") && Utl.in(t.usl.getId(),"099")) {
 				log.info("CHECK1 lsk={}, usl={} vol={} ar={} Kpr={}",
 						t.kart.getLsk(), t.usl.getId(),
 						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
@@ -222,6 +222,7 @@ public class TestKart {
 
 		log.info("");
 		// получить объемы
+/*
 		for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
 			if (Utl.in(t.usl.getId(),"011")) {
 				log.info("CHECK2 lsk={}, usl={} vol={} ar={} Kpr={}",
@@ -232,8 +233,10 @@ public class TestKart {
 			}
 		}
 		log.info("");
+*/
+/*
 		for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
-			if (Utl.in(t.usl.getId(),"015")) {
+			if (t.kart.getLsk().equals("РСО_0001") && Utl.in(t.usl.getId(),"015")) {
 				log.info("CHECK2 lsk={}, usl={} vol={} ar={} Kpr={}",
 						t.kart.getLsk(), t.usl.getId(),
 						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
@@ -241,9 +244,10 @@ public class TestKart {
 						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
 			}
 		}
+*/
 		log.info("");
 		for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
-			if (Utl.in(t.usl.getId(),"099")) {
+			if (t.kart.getLsk().equals("РСО_0001") && Utl.in(t.usl.getId(),"099")) {
 				log.info("CHECK2 lsk={}, usl={} vol={} ar={} Kpr={}",
 						t.kart.getLsk(), t.usl.getId(),
 						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
@@ -251,6 +255,29 @@ public class TestKart {
 						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
 			}
 		}
+/*
+		log.info("");
+		for (UslVolKart t : calcStore.getChrgCountAmount().getLstUslVolKart()) {
+			if (t.kart.getLsk().equals("РСО_0001") && Utl.in(t.usl.getId(),"015")) {
+				log.info("CHECK3 lsk={}, usl={} vol={} ar={} Kpr={}",
+						t.kart.getLsk(), t.usl.getId(),
+						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
+						t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
+						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
+			}
+		}
+*/
+		log.info("");
+		for (UslVolKart t : calcStore.getChrgCountAmount().getLstUslVolKart()) {
+			if (t.kart.getLsk().equals("РСО_0001") && Utl.in(t.usl.getId(),"103")) {
+				log.info("CHECK3 lsk={}, usl={} vol={} ar={} Kpr={}",
+						t.kart.getLsk(), t.usl.getId(),
+						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
+						t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
+						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
+			}
+		}
+/*
 		log.info("");
 		for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
 			if (Utl.in(t.usl.getId(),"103")) {
@@ -261,6 +288,7 @@ public class TestKart {
 						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
 			}
 		}
+*/
 		log.info("Test genChrgProcessMngGenChrgHouse End!");
 	}
 }
