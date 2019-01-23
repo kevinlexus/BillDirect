@@ -277,7 +277,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         }
                     } else {
                         // норматив в пропорции на 1 день месяца
-                        tempVol = socStandart.vol.multiply(calcStore.getPartDayMonth());
+                        tempVol = getRoundedVolByDate(calcStore, socStandart.vol, curDt);
                     }
 
                     dayVol = tempVol;
@@ -325,7 +325,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                                     // начислять только в отопительном периоде
                                     if (Utl.between(curDt, sprParamMng.getD1("MONTH_HEAT3"),
                                             sprParamMng.getD1("MONTH_HEAT4"))) {
-                                        dayVol = getRoundedVolByDate(calcStore, kartArea.multiply(naborNorm), curDt);;
+                                        dayVol = getRoundedVolByDate(calcStore, kartArea.multiply(naborNorm), curDt);
                                     }
                                 }
                             }
@@ -336,11 +336,11 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 } else if (fkCalcTp.equals(7) && kartMain.getStatus().getId().equals(1)) {
                     // Найм (только по муниципальным квартирам) расчет на м2
                     area = kartArea;
-                    dayVol = kartArea.multiply(calcStore.getPartDayMonth());
+                    dayVol = getRoundedVolByDate(calcStore, kartArea, curDt);
                 } else if (Utl.in(fkCalcTp, 12)) {
                     // Антенна, код.замок
                     area = kartArea;
-                    dayVol = calcStore.getPartDayMonth();
+                    dayVol = getRoundedVolByDate(calcStore, new BigDecimal("1"), curDt);
                 } else if (Utl.in(fkCalcTp, 20, 21, 23)) {
                     // Х.В., Г.В., Эл.Эн. содерж.общ.им.МКД, Эл.эн.гараж
                     area = kartArea;
@@ -349,15 +349,15 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // Прочие услуги, расчитываемые как расценка * норматив * общ.площадь
                     // или 32 услуга, только не по муниципальному фонду
                     area = kartArea;
-                    dayVol = kartArea.multiply(calcStore.getPartDayMonth());
+                    dayVol = getRoundedVolByDate(calcStore, kartArea, curDt);
                 } else if (fkCalcTp.equals(36)) {
                     // Вывоз жидких нечистот и т.п. услуги
                     area = kartArea;
-                    dayVol = kartArea.multiply(calcStore.getPartDayMonth());
+                    dayVol = getRoundedVolByDate(calcStore, kartArea, curDt);
                 } else if (fkCalcTp.equals(37) && !countPers.isSingleOwnerOlder70) {
                     // Капремонт и если не одинокие пенсионеры старше 70
                     area = kartArea;
-                    dayVol = kartArea.multiply(calcStore.getPartDayMonth());
+                    dayVol = getRoundedVolByDate(calcStore, kartArea, curDt);
                 } else if (Utl.in(fkCalcTp, 34, 44)) {
                     // Повыш.коэфф
                     if (nabor.getUsl().getParentUsl() != null) {
@@ -367,8 +367,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             // только если нет счетчика в родительской услуге
                             area = kartArea;
                             // сложить все объемы родит.услуги, умножить на норматив текущей услуги
+                            // здесь округлять так, не использовать getRoundedVolByDate! ред.23.01.19
                             dayVol = (uslPriceVolKart.vol.add(uslPriceVolKart.volOverSoc))
-                                    .multiply(naborNorm);
+                                    .multiply(naborNorm)
+                                    .setScale(5, BigDecimal.ROUND_HALF_UP);
                         }
 
                     } else {
@@ -378,7 +380,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 } else if (fkCalcTp.equals(49)) {
                     // Вывоз мусора - кол-во прожив * цену (Кис.)
                     area = kartArea;
-                    dayVol = BigDecimal.valueOf(countPers.kpr).multiply(calcStore.getPartDayMonth());
+                    dayVol = getRoundedVolByDate(calcStore, BigDecimal.valueOf(countPers.kpr), curDt);
                 } else if (fkCalcTp.equals(47)) {
                     // Тепл.энергия для нагрева ХВС (Кис.)
                     area = kartArea;
@@ -401,15 +403,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         isLinkedExistMeter = uslPriceVolKart.isMeter;
                         if (!vvodVol2.equals(BigDecimal.ZERO)) {
                             dayVol = uslPriceVolKart.vol.divide(vvodVol2, 20, BigDecimal.ROUND_HALF_UP)
-                                    .multiply(vvodVol);
-/*
-                            if (nabor.getKart().getLsk().equals("РСО_0001")) {
-                                log.info("!!!!!!!!!!!!!! lsk={}, dt={}, uslPriceVolKart.vol={}, vvvodVol2={}, vvodVol={}, " +
-                                                "dayVol={}",
-                                        nabor.getKart().getLsk(), Utl.getStrFromDate(curDt), uslPriceVolKart.vol, vvodVol2, vvodVol,
-                                        dayVol);
-                            }
-*/
+                                    .multiply(vvodVol)
+                                    .setScale(5, BigDecimal.ROUND_HALF_UP);
                         }
                     }
 
@@ -506,25 +501,24 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * @param dt - дата расчета
      * @return
      */
-    private BigDecimal getRoundedVolByDate(CalcStore calcStore, BigDecimal vol, Date dt) {
+    private BigDecimal getRoundedVolByDate(CalcStore calcStore, BigDecimal vol, Date dt) throws ErrorWhileChrg {
         Calendar c = Calendar.getInstance();
         BigDecimal diff = vol;
-        Date lastPartVolDt = null;
-        Map<Date, BigDecimal> map = new HashMap<>();
+        Date lastDt = Utl.getLastDate(dt);
         for (c.setTime(calcStore.getCurDt1()); !c.getTime().after(calcStore.getCurDt2());
              c.add(Calendar.DATE, 1)) {
             Date curDt = c.getTime();
-            BigDecimal partVol = vol.multiply(calcStore.getPartDayMonth()).setScale(5, BigDecimal.ROUND_HALF_UP);
-            lastPartVolDt = curDt;
-            map.put(curDt, partVol);
+            BigDecimal partVol = vol.multiply(calcStore.getPartDayMonth())
+                    .setScale(5, BigDecimal.ROUND_HALF_UP);
             diff = diff.subtract(partVol);
+            if (curDt.equals(dt) && curDt.equals(lastDt)) {
+                // округлить на последний день месяца
+                return partVol.add(diff);
+            } else if (curDt.equals(dt)) {
+                return partVol;
+            }
         }
-
-        if (lastPartVolDt != null && !diff.equals(BigDecimal.ZERO)) {
-            // округление на последний день месяца
-            map.put(lastPartVolDt, map.get(lastPartVolDt).add(diff));
-        }
-        return map.get(dt);
+        throw new ErrorWhileChrg("ОШИБКА! Некорректное завершение getRoundedVolByDate");
     }
 
     /**
