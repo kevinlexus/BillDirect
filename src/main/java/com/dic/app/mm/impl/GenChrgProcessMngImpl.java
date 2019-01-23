@@ -120,7 +120,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, mapDayMeterVol, c.getTime(), part);
         }
 
-        // УМНОЖИТЬ объем на цену (расчет в рублях)
+        // 4. ОКРУГЛИТЬ объемы
+        calcStore.getChrgCountAmount().roundVol();
+
+        // 5. УМНОЖИТЬ объем на цену (расчет в рублях)
 
         // сохранить в объемы дома (для расчета ОДН и прочих распределений во вводах)
         //calcStore.getChrgCountAmount().addChrgCount(chrgCount);
@@ -327,6 +330,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     //  в доле на 1 день
                     // квартира с проживающими
                     dayVol = tempVol.multiply(calcStore.getPartDayMonth());
+                    //log.info("************************ dayVol={}", dayVol);
                     area = kartArea;
                 } else if (fkCalcTp.equals(7) && kartMain.getStatus().getId().equals(1)) {
                     // Найм (только по муниципальным квартирам) расчет на м2
@@ -397,12 +401,14 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         if (!vvodVol2.equals(BigDecimal.ZERO)) {
                             dayVol = uslPriceVolKart.vol.divide(vvodVol2, 20, BigDecimal.ROUND_HALF_UP)
                                     .multiply(vvodVol);
+/*
                             if (nabor.getKart().getLsk().equals("РСО_0001")) {
                                 log.info("!!!!!!!!!!!!!! lsk={}, dt={}, uslPriceVolKart.vol={}, vvvodVol2={}, vvodVol={}, " +
                                                 "dayVol={}",
                                         nabor.getKart().getLsk(), Utl.getStrFromDate(curDt), uslPriceVolKart.vol, vvodVol2, vvodVol,
                                         dayVol);
                             }
+*/
                         }
                     }
 

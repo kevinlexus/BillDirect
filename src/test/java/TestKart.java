@@ -31,6 +31,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import java.math.BigDecimal;
+import java.text.DecimalFormat;
 
 import static junit.framework.TestCase.assertTrue;
 
@@ -153,6 +154,10 @@ public class TestKart {
 				false,
 				new BigDecimal("7.536"), true);
 
+		// Эл.эн. ОДН (вариант с простым распределением по площади)
+		testDataBuilder.addVvodForTest(house, "123", 1, false,
+				new BigDecimal("120.58"), false);
+
 		// построить лицевые счета по квартире
 		testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52),
 				3,true, true, true, 1);
@@ -177,6 +182,53 @@ public class TestKart {
 			BigDecimal amntVolChrgPrep = BigDecimal.ZERO;
 			reqConf.setVvod(vvod);
 			distVolMng.distVolByVvod(reqConf, calcStore);
+		}
+		sw.stop();
+
+		reqConf.setVvod(null);
+		reqConf.setHouse(house);
+		reqConf.setTp(0);
+
+		// загрузить справочники todo еще раз??????????
+		calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
+
+		sw.start("TIMING:Начисление");
+		// вызов начисления
+		processMng.genProcessAll(reqConf, calcStore);
+		sw.stop();
+
+		// распечатать объемы
+		printVolAmnt(calcStore, null, "053");
+		printVolAmnt(calcStore, null, "123");
+		printVolAmnt(calcStore, null, "099");
+
+		System.out.println(sw.prettyPrint());
+		log.info("Test genChrgProcessMngGenChrgHouse End!");
+	}
+
+	private void printVolAmnt(CalcStore calcStore, String lsk, String uslId) {
+		log.info("");
+		log.info("****** ПРОВЕРКА объема по lsk={}, usl={} *******", lsk, uslId);
+		for (UslVolKart t : calcStore.getChrgCountAmount().getLstUslVolKart()) {
+			//log.info("lsk={}, usl={}", t.kart.getLsk(), t.usl.getId());
+			if ((lsk==null || t.kart.getLsk().equals(lsk)) && t.usl.getId().equals(uslId)) {
+				log.info("lsk={}, area={}, kpr={}, empt={}, met={}, vol={}", t.kart.getLsk(),
+						t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
+						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP),
+						t.isEmpty, t.isMeter,
+						t.vol.setScale(8, BigDecimal.ROUND_HALF_UP)
+				);
+			}
+		}
+		log.info("****** общий объем={} ******",
+				new DecimalFormat("#0.########").format(calcStore.getChrgCountAmount().getLstUslVolKart()
+						.stream()
+						.filter(t-> (lsk==null || t.kart.getLsk().equals(lsk)) && t.usl.getId().equals(uslId))
+						.map(t->t.vol
+						).reduce(BigDecimal.ZERO, BigDecimal::add)
+				.setScale(8, BigDecimal.ROUND_HALF_UP))
+		);
+
 
 /*
 			for (Nabor nabor : vvod.getNabor()) {
@@ -200,100 +252,6 @@ public class TestKart {
 			}
 			log.info("Итоговое распределение ОДН charge={}, chargePrep={}", amntVolChrg, amntVolChrgPrep);
 */
-		}
-		sw.stop();
-		// получить объемы
-		for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
-			if (t.kart.getLsk().equals("РСО_0001") && Utl.in(t.usl.getId(),"099")) {
-				log.info("CHECK1 lsk={}, usl={} vol={} ar={} Kpr={}",
-						t.kart.getLsk(), t.usl.getId(),
-						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
-			}
-		}
 
-		reqConf.setVvod(null);
-		reqConf.setHouse(house);
-		reqConf.setTp(0);
-
-		// загрузить справочники todo еще раз??????????
-		calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
-
-		sw.start("TIMING:Начисление");
-		// вызов начисления
-		processMng.genProcessAll(reqConf, calcStore);
-		sw.stop();
-		log.info("");
-		// получить объемы
-/*
-		for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
-			if (Utl.in(t.usl.getId(),"011")) {
-				log.info("CHECK2 lsk={}, usl={} vol={} ar={} Kpr={}",
-						t.kart.getLsk(), t.usl.getId(),
-						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
-			}
-		}
-		log.info("");
-*/
-/*
-		for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
-			if (t.kart.getLsk().equals("РСО_0001") && Utl.in(t.usl.getId(),"015")) {
-				log.info("CHECK2 lsk={}, usl={} vol={} ar={} Kpr={}",
-						t.kart.getLsk(), t.usl.getId(),
-						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
-			}
-		}
-*/
-		log.info("");
-		for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
-			if (t.kart.getLsk().equals("РСО_0001") && Utl.in(t.usl.getId(),"099")) {
-				log.info("CHECK2 lsk={}, usl={} vol={} ar={} Kpr={}",
-						t.kart.getLsk(), t.usl.getId(),
-						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
-			}
-		}
-/*
-		log.info("");
-		for (UslVolKart t : calcStore.getChrgCountAmount().getLstUslVolKart()) {
-			if (t.kart.getLsk().equals("РСО_0001") && Utl.in(t.usl.getId(),"015")) {
-				log.info("CHECK3 lsk={}, usl={} vol={} ar={} Kpr={}",
-						t.kart.getLsk(), t.usl.getId(),
-						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
-			}
-		}
-*/
-		log.info("");
-		for (UslVolKart t : calcStore.getChrgCountAmount().getLstUslVolKart()) {
-			if (t.kart.getLsk().equals("РСО_0001") && Utl.in(t.usl.getId(),"103")) {
-				log.info("CHECK3 lsk={}, usl={} vol={} ar={} Kpr={}",
-						t.kart.getLsk(), t.usl.getId(),
-						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
-			}
-		}
-/*
-		log.info("");
-		for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
-			if (Utl.in(t.usl.getId(),"103")) {
-				log.info("CHECK2 lsk={}, usl={} vol={} ar={} Kpr={}",
-						t.kart.getLsk(), t.usl.getId(),
-						t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP));
-			}
-		}
-*/
-		System.out.println(sw.prettyPrint());
-		log.info("Test genChrgProcessMngGenChrgHouse End!");
 	}
 }
