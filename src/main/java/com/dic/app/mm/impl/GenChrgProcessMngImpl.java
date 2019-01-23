@@ -162,19 +162,20 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
     /**
      * Расчет объема по услугам
-     * @param calcStore - хранилище справочников
-     * @param reqConf - запрос
-     * @param kartMainByKlsk - основной лиц.счет
-     * @param parVarCntKpr - параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
+     *
+     * @param calcStore       - хранилище справочников
+     * @param reqConf         - запрос
+     * @param kartMainByKlsk  - основной лиц.счет
+     * @param parVarCntKpr    - параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
      * @param parCapCalcKprTp - параметр учета проживающих для капремонта
-     * @param ko - объект Ko квартиры
-     * @param lstMeterVol - объемы по счетчикам
-     * @param lstSelUsl - список услуг для расчета
-     * @param lstDayMeterVol - хранилище объемов по счетчикам
-     * @param curDt - дата расчета
-     * @param part - группа расчета (услуги рассчитываемые до(1) /после(2) рассчета ОДН
+     * @param ko              - объект Ko квартиры
+     * @param lstMeterVol     - объемы по счетчикам
+     * @param lstSelUsl       - список услуг для расчета
+     * @param lstDayMeterVol  - хранилище объемов по счетчикам
+     * @param curDt           - дата расчета
+     * @param part            - группа расчета (услуги рассчитываемые до(1) /после(2) рассчета ОДН
      * @throws ErrorWhileChrg - ошибка во время расчета
-     * @throws WrongParam - ошибочный параметр
+     * @throws WrongParam     - ошибочный параметр
      */
     private void genVolPart(CalcStore calcStore, RequestConfig reqConf, Kart kartMainByKlsk, int parVarCntKpr,
                             int parCapCalcKprTp, Ko ko, List<SumMeterVol> lstMeterVol, List<Usl> lstSelUsl,
@@ -194,7 +195,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         for (Nabor nabor : lstNabor) {
             if (nabor.getUsl().isMain() && (lstSelUsl.size() == 0 || lstSelUsl.contains(nabor.getUsl()))
                     && (part == 1 && !nabor.getUsl().getFkCalcTp().equals(47) ||
-                        part == 2 && nabor.getUsl().getFkCalcTp().equals(47)) // фильтр очередности расчета
+                    part == 2 && nabor.getUsl().getFkCalcTp().equals(47)) // фильтр очередности расчета
                     ) {
                 // РАСЧЕТ по основным услугам (из набора услуг или по заданным во вводе)
                 log.trace("{}: lsk={}, uslId={}, fkCalcTp={}, dt={}",
@@ -427,8 +428,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         .withKart(nabor.getKart()) // группировать по лиц.счету из nabor!
                         .withUsl(nabor.getUsl())
                         .withOrg(nabor.getOrg())
-                        .withIsCounter(isLinkedExistMeter != null? isLinkedExistMeter : isMeterExist)
-                        .withIsEmpty(isLinkedEmpty != null? isLinkedEmpty : countPers.isEmpty)
+                        .withIsCounter(isLinkedExistMeter != null ? isLinkedExistMeter : isMeterExist)
+                        .withIsEmpty(isLinkedEmpty != null ? isLinkedEmpty : countPers.isEmpty)
                         .withIsResidental(kartMain.isResidental())
                         .withSocStdt(socStandart != null ? socStandart.norm : BigDecimal.ZERO)
                         .withPrice(detailUslPrice.price)
@@ -496,29 +497,26 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
     /**
      * Получить округленную долю объема в зависимости от даты
+     *
      * @param calcStore - хранилище объемов
-     * @param vol - объем к распределению
-     * @param dt - дата расчета
-     * @return
+     * @param vol       - объем к распределению
+     * @param dt        - дата расчета
+     * @return - округленный объем
      */
-    private BigDecimal getRoundedVolByDate(CalcStore calcStore, BigDecimal vol, Date dt) throws ErrorWhileChrg {
+    private BigDecimal getRoundedVolByDate(CalcStore calcStore, BigDecimal vol, Date dt) {
         Calendar c = Calendar.getInstance();
-        BigDecimal diff = vol;
         Date lastDt = Utl.getLastDate(dt);
-        for (c.setTime(calcStore.getCurDt1()); !c.getTime().after(calcStore.getCurDt2());
-             c.add(Calendar.DATE, 1)) {
-            Date curDt = c.getTime();
-            BigDecimal partVol = vol.multiply(calcStore.getPartDayMonth())
-                    .setScale(5, BigDecimal.ROUND_HALF_UP);
-            diff = diff.subtract(partVol);
-            if (curDt.equals(dt) && curDt.equals(lastDt)) {
-                // округлить на последний день месяца
-                return partVol.add(diff);
-            } else if (curDt.equals(dt)) {
-                return partVol;
-            }
+        BigDecimal partVol = vol.multiply(calcStore.getPartDayMonth())
+                .setScale(5, BigDecimal.ROUND_HALF_UP);
+        if (dt.equals(lastDt)) {
+            // округлить на последний день месяца
+            BigDecimal cntDays = BigDecimal.valueOf(Utl.getDay(lastDt));
+            // общий объем - кол-во дней * долю объема = разница
+            // вернуть объем последнего дня месяца + разница
+            return partVol.add(vol.subtract(partVol.multiply(cntDays)));
+        } else {
+            return partVol;
         }
-        throw new ErrorWhileChrg("ОШИБКА! Некорректное завершение getRoundedVolByDate");
     }
 
     /**
