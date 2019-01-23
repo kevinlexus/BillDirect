@@ -135,11 +135,11 @@ public class TestKart {
 		// добавить вводы
 		// Х.в.
 		testDataBuilder.addVvodForTest(house, "011", 1, false,
-				new BigDecimal("110.279"), true);
+				new BigDecimal("5110.279"), true);
 
 		// Г.в.
 		testDataBuilder.addVvodForTest(house, "015", 1, false,
-				new BigDecimal("82.23"), true);
+				new BigDecimal("582.23"), true);
 
 		// Отопление Гкал
 		testDataBuilder.addVvodForTest(house, "053", 1, false,
@@ -198,6 +198,9 @@ public class TestKart {
 		sw.stop();
 
 		// распечатать объемы
+		printVolAmnt(calcStore, null, "011");
+		printVolAmnt(calcStore, null, "015");
+
 		printVolAmnt(calcStore, null, "053");
 		printVolAmnt(calcStore, null, "123");
 		printVolAmnt(calcStore, null, "099");
