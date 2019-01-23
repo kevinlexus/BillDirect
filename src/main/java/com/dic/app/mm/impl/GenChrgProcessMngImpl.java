@@ -278,7 +278,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         }
                     } else {
                         // норматив в пропорции на 1 день месяца
-                        tempVol = getRoundedVolByDate(calcStore, socStandart.vol, curDt);
+                        // здесь округлять так, не использовать getRoundedVolByDate!
+                        tempVol = socStandart.vol.multiply(calcStore.getPartDayMonth())
+                                    .setScale(5, BigDecimal.ROUND_HALF_UP);
                     }
 
                     dayVol = tempVol;
@@ -368,7 +370,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             // только если нет счетчика в родительской услуге
                             area = kartArea;
                             // сложить все объемы родит.услуги, умножить на норматив текущей услуги
-                            // здесь округлять так, не использовать getRoundedVolByDate! ред.23.01.19
+                            // здесь округлять так, не использовать getRoundedVolByDate!
                             dayVol = (uslPriceVolKart.vol.add(uslPriceVolKart.volOverSoc))
                                     .multiply(naborNorm)
                                     .setScale(5, BigDecimal.ROUND_HALF_UP);
