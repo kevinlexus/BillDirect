@@ -135,11 +135,11 @@ public class TestKart {
 		// добавить вводы
 		// Х.в.
 		testDataBuilder.addVvodForTest(house, "011", 1, false,
-				new BigDecimal("5110.279"), true);
+				new BigDecimal("200.279"), true);
 
 		// Г.в.
 		testDataBuilder.addVvodForTest(house, "015", 1, false,
-				new BigDecimal("582.23"), true);
+				new BigDecimal("172.23"), true);
 
 		// Отопление Гкал
 		testDataBuilder.addVvodForTest(house, "053", 1, false,
@@ -147,7 +147,7 @@ public class TestKart {
 
 		// Х.В. для ГВС
 		testDataBuilder.addVvodForTest(house, "099", 1, false,
-				new BigDecimal("40.23"), true);
+				new BigDecimal("140.23"), true);
 
 		// Тепловая энергия для нагрева Х.В.
 		testDataBuilder.addVvodForTest(house, "103", 6, // тип 6 не распределяется по лиц.счетам
@@ -185,6 +185,7 @@ public class TestKart {
 		}
 		sw.stop();
 
+
 		reqConf.setVvod(null);
 		reqConf.setHouse(house);
 		reqConf.setTp(0);
@@ -198,63 +199,15 @@ public class TestKart {
 		sw.stop();
 
 		// распечатать объемы
-		printVolAmnt(calcStore, null, "011");
-		printVolAmnt(calcStore, null, "015");
-
-		printVolAmnt(calcStore, null, "053");
-		printVolAmnt(calcStore, null, "123");
-		printVolAmnt(calcStore, null, "099");
+		//printVolAmnt(calcStore, null, "053");
+		//printVolAmnt(calcStore, null, "123");
+		//printVolAmnt(calcStore, null, "099");
+		calcStore.getChrgCountAmount().printVolAmnt(null, "099");
+		calcStore.getChrgCountAmount().printVolAmnt(null, "101");
+		calcStore.getChrgCountAmount().printVolAmnt(null, "053");
 
 		System.out.println(sw.prettyPrint());
 		log.info("Test genChrgProcessMngGenChrgHouse End!");
 	}
 
-	private void printVolAmnt(CalcStore calcStore, String lsk, String uslId) {
-		log.info("");
-		log.info("****** ПРОВЕРКА объема по lsk={}, usl={} *******", lsk, uslId);
-		for (UslVolKart t : calcStore.getChrgCountAmount().getLstUslVolKart()) {
-			//log.info("lsk={}, usl={}", t.kart.getLsk(), t.usl.getId());
-			if ((lsk==null || t.kart.getLsk().equals(lsk)) && t.usl.getId().equals(uslId)) {
-				log.info("lsk={}, area={}, kpr={}, empt={}, met={}, vol={}", t.kart.getLsk(),
-						t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP),
-						t.isEmpty, t.isMeter,
-						t.vol.setScale(8, BigDecimal.ROUND_HALF_UP)
-				);
-			}
-		}
-		log.info("****** общий объем={} ******",
-				new DecimalFormat("#0.########").format(calcStore.getChrgCountAmount().getLstUslVolKart()
-						.stream()
-						.filter(t-> (lsk==null || t.kart.getLsk().equals(lsk)) && t.usl.getId().equals(uslId))
-						.map(t->t.vol
-						).reduce(BigDecimal.ZERO, BigDecimal::add)
-				.setScale(8, BigDecimal.ROUND_HALF_UP))
-		);
-
-
-/*
-			for (Nabor nabor : vvod.getNabor()) {
-				if (nabor.getUsl().getId().equals("011")) {
-					for (Charge t : nabor.getKart().getCharge()) {
-						log.info("ОДН:Charge lsk={}, usl={}, type={}, testOpl={}", t.getKart().getLsk(), t.getUsl().getId(),
-								t.getType(), t.getTestOpl());
-						amntVolChrg = amntVolChrg.add(t.getTestOpl());
-					}
-				}
-			}
-			for (Nabor nabor : vvod.getNabor()) {
-				if (nabor.getUsl().getId().equals("011")) {
-					for (ChargePrep t : nabor.getKart().getChargePrep()) {
-						log.info("ОДН:ChargePrep lsk={}, usl={}, sch={}, tp={}, vol={}",
-								t.getKart().getLsk(), t.getUsl().getId(), t.isExistMeter(),
-								t.getTp(), t.getVol());
-						amntVolChrgPrep = amntVolChrgPrep.add(t.getVol());
-					}
-				}
-			}
-			log.info("Итоговое распределение ОДН charge={}, chargePrep={}", amntVolChrg, amntVolChrgPrep);
-*/
-
-	}
 }

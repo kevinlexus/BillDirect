@@ -26,6 +26,7 @@ import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -74,7 +75,7 @@ public class DistVolMngImpl implements DistVolMng {
         final boolean isWithoutLimit = Utl.nvl(vvod.getIsWithoutLimit(), false);
 
         // тип услуги
-        int tp = -1;
+        int tpTmp = -1;
 
         // вид услуги ограничения ОДН
         Boolean isLimitWater = null;
@@ -82,21 +83,23 @@ public class DistVolMngImpl implements DistVolMng {
         if (Utl.in(usl.getFkCalcTp(), 3, 17, 4, 18, 31, 38, 40)) {
             if (Utl.in(usl.getFkCalcTp(), 3, 17, 38, 4, 18, 40)) {
                 // х.в., г.в.
-                tp = 0;
+                tpTmp = 0;
                 isLimitWater = true;
             } else if (Utl.in(usl.getFkCalcTp(), 31)) {
                 // эл.эн.
                 isLimitWater = false;
-                tp = 2;
+                tpTmp = 2;
             }
         } else if (Utl.in(usl.getFkCalcTp(), 23)) {
             // прочая услуга, расчитываемая как расценка * vol_add, пропорционально площади
             isLimitWater = false;
-            tp = 3;
+            tpTmp = 3;
         } else if (Utl.in(usl.getFkCalcTp(), 11, 14, 15, 23)) {
             // прочие услуги
-            tp = 4;
+            tpTmp = 4;
         }
+
+        final int tp = tpTmp;
 
         if (tp != -1) {
             // ОЧИСТКА информации ОДН
@@ -203,7 +206,7 @@ public class DistVolMngImpl implements DistVolMng {
             // площадь по вводу
             BigDecimal areaVvod = vvod.getOplAdd();
 
-            log.trace("*** Ввод id={}, услуга usl={}, площадь={}, кол-во прож.={}, объем={}, введено={}",
+            log.info("*** Ввод id={}, услуга usl={}, площадь={}, кол-во прож.={}, объем={}, введено={}",
                     vvod.getId(), vvod.getUsl().getId(), areaVvod, kprAmnt, volAmnt, kub);
 
 /*
@@ -219,62 +222,75 @@ public class DistVolMngImpl implements DistVolMng {
             final LimitODN limitODN = calcLimit(vvod.getHouse().getKo(), isLimitWater, kprAmnt, areaVvod);
 
             // РАСПРЕДЕЛЕНИЕ
-            if (kub.compareTo(BigDecimal.ZERO) !=0) {
+            if (kub.compareTo(BigDecimal.ZERO) != 0) {
                 if (Utl.in(usl.getFkCalcTp(), 3, 17, 4, 18, 31, 38, 40)) {
                     if (Utl.in(distTp, 1, 3)) {
                         BigDecimal diff = kub.subtract(volAmnt);
-                        if (diff.compareTo(BigDecimal.ZERO) != 0 && areaVvod.compareTo(BigDecimal.ZERO) !=0) {
+                        BigDecimal diffDist = diff.abs();
+                        if (diff.compareTo(BigDecimal.ZERO) != 0 && areaVvod.compareTo(BigDecimal.ZERO) != 0) {
+                            // выборка для распределения
+                            Iterator<UslVolKartGrp> iter = lstUslVolKartGrp
+                                    .stream()
+                                    .filter(t -> t.isResidental // кроме нежилых
+                                            && t.kart.getNabor().stream()
+                                            .anyMatch((d -> d.getUsl().equals(t.usl.getUslChild()))) // где есть наборы по дочерним усл.
+                                            && getIsCountOpl(tp, distTp, isUseSch, t)) // учитывать ли объем
+                                    .iterator();
+
                             // есть небаланс
                             if (diff.compareTo(BigDecimal.ZERO) > 0) {
-                                log.trace("*** перерасход={}", diff);
                                 // ПЕРЕРАСХОД
+                                log.info("*** перерасход={}", diff);
                                 // доначисление пропорционально площади (в т.ч.арендаторы), если небаланс > 0
-                                BigDecimal diffDistributed = BigDecimal.ZERO;
-                                for (UslVolKartGrp t : lstUslVolKartGrp) {
-                                    Nabor naborChild = t.kart.getNabor().stream()
-                                            .filter(d -> d.getUsl().equals(t.usl.getUslChild()))
-                                            .findAny().orElse(null);
-
-                                    // учитывать ли объем
-                                    boolean isCountVol = getIsCountOpl(distTp, distTp, isUseSch, t);
+                                while (iter.hasNext()) {
+                                    UslVolKartGrp t = iter.next();
                                     // по дочерним услугам
-                                    if (naborChild != null && isCountVol) {
-                                        // рассчитать долю объема
-                                        BigDecimal proc = t.area.divide(areaVvod, 20, BigDecimal.ROUND_HALF_UP);
-                                        BigDecimal volDist = proc.multiply(diff).setScale(5, BigDecimal.ROUND_HALF_UP);
-                                        naborChild.setVolAdd(volDist);
-                                        // лимит (информационно)
-                                        BigDecimal limit = null;
-                                        if (Utl.in(tp, 0)) {
-                                            // х.в. г.в.
-                                            limit = limitODN.limitArea.multiply(t.area);
-                                        } else if (tp == 2) {
-                                            // эл.эн.
-                                            limit = limitODN.amntVolODN // взято из P_VVOD строка 591
-                                                    .multiply(t.area).divide(areaVvod, 20, BigDecimal.ROUND_HALF_UP);
-                                        }
-                                        naborChild.setLimit(limit);
-                                        // добавить инфу по ОДН.
-                                        if (volDist.compareTo(BigDecimal.ZERO) !=0) {
-                                            Charge charge = new Charge();
-                                            t.kart.getCharge().add(charge);
-                                            charge.setKart(t.kart);
-                                            charge.setUsl(t.usl.getUslChild());
-                                            charge.setTestOpl(volDist);
-                                            charge.setType(5);
+                                    // рассчитать долю объема
+                                    BigDecimal proc = t.area.divide(areaVvod, 20, BigDecimal.ROUND_HALF_UP);
+                                    BigDecimal volDist;
+                                    if (iter.hasNext()) {
+                                        volDist = proc.multiply(diff).setScale(3, BigDecimal.ROUND_HALF_UP);
+                                    } else {
+                                        // округлить на последнюю запись остаток объема
+                                        volDist = diffDist;
+                                    }
+                                    diffDist = diffDist.subtract(volDist);
 
-                                            diffDistributed = diffDistributed.add(volDist);
-                                        }
+                                    // лимит (информационно)
+                                    BigDecimal limitTmp = null;
+                                    if (Utl.in(tp, 0)) {
+                                        // х.в. г.в.
+                                        limitTmp = limitODN.limitArea.multiply(t.area);
+                                    } else if (tp == 2) {
+                                        // эл.эн.
+                                        limitTmp = limitODN.amntVolODN // взято из P_VVOD строка 591
+                                                .multiply(t.area).divide(areaVvod, 20, BigDecimal.ROUND_HALF_UP);
+                                    }
+                                    BigDecimal limit = limitTmp;
+                                    t.kart.getNabor().stream()
+                                            .filter(d -> d.getUsl().equals(t.usl.getUslChild()))
+                                            .findFirst().ifPresent(d -> {
+                                                log.trace("Перерасход lsk={}, usl={}, vol={}",
+                                                        d.getKart().getLsk(), d.getUsl().getId(), volDist);
+                                                d.setLimit(limit);
+                                                d.setVolAdd(volDist);
+                                    });
+
+                                    // добавить инфу по ОДН.
+                                    if (volDist.compareTo(BigDecimal.ZERO) != 0) {
+                                        Charge charge = new Charge();
+                                        t.kart.getCharge().add(charge);
+                                        charge.setKart(t.kart);
+                                        charge.setUsl(t.usl.getUslChild());
+                                        charge.setTestOpl(volDist);
+                                        charge.setType(5);
                                     }
                                 }
-                                log.trace("*** итоговое распределение перерасхода={}", diffDistributed);
-
-
                             } else {
                                 // ЭКОНОМИЯ - рассчитывается пропорционально кол-во проживающих, кроме Нежилых
-                                if (kprAmnt.compareTo(BigDecimal.ZERO) !=0) {
-                                    BigDecimal diffPerPers = diff.divide(kprAmnt, 20, BigDecimal.ROUND_HALF_UP).abs();
-                                    log.trace("*** экономия={}, на 1 прожив={}", diff.abs(), diffPerPers);
+                                if (kprAmnt.compareTo(BigDecimal.ZERO) != 0) {
+                                    BigDecimal diffPerPers = diffDist.divide(kprAmnt, 20, BigDecimal.ROUND_HALF_UP);
+                                    log.info("*** экономия={}, на 1 прожив={}", diffDist, diffPerPers);
 
                                     // лиц.счет, объем, лимит
                                     // по счетчику
@@ -284,64 +300,70 @@ public class DistVolMngImpl implements DistVolMng {
                                     // общий
                                     Map<Kart, Pair<BigDecimal, BigDecimal>> mapDistVol = new HashMap<>();
 
-                                    BigDecimal volSum = BigDecimal.ZERO;
-                                    for (UslVolKart t : lstUslVolKart) {
+                                    while (iter.hasNext()) {
+                                        UslVolKartGrp t = iter.next();
                                         // кроме нежилых
-                                        if (t.isResidental) {
-
-                                            Nabor naborChild = t.kart.getNabor().stream()
-                                                    .filter(d -> d.getUsl().equals(t.usl.getUslChild()))
-                                                    .findAny().orElse(null);
-                                            // получить совокупный объем
-                                            UslVolKartGrp uslVolKartGrp = getUslVolKartGrp(calcStore, t);
-                                            // учитывать ли объем
-                                            boolean isCountVol = getIsCountOpl(distTp, distTp, isUseSch, uslVolKartGrp);
-                                            if (naborChild != null && isCountVol) {
-                                                // рассчитать долю объема на лиц.счет
-                                                BigDecimal volDistKart = uslVolKartGrp.kpr.multiply(diffPerPers);
-                                                // ограничить объем экономии текущим общим объемом норматив+счетчик
-                                                if (volDistKart.compareTo(uslVolKartGrp.vol) > 0) {
-                                                    volDistKart = uslVolKartGrp.vol;
-                                                }
-                                                log.trace("lsk={}, kpr={}, собств.объем={}, к распр={}",
-                                                        t.kart.getLsk(), t.kpr, t.vol, volDistKart);
-
-                                                // лимит (информационно)
-                                                BigDecimal limit = null;
-                                                if (Utl.in(tp, 0)) {
-                                                    // х.в. г.в.
-                                                    limit = limitODN.limitArea.multiply(uslVolKartGrp.area);
-                                                } else if (tp == 2) {
-                                                    // эл.эн.
-                                                    limit = limitODN.amntVolODN // взято из P_VVOD строка 591
-                                                            .multiply(uslVolKartGrp.area).divide(areaVvod, 20, BigDecimal.ROUND_HALF_UP);
-                                                }
-
-                                                // установить лимит (неэффективно, по одним и тем же записям - много раз)
-                                                naborChild.setLimit(limit);
-
-                                                if (volDistKart.compareTo(BigDecimal.ZERO) !=0) {
-                                                    // рассчитать долю объема на данную информационную строку UslVolKart
-                                                    BigDecimal proc = t.vol.divide(uslVolKartGrp.vol, 20, BigDecimal.ROUND_HALF_UP);
-                                                    BigDecimal vol = proc.multiply(volDistKart);
-                                                    // добавить объем
-                                                    if (t.isMeter) {
-                                                        addDistVol(mapDistMeterVol, mapDistVol, t, limit, vol);
-                                                    } else {
-                                                        addDistVol(mapDistNormVol, mapDistVol, t, limit, vol);
-                                                    }
-                                                    log.trace("доля распр:={}", vol);
-                                                    volSum = volSum.add(vol);
-                                                    log.trace("итог распр:={}", volSum);
-                                                }
-                                            }
+                                        // рассчитать долю объема на лиц.счет
+                                        BigDecimal volDistKart = null;
+                                        if (iter.hasNext()) {
+                                            volDistKart = t.kpr.multiply(diffPerPers)
+                                                    .setScale(3, BigDecimal.ROUND_HALF_UP);
+                                        } else {
+                                            // округлить на последнюю запись остаток объема
+                                            volDistKart = diffDist;
                                         }
+                                        // ограничить объем экономии текущим общим объемом норматив+счетчик
+                                        if (volDistKart.compareTo(t.vol) > 0) {
+                                            volDistKart = t.vol;
+                                        }
+                                        diffDist = diffDist.subtract(volDistKart);
+                                        log.trace("экономия: lsk={}, kpr={}, собств.объем={}, к распр={}",
+                                                t.kart.getLsk(), t.kpr, t.vol, volDistKart);
+                                        //test = test.add(volDistKart);
+                                        // лимит (информационно)
+                                        BigDecimal limitTmp = null;
+                                        if (Utl.in(tp, 0)) {
+                                            // х.в. г.в.
+                                            limitTmp = limitODN.limitArea.multiply(t.area);
+                                        } else if (tp == 2) {
+                                            // эл.эн.
+                                            limitTmp = limitODN.amntVolODN // взято из P_VVOD строка 591
+                                                    .multiply(t.area).divide(areaVvod, 3, BigDecimal.ROUND_HALF_UP);
+                                        }
+                                        BigDecimal limit = limitTmp;
+
+                                        // установить лимит (неэффективно, по одним и тем же записям - много раз)
+                                        t.kart.getNabor().stream()
+                                                .filter(d -> d.getUsl().equals(t.usl.getUslChild()))
+                                                .findFirst().ifPresent(d -> d.setLimit(limit));
+
+                                        // рассчитать долю объема по информационным строкам UslVolKart, с округлением
+                                        List<UslVolKart> lstUslVolKart2 = lstUslVolKart.stream()
+                                                .filter(d -> t.kart.equals(d.kart) && t.usl.equals(d.usl))
+                                                .collect(Collectors.toList());
+
+                                        // добавить объем для сохранения в C_CHARGE_PREP
+                                        Map<DistributableBigDecimal, BigDecimal> mapUslVolKart =
+                                                Utl.distBigDecimalByListIntoMap(volDistKart, lstUslVolKart2, 3);
+                                        for (Map.Entry<DistributableBigDecimal, BigDecimal> e : mapUslVolKart.entrySet()) {
+                                            UslVolKart uslVolKart = (UslVolKart) e.getKey();
+                                            if (uslVolKart.isMeter) {
+                                                addDistVol(mapDistMeterVol, mapDistVol, uslVolKart, limitTmp, e.getValue());
+                                            } else {
+                                                addDistVol(mapDistNormVol, mapDistVol, uslVolKart, limitTmp, e.getValue());
+                                            }
+
+                                        }
+
                                     }
 
-                                    log.trace("");
-                                    // добавить объем экономии и инфу по ОДН. по нормативу и счетчику
+                                    //log.info("TEST={}", test);
+                                    // СОХРАНИТЬ объем экономии и инфу по ОДН. по нормативу и счетчику в C_CHARGE_PREP
+                                    // по счетчику
                                     mapDistMeterVol.entrySet().forEach(t -> addChargePrep(usl, t, true));
+                                    // по нормативу
                                     mapDistNormVol.entrySet().forEach(t -> addChargePrep(usl, t, false));
+                                    // в целом, по C_CHARGE
                                     mapDistVol.entrySet().forEach(t -> addCharge(usl, t, false));
                                 }
                             }
@@ -354,40 +376,62 @@ public class DistVolMngImpl implements DistVolMng {
                       например, эл.энерг МОП в Кис., в ТСЖ, эл.эн.ОДН в Полыс.
                       здесь же распределяется услуга ОДН, которая не предполагает собой
                       начисление по основной услуге в лицевых счетах */
-                    if (areaVvod.compareTo(BigDecimal.ZERO) !=0) {
-                        BigDecimal volForDist;
+                    if (areaVvod.compareTo(BigDecimal.ZERO) != 0) {
+                        BigDecimal diff;
                         if (Utl.in(usl.getCd(), "эл.эн.ОДН", "эл.эн.МОП2", "эл.эн.учет УО ОДН") && !isWithoutLimit
                                 && kub.compareTo(limitODN.amntVolODN) > 0 // ограничение распределения по законодательству
                                 ) {
-                            volForDist = limitODN.amntVolODN;
+                            diff = limitODN.amntVolODN;
                         } else {
-                            volForDist = kub.setScale(5, RoundingMode.HALF_UP);
+                            diff = kub.setScale(5, RoundingMode.HALF_UP);
                         }
+                        BigDecimal diffDist = diff;
+                        Iterator<UslVolKartGrp> iter = calcStore.getChrgCountAmount()
+                                .getLstUslVolKartGrp().stream()
+                                .filter(t -> t.usl.equals(vvod.getUsl()))
+                                .iterator();
 
-                        BigDecimal volForDistAmnt = volForDist;
-                        Nabor lastNabor = null;
-                        for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
-                            if (t.usl.equals(vvod.getUsl())) {
-                                BigDecimal vol = volForDist.multiply(t.area.divide(areaVvod, 5, RoundingMode.HALF_UP))
-                                        .setScale(5, RoundingMode.HALF_UP);
-                                for (Nabor nabor : t.kart.getNabor()) {
-                                    if (nabor.getUsl().equals(usl)) {
-                                        lastNabor = nabor;
-                                        nabor.setVol(vol);
-                                        volForDistAmnt = volForDistAmnt.subtract(vol);
-                                        log.trace("Распределено: lsk={}, usl={}, kub={}, vol={}, area={}, areaVvod={}",
-                                                t.kart.getLsk(), usl.getId(), kub, vol, t.area, areaVvod);
+                        while (iter.hasNext()) {
+                            UslVolKartGrp t = iter.next();
+                            for (Nabor nabor : t.kart.getNabor()) {
+                                if (nabor.getUsl().equals(usl)) {
+                                    BigDecimal volDistKart;
+                                    if (iter.hasNext()) {
+                                        volDistKart = diff.multiply(t.area.divide(areaVvod, 5, RoundingMode.HALF_UP))
+                                                .setScale(5, RoundingMode.HALF_UP);
+                                    } else {
+                                        // округлить на последнюю запись остаток объема
+                                        volDistKart = diffDist;
+                                    }
+                                    nabor.setVol(volDistKart);
+                                    diffDist = diffDist.subtract(volDistKart);
+                                    log.trace("Распределено: lsk={}, usl={}, kub={}, vol={}, area={}, areaVvod={}",
+                                            t.kart.getLsk(), usl.getId(), kub, volDistKart, t.area, areaVvod);
+                                }
+                            }
+
+                        }
+                            /*for (UslVolKartGrp t : calcStore.getChrgCountAmount().getLstUslVolKartGrp()) {
+                                if (t.usl.equals(vvod.getUsl())) {
+                                    BigDecimal vol = volForDist.multiply(t.area.divide(areaVvod, 5, RoundingMode.HALF_UP))
+                                            .setScale(5, RoundingMode.HALF_UP);
+                                    for (Nabor nabor : t.kart.getNabor()) {
+                                        if (nabor.getUsl().equals(usl)) {
+                                            lastNabor = nabor;
+                                            nabor.setVol(vol);
+                                            diff = diff.subtract(vol);
+                                            log.trace("Распределено: lsk={}, usl={}, kub={}, vol={}, area={}, areaVvod={}",
+                                                    t.kart.getLsk(), usl.getId(), kub, vol, t.area, areaVvod);
+                                        }
                                     }
                                 }
                             }
-                        }
-                        if (lastNabor != null && volForDistAmnt.compareTo(BigDecimal.ZERO) !=0) {
-                            // округление
-                            log.trace("Округление lsk={}, volDist={}", lastNabor.getKart().getLsk(),
-                                    volForDistAmnt);
-                            lastNabor.setVol(lastNabor.getVol().add(volForDistAmnt));
-                        }
-
+                            if (lastNabor != null && diff.compareTo(BigDecimal.ZERO) != 0) {
+                                // округление
+                                log.trace("Округление lsk={}, volDist={}", lastNabor.getKart().getLsk(),
+                                        diff);
+                                lastNabor.setVol(lastNabor.getVol().add(diff));
+                            }*/
                     }
                 }
             }
@@ -409,7 +453,8 @@ public class DistVolMngImpl implements DistVolMng {
      * @param entry        - информационная строка
      * @param isExistMeter - наличие счетчика
      */
-    private void addChargePrep(Usl usl, Map.Entry<Kart, Pair<BigDecimal, BigDecimal>> entry, boolean isExistMeter) {
+    private void addChargePrep(Usl usl, Map.Entry<Kart, Pair<BigDecimal, BigDecimal>> entry,
+                               boolean isExistMeter) {
         Kart kart = entry.getKey();
         Pair<BigDecimal, BigDecimal> mapVal = entry.getValue();
         BigDecimal vol = mapVal.getValue0().setScale(3, BigDecimal.ROUND_HALF_UP).multiply(new BigDecimal("-1"));
@@ -572,7 +617,8 @@ public class DistVolMngImpl implements DistVolMng {
      * @param cntKpr       - кол во прожив. по вводу
      * @param area         - площадь по вводу
      */
-    private LimitODN calcLimit(Ko houseKo, Boolean isLimitWater, BigDecimal cntKpr, BigDecimal area) throws WrongParam, WrongGetMethod {
+    private LimitODN calcLimit(Ko houseKo, Boolean isLimitWater, BigDecimal cntKpr, BigDecimal area) throws
+            WrongParam, WrongGetMethod {
         LimitODN limitODN = new LimitODN();
         if (isLimitWater != null) {
             // норматив по эл.энерг. ОДН в доме без лифта
@@ -584,7 +630,7 @@ public class DistVolMngImpl implements DistVolMng {
                 // х.в. г.в.
                 //расчитать лимит распределения
                 //если кол-во прожив. > 0
-                if (cntKpr.compareTo(BigDecimal.ZERO) !=0) {
+                if (cntKpr.compareTo(BigDecimal.ZERO) != 0) {
                     // площадь на одного проживающего
                     final BigDecimal oplMan = area.divide(cntKpr, 5, BigDecimal.ROUND_HALF_UP);
                     final BigDecimal oplLiter = oplLiter(oplMan.intValue());
@@ -602,7 +648,7 @@ public class DistVolMngImpl implements DistVolMng {
                 limitODN.areaProp = Utl.nvl(objParMng.getBd(houseKo, "area_general_property"), BigDecimal.ZERO);
                 BigDecimal existLift = Utl.nvl(objParMng.getBd(houseKo, "exist_lift"), BigDecimal.ZERO);
 
-                if (existLift.compareTo(BigDecimal.ZERO) ==0) {
+                if (existLift.compareTo(BigDecimal.ZERO) == 0) {
                     // дом без лифта
                     limitODN.odnNorm = ODN_EL_NORM;
                 } else {
