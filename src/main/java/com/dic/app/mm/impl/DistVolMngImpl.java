@@ -89,11 +89,11 @@ public class DistVolMngImpl implements DistVolMng {
                 // эл.эн.
                 tpTmp = 2;
             }
-        } else if (Utl.in(usl.getFkCalcTp(), 23)) {
-            // прочая услуга, расчитываемая как расценка * vol_add, пропорционально площади
+        } else if (Utl.in(usl.getFkCalcTp(), 14, 23)) {
+            // прочая услуга
             tpTmp = 3;
-        } else if (Utl.in(usl.getFkCalcTp(), 11, 14, 15, 23)) {
-            // прочие услуги
+        } else if (Utl.in(usl.getFkCalcTp(), 11, 15)) {
+            // остальные услуги
             tpTmp = 4;
         }
         final int tp = tpTmp;
@@ -117,7 +117,7 @@ public class DistVolMngImpl implements DistVolMng {
 
             // ПОЛУЧИТЬ итоговые объемы по вводу
             List<UslVolKartGrp> lstUslVolKartGrp;
-            if (Utl.in(tp, 0, 2, 3)) {
+            if (Utl.in(tp, 0, 2)) {
                 // х.в., г.в., эл.эн., эл.эн.ОДН
                 lstUslVolKartGrp =
                         lstUslVolKartGrpBase.stream()
@@ -167,7 +167,7 @@ public class DistVolMngImpl implements DistVolMng {
                     // итоговая площадь по вводу
                     vvod.setOplAdd(Utl.nvl(vvod.getOplAdd(), BigDecimal.ZERO).add(uslVolKartGrp.area));
                 }
-            } else if (usl.getFkCalcTp().equals(14)) {
+            } else if (tp == 3) {
                 // Отопление Гкал
                 for (UslVolKart t : lstUslVolKartBase) {
                     //log.trace("usl={}, cnt={}, empt={}, resid={}, t.vol={}, t.area={}",
@@ -264,7 +264,7 @@ public class DistVolMngImpl implements DistVolMng {
                                     t.kart.getNabor().stream()
                                             .filter(d -> d.getUsl().equals(t.usl.getUslChild()))
                                             .findFirst().ifPresent(d -> {
-                                        log.trace("Перерасход lsk={}, usl={}, vol={}",
+                                        log.info("Перерасход lsk={}, usl={}, vol={}",
                                                 d.getKart().getLsk(), d.getUsl().getId(), volDist);
                                         d.setLimit(limit);
                                         d.setVolAdd(volDist);
@@ -300,17 +300,7 @@ public class DistVolMngImpl implements DistVolMng {
                                                                     .anyMatch((d -> d.getUsl().equals(t.usl.getUslChild()))) // где есть наборы по дочерним усл.
                                                             && getIsCountOpl(tp, distTp, isUseSch, t)).collect(Collectors.toList());
 
-                                    //note TEST
-/*
-                                    BigDecimal kpr1 = lstUslVolKartGrp.stream().map(t -> t.kpr).reduce(BigDecimal.ZERO, BigDecimal::add);
-                                    List<Kart> lstUslVolKartGrp3 = lstUslVolKartGrp.stream().map(t->t.kart).collect(Collectors.toList());
-                                    BigDecimal kpr2 = lstUslVolKart.stream().filter(t->!t.isEmpty && lstUslVolKartGrp3.contains(t.kart))
-                                            .map(t -> t.kpr).reduce(BigDecimal.ZERO, BigDecimal::add);
-                                    log.info("kpr1 = {}, kpr2 = {}", kpr1, kpr2);
-*/
-
                                     Iterator<UslVolKartGrp> iter = lstUslVolKartGrp.iterator();
-                                    BigDecimal volDistAmnt = BigDecimal.ZERO;
                                     while (iter.hasNext()) {
                                         UslVolKartGrp uslVolKartGrp = iter.next();
 
@@ -358,9 +348,8 @@ public class DistVolMngImpl implements DistVolMng {
                                                 }
                                                 volDist = volDist.add(diffDist);
                                             }
-                                            volDistAmnt = volDistAmnt.add(volDist);
-                                            log.info("экономия: lsk={}, kpr={}, собств.объем={}, к распр={}, итог распр={}", // note убрать итог
-                                            uslVolKartGrp.kart.getLsk(), uslVolKartGrp.kpr, uslVolKart.vol, volDist, volDistAmnt);
+                                            log.info("экономия: lsk={}, kpr={}, собств.объем={}, к распр={}",
+                                            uslVolKartGrp.kart.getLsk(), uslVolKartGrp.kpr, uslVolKart.vol, volDist);
 
                                             // добавить объем для сохранения в C_CHARGE_PREP
                                             if (uslVolKart.isMeter) {
@@ -415,7 +404,11 @@ public class DistVolMngImpl implements DistVolMng {
                                         // остаток объема, в т.ч. округление
                                         volDistKart = diffDist;
                                     }
-                                    nabor.setVol(volDistKart);
+                                    if (usl.getFkCalcTp().equals(14)) {
+                                        nabor.setVol(volDistKart);
+                                    } else {
+                                        nabor.setVolAdd(volDistKart);
+                                    }
                                     diffDist = diffDist.subtract(volDistKart);
                                     log.info("распределено: lsk={}, usl={}, kub={}, vol={}, area={}, areaAmnt={}",
                                             t.kart.getLsk(), usl.getId(), kub, volDistKart, t.area, areaAmnt);

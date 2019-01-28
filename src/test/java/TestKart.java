@@ -132,11 +132,11 @@ public class TestKart {
 		// добавить вводы
 		// Х.в.
 		testDataBuilder.addVvodForTest(house, "011", 1, false,
-				new BigDecimal("50.2796"), true);
+				new BigDecimal("150.2796"), true);
 
 		// Г.в.
 		testDataBuilder.addVvodForTest(house, "015", 1, false,
-				new BigDecimal("62.23"), true);
+				new BigDecimal("162.23"), true);
 
 		// Отопление Гкал
 		testDataBuilder.addVvodForTest(house, "053", 1, false,
@@ -197,13 +197,21 @@ public class TestKart {
 		sw.stop();
 
 		// распечатать объемы
-		calcStore.getChrgCountAmount().printVolAmnt(null, "011");
-		calcStore.getChrgCountAmount().printVolAmnt(null, "015");
+		calcStore.getChrgCountAmount().printVolAmnt(null, "123");
 
+		/*
+		calcStore.getChrgCountAmount().printVolAmnt(null, "011");
+		calcStore.getChrgCountAmount().printVolAmnt(null, "056");
+		calcStore.getChrgCountAmount().printVolAmnt(null, "015");
+		calcStore.getChrgCountAmount().printVolAmnt(null, "057");
+*/
+
+/*
 		calcStore.getChrgCountAmount().printVolAmnt(null, "099");
 		calcStore.getChrgCountAmount().printVolAmnt(null, "101");
 
 		calcStore.getChrgCountAmount().printVolAmnt(null, "053");
+*/
 
 		System.out.println(sw.prettyPrint());
 		log.info("Test genChrgProcessMngGenChrgHouse End!");
