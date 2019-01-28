@@ -9,10 +9,7 @@ import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
-import com.ric.cmn.excp.ErrorWhileChrg;
-import com.ric.cmn.excp.ErrorWhileChrgPen;
-import com.ric.cmn.excp.WrongGetMethod;
-import com.ric.cmn.excp.WrongParam;
+import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
 import org.junit.Test;
@@ -114,7 +111,7 @@ public class TestKart {
 	@Test
 	@Rollback(true)
 	@Transactional
-	public void genChrgProcessMngGenChrgHouse() throws WrongParam, ErrorWhileChrg, ErrorWhileChrgPen, WrongGetMethod {
+	public void genChrgProcessMngGenChrgHouse() throws WrongParam, ErrorWhileChrg, ErrorWhileChrgPen, WrongGetMethod, ErrorWhileDist {
 		log.info("Test genChrgProcessMngGenChrgHouse Start!");
 		// конфиг запроса
 		RequestConfig reqConf =
@@ -135,11 +132,11 @@ public class TestKart {
 		// добавить вводы
 		// Х.в.
 		testDataBuilder.addVvodForTest(house, "011", 1, false,
-				new BigDecimal("200.279"), true);
+				new BigDecimal("50.2796"), true);
 
 		// Г.в.
 		testDataBuilder.addVvodForTest(house, "015", 1, false,
-				new BigDecimal("172.23"), true);
+				new BigDecimal("62.23"), true);
 
 		// Отопление Гкал
 		testDataBuilder.addVvodForTest(house, "053", 1, false,
@@ -170,6 +167,9 @@ public class TestKart {
 				1,true, true, true, 9);
 		testDataBuilder.buildKartForTest(house, "0005", BigDecimal.valueOf(67.1),
 				4,true, true, true,1);
+		// нормативы по услугам х.в. г.в.
+		testDataBuilder.buildKartForTest(house, "0006", BigDecimal.valueOf(35.12),
+				2,true, true, false,1);
 
 		// загрузить справочники
 		CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
@@ -178,8 +178,6 @@ public class TestKart {
 		sw.start("TIMING:Распределение объемов");
 		// ВЫЗОВ распределения объемов
 		for (Vvod vvod : house.getVvod()) {
-			BigDecimal amntVolChrg = BigDecimal.ZERO;
-			BigDecimal amntVolChrgPrep = BigDecimal.ZERO;
 			reqConf.setVvod(vvod);
 			distVolMng.distVolByVvod(reqConf, calcStore);
 		}
@@ -199,11 +197,12 @@ public class TestKart {
 		sw.stop();
 
 		// распечатать объемы
-		//printVolAmnt(calcStore, null, "053");
-		//printVolAmnt(calcStore, null, "123");
-		//printVolAmnt(calcStore, null, "099");
+		calcStore.getChrgCountAmount().printVolAmnt(null, "011");
+		calcStore.getChrgCountAmount().printVolAmnt(null, "015");
+
 		calcStore.getChrgCountAmount().printVolAmnt(null, "099");
 		calcStore.getChrgCountAmount().printVolAmnt(null, "101");
+
 		calcStore.getChrgCountAmount().printVolAmnt(null, "053");
 
 		System.out.println(sw.prettyPrint());

@@ -231,19 +231,14 @@ public class ProcessMngImpl implements ProcessMng {
      */
     private void selectInvokeProcess(RequestConfig reqConf, CalcStore calcStore, Ko ko) throws WrongParam, ErrorWhileChrg {
         switch (reqConf.getTp()) {
-            case 0: {
-                // начисление
+            case 0: case 2:{
+                // начисление и расчет объемов
                 genChrgProcessMng.genChrg(calcStore, ko, reqConf);
                 break;
             }
             case 1: {
                 // расчет ДОЛГА и ПЕНИ -  TODO переделать на Ko!!! ред. 11.01.19
                 //genPenProcessMng.genDebitPen(calcStore, kart);
-                break;
-            }
-            case 2: {
-                // распределение объемов
-                genChrgProcessMng.genChrg(calcStore, ko, reqConf);
                 break;
             }
             default:

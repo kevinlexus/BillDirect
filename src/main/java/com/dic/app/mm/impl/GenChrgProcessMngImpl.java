@@ -58,6 +58,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * Внимание! Расчет идёт по квартире (помещению), но информация группируется по лиц.счету(Kart)
      * так как теоретически может быть одинаковая услуга на разных лиц.счетах, но на одной квартире!
      *
+     * ОПИСАНИЕ: https://docs.google.com/document/d/1mtK2KdMX4rGiF2cUeQFVD4HBcZ_F0Z8ucp1VNK8epx0/edit
+     *
+     *
      * @param calcStore - хранилище справочников
      * @param ko        - Ko квартиры
      * @param reqConf   - конфиг запроса
@@ -107,31 +110,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part);
         }
 
-/*
-        if (lstSelUsl.size() == 0) {
-            BigDecimal checkVol = calcStore.getChrgCountAmount().getLstUslVolKartGrp()
-                    .stream()
-                    .filter(t -> t.usl.getId().equals("015"))
-                    .map(t -> t.vol)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            log.info("CHECK 1 vol={}", checkVol);
+        // кроме распределения объемов (там нечего еще считать, нет экономии ОДН
+        if (reqConf.getTp()!=2) {
+            // 2. распределить экономию ОДН по услуге, пропорционально объемам
+            log.trace("Распределение экономии ОДН");
+            distODNeconomy(calcStore, ko, lstSelUsl);
         }
-*/
-
-        // 2. распределить экономию ОДН по услуге, пропорционально объемам
-        log.trace("Распределение экономии ОДН");
-        distODNeconomy(calcStore, ko, lstSelUsl);
-
-/*
-        if (lstSelUsl.size() == 0) {
-            BigDecimal checkVol = calcStore.getChrgCountAmount().getLstUslVolKartGrp()
-                    .stream()
-                    .filter(t -> t.usl.getId().equals("015"))
-                    .map(t -> t.vol)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            log.info("CHECK 2 vol={}", checkVol);
-        }
-*/
 
         // 3. ЗАВИСИМЫЕ услуги, которые необходимо рассчитать после учета экономии ОДН в основных расчетах
         // цикл по дням месяца (например calcTp=47 - Тепл.энергия для нагрева ХВС)
@@ -143,43 +127,19 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part);
         }
 
-/*
-        if (lstSelUsl.size() == 0) {
-            BigDecimal checkVol = calcStore.getChrgCountAmount().getLstUslVolKartGrp()
-                    .stream()
-                    .filter(t -> t.usl.getId().equals("015"))
-                    .map(t -> t.vol)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            log.info("CHECK 3 vol={}", checkVol);
-        }
-*/
 
         // 4. ОКРУГЛИТЬ объемы
         calcStore.getChrgCountAmount().roundVol();
-
-/*
-        if (lstSelUsl.size() == 0) {
-            BigDecimal checkVol = calcStore.getChrgCountAmount().getLstUslVolKartGrp()
-                    .stream()
-                    .filter(t -> t.usl.getId().equals("015"))
-                    .map(t -> t.vol)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            log.info("CHECK 4 vol={}", checkVol);
-        }
-*/
-
         // 5. УМНОЖИТЬ объем на цену (расчет в рублях)
 
-        // сохранить в объемы дома (для расчета ОДН и прочих распределений во вводах)
-        //calcStore.getChrgCountAmount().addChrgCount(chrgCount);
-
         // получить кол-во проживающих по лиц.счету
+
 /*
         log.info("ИТОГО:");
         log.info("UslPriceVolKart:");
         BigDecimal amntVol = BigDecimal.ZERO;
 
-        for (UslPriceVolKart t : chrgCount.getLstUslPriceVolKart()) {
+        for (UslPriceVolKart t : calcStore.getChrgCountAmount().getLstUslPriceVolKart()) {
             if (Utl.in(t.usl.getId(),"003")) {
                 log.info("dt:{}-{} usl={} org={} cnt={} " +
                                 "empt={} stdt={} " +
@@ -203,6 +163,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         }
         log.info("Итоговый объем:={}", amntVol);
 */
+
     }
 
     /**
@@ -542,7 +503,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
     }
 
     /**
-     * Получить объемы экономии по услугам лиц.счетов, рассчитанных по квартире
+     * Распределить объемы экономии по услугам лиц.счетов, рассчитанных по квартире
      *
      * @param calcStore - хранилище объемов
      * @param ko        - квартира
@@ -557,7 +518,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
         // распределить экономию
         for (ChargePrep t : lstChargePrep) {
-
             // РАСПРЕДЕЛИТЬ весь объем экономии по элементам объема в лиц.счете (когда были проживающие)
             List<UslVolKart> lstUslVolKart = calcStore.getChrgCountAmount().getLstUslVolKart().stream()
                     .filter(d -> d.kart.equals(t.getKart()) && d.kpr.compareTo(BigDecimal.ZERO) != 0 && d.usl.equals(t.getUsl()))
@@ -574,7 +534,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             // распределить объем экономии по списку объемов ввода
             Utl.distBigDecimalByList(t.getVol(), lstUslVolVvod, 5);
 
-            // РАСПРЕДЕЛИТЬ по датам, детально, для услуги calcTp=47 (Тепл.энергия для нагрева ХВС (Кис.)) (когда были проживающие)
+            // РАСПРЕДЕЛИТЬ по датам, детально, в.т.ч. для услуги calcTp=47 (Тепл.энергия для нагрева ХВС (Кис.)) (когда были проживающие)
             List<UslPriceVolKart> lstUslPriceVolKart = calcStore.getChrgCountAmount().getLstUslPriceVolKart().stream()
                     .filter(d -> d.kart.equals(t.getKart()) && d.kpr.compareTo(BigDecimal.ZERO) != 0 && d.usl.equals(t.getUsl()))
                     .collect(Collectors.toList());
@@ -587,18 +547,23 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     .filter(d -> d.kart.equals(t.getKart()) && d.usl.equals(t.getUsl()))
                     .findFirst().orElse(null);
             if (uslVolKartGrp != null) {
-                if (uslVolKartGrp.vol.compareTo(BigDecimal.ZERO) > 0
-                        && uslVolKartGrp.vol.compareTo(t.getVol().abs()) > 0) {
-                    log.trace("ЭКОНОМИЯ ОДН по lsk={}, usl={}, vol={}", uslVolKartGrp.kart.getLsk(),
+//                if (uslVolKartGrp.vol.compareTo(t.getVol().abs()) >= 0) {
+/*
+                    log.info("ЭКОНОМИЯ ОДН по lsk={}, usl={}, vol={}", uslVolKartGrp.kart.getLsk(),
                             uslVolKartGrp.usl.getId(), t.getVol());
+*/
                     uslVolKartGrp.vol = uslVolKartGrp.vol.add(t.getVol());
                     uslVolKartGrp.volDet = uslVolKartGrp.volDet.add(t.getVol());
+/*
                 } else {
-                    throw new ErrorWhileChrg("ОШИБКА! Объем экономии ОДН =" + t.getVol()
+                    throw new ErrorWhileChrg("ОШИБКА! Объем экономии ОДН =" + t.getVol() убрал, не правильно!
                             + " больше чем собственный объем=" + uslVolKartGrp.vol
-                            + " по лиц. lsk="
-                            + t.getKart().getLsk());
+                            + " по lsk="
+                            + t.getKart().getLsk()
+                            + " по usl="+ t.getUsl().getId()
+                    );
                 }
+*/
             }
         }
     }
