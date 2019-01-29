@@ -98,7 +98,7 @@ public class TestKart {
 
 		// построить лицевые счета по квартире
 		Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52),
-				3, true, true, true, 1);
+				3, true, true, 1, 1);
 
 		// выполнить расчет
 		genChrgProcessMng.genChrg(calcStore, ko, reqConf);
@@ -130,6 +130,18 @@ public class TestKart {
 		house.setNd("000001");
 
 		// добавить вводы
+
+		// без ОДПУ
+		// Х.в.
+		testDataBuilder.addVvodForTest(house, "011", 4, false,
+				null, true);
+
+		// Г.в.
+		testDataBuilder.addVvodForTest(house, "015", 5, false,
+				null, true);
+
+/*
+		// с ОДПУ
 		// Х.в.
 		testDataBuilder.addVvodForTest(house, "011", 1, false,
 				new BigDecimal("150.2796"), true);
@@ -137,6 +149,7 @@ public class TestKart {
 		// Г.в.
 		testDataBuilder.addVvodForTest(house, "015", 1, false,
 				new BigDecimal("162.23"), true);
+*/
 
 		// Отопление Гкал
 		testDataBuilder.addVvodForTest(house, "053", 1, false,
@@ -157,19 +170,19 @@ public class TestKart {
 
 		// построить лицевые счета по квартире
 		testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52),
-				3,true, true, true, 1);
+				3,true, true, 1, 1);
 		testDataBuilder.buildKartForTest(house, "0002", BigDecimal.valueOf(50.24),
-				2,true, true, true, 1);
+				2,true, true, 1, 2);
 		testDataBuilder.buildKartForTest(house, "0003", BigDecimal.valueOf(75.89),
-				2,true, true, true,1);
+				2,true, true,1, 3);
 		// нежилое
 		testDataBuilder.buildKartForTest(house, "0004", BigDecimal.valueOf(22.01),
-				1,true, true, true, 9);
+				1,true, true, 9,1);
 		testDataBuilder.buildKartForTest(house, "0005", BigDecimal.valueOf(67.1),
-				4,true, true, true,1);
+				4,true, true,1, 2);
 		// нормативы по услугам х.в. г.в.
 		testDataBuilder.buildKartForTest(house, "0006", BigDecimal.valueOf(35.12),
-				2,true, true, false,1);
+				2,true, false,1, 0);
 
 		// загрузить справочники
 		CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
@@ -197,13 +210,14 @@ public class TestKart {
 		sw.stop();
 
 		// распечатать объемы
-		calcStore.getChrgCountAmount().printVolAmnt(null, "123");
 
+		calcStore.getChrgCountAmount().printVolAmnt(null, "056");
+		calcStore.getChrgCountAmount().printVolAmnt(null, "057");
 		/*
-		calcStore.getChrgCountAmount().printVolAmnt(null, "011");
 		calcStore.getChrgCountAmount().printVolAmnt(null, "056");
 		calcStore.getChrgCountAmount().printVolAmnt(null, "015");
 		calcStore.getChrgCountAmount().printVolAmnt(null, "057");
+		calcStore.getChrgCountAmount().printVolAmnt(null, "123");
 */
 
 /*
