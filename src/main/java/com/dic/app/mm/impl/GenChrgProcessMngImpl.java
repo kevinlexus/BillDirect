@@ -6,6 +6,7 @@ import com.dic.bill.dao.MeterDAO;
 import com.dic.bill.dao.StatesPrDAO;
 import com.dic.bill.dao.UslDAO;
 import com.dic.bill.dto.*;
+import com.dic.bill.dto.ChrgCountAmountLocal;
 import com.dic.bill.mm.*;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
@@ -21,7 +22,6 @@ import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Сервис расчета начисления
