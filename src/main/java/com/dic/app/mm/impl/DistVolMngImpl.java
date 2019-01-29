@@ -106,7 +106,7 @@ public class DistVolMngImpl implements DistVolMng {
             processMng.genProcessAll(reqConf, calcStore);
 
             // объемы по лиц.счетам (базовый фильтр по услуге)
-            final List<UslVolKart> lstUslVolKartBase =
+            final List<UslVolKart> lstUslVolKart =
                     calcStore.getChrgCountAmount().getLstUslVolKart().stream()
                             .filter(t -> t.usl.equals(usl)).collect(Collectors.toList());
             final List<UslVolKartGrp> lstUslVolKartGrpBase =
@@ -167,7 +167,7 @@ public class DistVolMngImpl implements DistVolMng {
                 }
             } else if (tp == 3) {
                 // Отопление Гкал
-                for (UslVolKart t : lstUslVolKartBase) {
+                for (UslVolKart t : lstUslVolKart) {
                     //log.trace("usl={}, cnt={}, empt={}, resid={}, t.vol={}, t.area={}",
                     //        t.usl.getId(), t.isMeter, t.isEmpty, t.isResidental, t.vol, t.area);
                     if (!t.isResidental) {
@@ -316,7 +316,7 @@ public class DistVolMngImpl implements DistVolMng {
                                                     .findFirst().ifPresent(d -> d.setLimit(limit));
 
                                             // распределить экономию в доле на кол-во проживающих
-                                            List<UslVolKart> lstUslVolKart2 = lstUslVolKartBase.stream()
+                                            List<UslVolKart> lstUslVolKart2 = lstUslVolKart.stream()
                                                     .filter(t -> uslVolKartGrp.kart.equals(t.kart) && !t.isEmpty)
                                                     .collect(Collectors.toList());
                                             Iterator<UslVolKart> iter2 = lstUslVolKart2.iterator();

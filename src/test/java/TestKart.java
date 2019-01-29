@@ -211,8 +211,6 @@ public class TestKart {
 
 		// распечатать объемы
 
-		calcStore.getChrgCountAmount().printVolAmnt(null, "056");
-		calcStore.getChrgCountAmount().printVolAmnt(null, "057");
 		/*
 		calcStore.getChrgCountAmount().printVolAmnt(null, "056");
 		calcStore.getChrgCountAmount().printVolAmnt(null, "015");
@@ -220,10 +218,10 @@ public class TestKart {
 		calcStore.getChrgCountAmount().printVolAmnt(null, "123");
 */
 
-/*
 		calcStore.getChrgCountAmount().printVolAmnt(null, "099");
 		calcStore.getChrgCountAmount().printVolAmnt(null, "101");
 
+		/*
 		calcStore.getChrgCountAmount().printVolAmnt(null, "053");
 */
 
