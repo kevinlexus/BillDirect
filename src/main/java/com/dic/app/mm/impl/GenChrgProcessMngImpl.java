@@ -73,7 +73,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         chrgCountAmountLocal = new ChrgCountAmountLocal();
         // получить основной лиц счет по связи klsk квартиры
         Kart kartMainByKlsk = kartMng.getKartMain(ko);
-        log.info("****** Расчет квартиры klskId={} ****** Основной лиц.счет lsk={}", ko.getId(), kartMainByKlsk.getLsk());
+        log.info("****** {} квартиры klskId={}, основной лиц.счет lsk={} - начало ******",
+                reqConf.getTpName(), ko.getId(), kartMainByKlsk.getLsk());
         // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
         int parVarCntKpr =
                 Utl.nvl(sprParamMng.getN1("VAR_CNT_KPR"), 0D).intValue();
@@ -131,14 +132,16 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
             // 5. Добавить в объемы по вводу
             calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
-            chrgCountAmountLocal.printVolAmnt(null);
+            //chrgCountAmountLocal.printVolAmnt(null);
 
             // 6. Сгруппировать строки начислений для записи в C_CHARGE
             chrgCountAmountLocal.groupUslVolChrg();
-            // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE
+
+            // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE, округлить для ГИС ЖКХ
             chrgCountAmountLocal.saveChargeAndRound(ko);
 
-            // 8. Округлить для ГИС ЖКХ
+            log.info("****** {} квартиры klskId={}, основной лиц.счет lsk={} - окончание ******",
+                    reqConf.getTpName(), ko.getId(), kartMainByKlsk.getLsk());
         }
 
         // получить кол-во проживающих по лиц.счету
