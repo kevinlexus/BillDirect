@@ -41,7 +41,7 @@ public interface AchargeDAO extends JpaRepository<Acharge, Integer> {
     List<SumChrgRec> getChrgGrp(String lsk, Integer period, Integer orgId);
 }
 
-// Еще пример с NativeQuery (Важно наличие и кол-во полей в Projection!)
+    // Еще пример с NativeQuery (Важно наличие и кол-во полей в Projection!)
 // Не обязательно писать \" в имени полей! Главное порядок расположения!
 // Так как hibernate проверяет поля в алфавитном порядке ->> orgId, uslId, summa!
     @Query(value = "select n.org as orgId, t.summa_it as summa, t.usl_id as uslId from SCOTT.ARCH_CHARGES t "
@@ -78,7 +78,7 @@ public interface AchargeDAO extends JpaRepository<Acharge, Integer> {
 @Transactional
 @Query(value = "delete from DebPenUsl t where t.period=:period and "
         + "exists (select k from Kart k where t.kart.lsk=k.lsk and k.lsk=:lsk) ")
-	void delByLskPeriod(@Param("lsk") String lsk,@Param("period") Integer period);
+    void delByLskPeriod(@Param("lsk") String lsk,@Param("period") Integer period);
 
 // Конструктор Sparkle, вызов:
 
@@ -171,18 +171,27 @@ public class VchangeDet implements java.io.Serializable {
         .map(t->new SumDebRec(t.getSumma().multiply(new BigDecimal("-1")),BigDecimal.ZERO,t.getMg()))
         .collect(Collectors.toList()));
 
-// Сортировка без компаратора
-// отсортировать по периоду
+        // Сортировка без компаратора
+        // отсортировать по периоду
         List<SumDebRec> lstSorted=lst.stream().sorted((t1,t2)->
         t1.getMg().compareTo(t2.getMg())).collect(Collectors.toList());
 
 
-// Сортировка компаратором
+        // Сортировка компаратором
 
-// отсортировать по лиц.счету
+        // отсортировать по лиц.счету
         Comparator<MeterDTO> byKartLsk=(e1,e2)->e1
         .getMeter().getMeterLog().getKart().compareTo(e2.getMeter().getMeterLog().getKart());
         return lst.stream().sorted(byKartLsk).collect(Collectors.toList());
+
+        // сортировка Stream, по нескольким полям
+        List<UslPriceVolKartDt> lst=
+        getLstUslPriceVolKartDt().stream()
+        .sorted(Comparator.comparing((UslPriceVolKartDt o1)->o1.getKart().getLsk())
+        .thenComparing((UslPriceVolKartDt o1)->o1.getUsl().getId())
+        .thenComparing((UslPriceVolKartDt o1)->o1.dtFrom)
+        )
+        .collect(Collectors.toList());
 
 // Транзакция
 
@@ -240,9 +249,9 @@ public interface ThreadMng<T> {
     public Future<Result> chrgLsk(RequestConfig reqConfig, Kart kart,
 
 // Вызов хранимой функции:
-      @Override
-      @Transactional(readOnly = false, propagation = Propagation.REQUIRED)
-      public Integer execProc(Integer var, Integer id, Integer sel) {
+                                  @Override
+                                  @Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+                                  public Integer execProc(Integer var, Integer id, Integer sel) {
         StoredProcedureQuery qr;
         Integer ret = null;
         Integer par = null;
@@ -288,40 +297,44 @@ public interface ThreadMng<T> {
 
 // ORACLE
 
-    CREATE OR REPLACE PACKAGE UTILS2 IS
-        TYPE l_test IS table of saldo_usl%rowtype;
-            l_tab l_test;
-    END UTILS2;
+    CREATE OR
+    REPLACE PACKAGE
+    UTILS2 IS
+    TYPE l_test
+    IS table
+    of saldo_usl%rowtype;
+        l_tab l_test;
+        END UTILS2;
 
-    CREATE OR REPLACE PACKAGE BODY UTILS2 IS
+        CREATE OR REPLACE PACKAGE BODY UTILS2 IS
         // передача коллекции из запроса в другую процедуру
-        procedure check2(p_var in number) is
+        procedure check2(p_var in number)is
         begin
-            dbms_output.enable(10000);
-            select t.* bulk collect into l_tab from saldo_usl t
-                where t.lsk='00000217';
-            show(l_tab);
+        dbms_output.enable(10000);
+        select t.*bulk collect into l_tab from saldo_usl t
+        where t.lsk='00000217';
+        show(l_tab);
 
-            for i in l_tab.first .. l_tab.last loop
-                dbms_output.put_line('2='||l_tab(i).usl||', '||l_tab(i).summa);
-            end loop;
+        for i in l_tab.first..l_tab.last loop
+        dbms_output.put_line('2='||l_tab(i).usl||', '||l_tab(i).summa);
+        end loop;
 
         end;
 
 
-        procedure show(p_tab in out l_tab%type) is
+        procedure show(p_tab in out l_tab%type)is
         begin
-            dbms_output.put_line('111');
+        dbms_output.put_line('111');
 
-        for i in p_tab.first .. p_tab.last loop
-            dbms_output.put_line('1='||p_tab(i).usl||', '||p_tab(i).summa);
-            p_tab(i).usl:='xxx';
-            p_tab.extend;
+        for i in p_tab.first..p_tab.last loop
+        dbms_output.put_line('1='||p_tab(i).usl||', '||p_tab(i).summa);
+        p_tab(i).usl:='xxx';
+        p_tab.extend;
         end loop;
 
 
         end;
-    END UTILS2;
+        END UTILS2;
 
 
 

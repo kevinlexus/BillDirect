@@ -136,6 +136,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         // 5. ДОБАВИТЬ в объемы по вводу
         calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
 
+        chrgCountAmountLocal.printVolAmnt(null);
         // 6. УМНОЖИТЬ объем на цену (расчет в рублях), сохранить в C_CHARGE
         //saveCharge(); note сделать!
 
