@@ -139,8 +139,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
         chrgCountAmountLocal.printVolAmnt(null);
 
+        // 6. сгруппировать строки начислений для записи в C_CHARGE
+        chrgCountAmountLocal.groupUslVolChrg();
         // 6. УМНОЖИТЬ объем на цену (расчет в рублях), сохранить в C_CHARGE
-        saveCharge();
+        chrgCountAmountLocal.saveCharge(ko);
 
         // 7. ОКРУГЛИТЬ для ГИС ЖКХ
 
@@ -179,42 +181,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         }
         log.info("Итоговый объем:={}", amntVol);
 */
-
-    }
-
-    /**
-     * Сохранить в C_CHARGE
-     *
-     * @param calcStore       - хранилище справочников
-     * @param ko              - объект Ko квартиры
-     */
-    private void saveCharge(CalcStore calcStore, Ko ko) {
-        // удалить информацию по текущему начислению, по квартире
-        for (Kart kart : ko.getKart()) {
-            kart.getCharge().clear();
-        }
-
-
-/*
-                    Charge charge = new Charge();
-                    charge.setType(1);
-                    charge.setUsl(u.usl);
-                    charge.setKart(u.kart);
-                    charge.setTestOpl(u.vol);
-                    charge.setTestCena(u.price);
-                if (!u.isEmpty) {
-                    // есть проживающие
-                    if (u.vol.compareTo(BigDecimal.ZERO) != 0) {
-                        BigDecimal summa = u.vol.multiply(u.price);
-                    }
-                } else {
-                    // нет проживающих
-
-                }
-            }
-*/
-        }
-
 
     }
 
@@ -531,7 +497,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 // сохранить рассчитанный объем по расчетному дню, (используется для услуги Повыш коэфф.)
                 mapUslPriceVol.put(nabor.getUsl(), uslPriceVolKart);
 
-                // note исключить ненужные услуги из добавления в группировку по дням, иначе будет долго работать
                 // сгруппировать по лиц.счету, услуге, для распределения по вводу
                 chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
 
