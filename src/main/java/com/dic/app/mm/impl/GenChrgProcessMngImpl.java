@@ -54,15 +54,14 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
     private EntityManager em;
 
     // локальное хранилище объемов
-    private ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
+    private ChrgCountAmountLocal chrgCountAmountLocal;
 
     /**
      * Рассчитать начисление
      * Внимание! Расчет идёт по квартире (помещению), но информация группируется по лиц.счету(Kart)
      * так как теоретически может быть одинаковая услуга на разных лиц.счетах, но на одной квартире!
-     *
+     * <p>
      * ОПИСАНИЕ: https://docs.google.com/document/d/1mtK2KdMX4rGiF2cUeQFVD4HBcZ_F0Z8ucp1VNK8epx0/edit
-     *
      *
      * @param calcStore - хранилище справочников
      * @param ko        - Ko квартиры
@@ -70,6 +69,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      */
     @Override
     public void genChrg(CalcStore calcStore, Ko ko, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
+        // создать локальное хранилище объемов
+        chrgCountAmountLocal = new ChrgCountAmountLocal();
         // получить основной лиц счет по связи klsk квартиры
         Kart kartMainByKlsk = kartMng.getKartMain(ko);
         log.info("****** Расчет квартиры klskId={} ****** Основной лиц.счет lsk={}", ko.getId(), kartMainByKlsk.getLsk());
@@ -92,10 +93,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         List<SumMeterVol> lstMeterVol = meterDao.findMeterVolByKlsk(ko.getId(),
                 calcStore.getCurDt1(), calcStore.getCurDt2());
 
-        // сохранить помещение
-        //chrgCount.setKo(ko);
-        // получить все действующие счетчики квартиры и их объемы
-        //chrgCount.setLstMeterVol();
         // получить объемы по счетчикам в пропорции на 1 день их работы
         List<UslMeterDateVol> lstDayMeterVol = meterMng.getPartDayMeterVol(lstMeterVol,
                 calcStore);
@@ -103,7 +100,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         Calendar c = Calendar.getInstance();
         // РАСЧЕТ по блокам:
 
-        // 1. ОСНОВНЫЕ услуги
+        // 1. Основные услуги
         // цикл по дням месяца
         int part = 1;
         log.trace("Расчет объемов услуг, до учёта экономии ОДН");
@@ -114,41 +111,35 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         }
 
         // кроме распределения объемов (там нечего еще считать, нет экономии ОДН
-        if (reqConf.getTp()!=2) {
+        if (reqConf.getTp() != 2) {
             // 2. распределить экономию ОДН по услуге, пропорционально объемам
             log.trace("Распределение экономии ОДН");
             distODNeconomy(calcStore, chrgCountAmountLocal, ko, lstSelUsl);
+
+            // 3. Зависимые услуги, которые необходимо рассчитать после учета экономии ОДН в основных расчетах
+            // цикл по дням месяца (например calcTp=47 - Тепл.энергия для нагрева ХВС)
+            part = 2;
+            log.trace("Расчет объемов услуг, после учёта экономии ОДН");
+            for (c.setTime(calcStore.getCurDt1()); !c.getTime()
+                    .after(calcStore.getCurDt2()); c.add(Calendar.DATE, 1)) {
+                genVolPart(calcStore, chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
+                        parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part);
+            }
+
+            // 4. Округлить объемы
+            chrgCountAmountLocal.roundVol();
+
+            // 5. Добавить в объемы по вводу
+            calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
+            //chrgCountAmountLocal.printVolAmnt(null);
+
+            // 6. Сгруппировать строки начислений для записи в C_CHARGE
+            chrgCountAmountLocal.groupUslVolChrg();
+            // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE
+            chrgCountAmountLocal.saveChargeAndRound(ko);
+
+            // 8. Округлить для ГИС ЖКХ
         }
-
-        // 3. ЗАВИСИМЫЕ услуги, которые необходимо рассчитать после учета экономии ОДН в основных расчетах
-        // цикл по дням месяца (например calcTp=47 - Тепл.энергия для нагрева ХВС)
-        part = 2;
-        log.trace("Расчет объемов услуг, после учёта экономии ОДН");
-        for (c.setTime(calcStore.getCurDt1()); !c.getTime()
-                .after(calcStore.getCurDt2()); c.add(Calendar.DATE, 1)) {
-            genVolPart(calcStore, chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
-                    parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part);
-        }
-
-
-        // 4. ОКРУГЛИТЬ объемы
-        chrgCountAmountLocal.roundVol();
-
-        // 5. ДОБАВИТЬ в объемы по вводу
-        calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
-
-        chrgCountAmountLocal.printVolAmnt(null);
-
-        // 6. сгруппировать строки начислений для записи в C_CHARGE
-        chrgCountAmountLocal.groupUslVolChrg();
-        // 6. УМНОЖИТЬ объем на цену (расчет в рублях), сохранить в C_CHARGE
-        chrgCountAmountLocal.saveCharge(ko);
-
-        // 7. ОКРУГЛИТЬ для ГИС ЖКХ
-
-
-
-
 
         // получить кол-во проживающих по лиц.счету
 
@@ -187,18 +178,18 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
     /**
      * Расчет объема по услугам
      *
-     * @param calcStore       - хранилище объемов
+     * @param calcStore            - хранилище объемов
      * @param chrgCountAmountLocal - локальное хранилище объемов, по помещению
-     * @param reqConf         - запрос
-     * @param kartMainByKlsk  - основной лиц.счет
-     * @param parVarCntKpr    - параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
-     * @param parCapCalcKprTp - параметр учета проживающих для капремонта
-     * @param ko              - объект Ko квартиры
-     * @param lstMeterVol     - объемы по счетчикам
-     * @param lstSelUsl       - список услуг для расчета
-     * @param lstDayMeterVol  - хранилище объемов по счетчикам
-     * @param curDt           - дата расчета
-     * @param part            - группа расчета (услуги рассчитываемые до(1) /после(2) рассчета ОДН
+     * @param reqConf              - запрос
+     * @param kartMainByKlsk       - основной лиц.счет
+     * @param parVarCntKpr         - параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
+     * @param parCapCalcKprTp      - параметр учета проживающих для капремонта
+     * @param ko                   - объект Ko квартиры
+     * @param lstMeterVol          - объемы по счетчикам
+     * @param lstSelUsl            - список услуг для расчета
+     * @param lstDayMeterVol       - хранилище объемов по счетчикам
+     * @param curDt                - дата расчета
+     * @param part                 - группа расчета (услуги рассчитываемые до(1) /после(2) рассчета ОДН
      * @throws ErrorWhileChrg - ошибка во время расчета
      * @throws WrongParam     - ошибочный параметр
      */
@@ -523,10 +514,11 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
     /**
      * Распределить объемы экономии по услугам лиц.счетов, рассчитанных по квартире
-     *  @param calcStore - хранилище объемов
+     *
+     * @param calcStore            - хранилище объемов
      * @param chrgCountAmountLocal - локальное хранилище объемов по квартире
-     * @param ko        - квартира
-     * @param lstSelUsl - список ограничения услуг (например при распределении ОДН)
+     * @param ko                   - квартира
+     * @param lstSelUsl            - список ограничения услуг (например при распределении ОДН)
      */
     private void distODNeconomy(CalcStore calcStore, ChrgCountAmountLocal chrgCountAmountLocal,
                                 Ko ko, List<Usl> lstSelUsl) throws ErrorWhileChrg {
@@ -548,7 +540,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
             // РАСПРЕДЕЛИТЬ весь объем экономии по элементам объема во вводе (когда были проживающие)
             List<UslVolVvod> lstUslVolVvod = calcStore.getChrgCountAmount().getLstUslVolVvod().stream()
-                    .filter(d-> d.kpr.compareTo(BigDecimal.ZERO) != 0 && d.usl.equals(t.getUsl()))
+                    .filter(d -> d.kpr.compareTo(BigDecimal.ZERO) != 0 && d.usl.equals(t.getUsl()))
                     .collect(Collectors.toList());
 
             // распределить объем экономии по списку объемов ввода
@@ -572,8 +564,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     log.info("ЭКОНОМИЯ ОДН по lsk={}, usl={}, vol={}", uslVolKartGrp.kart.getLsk(),
                             uslVolKartGrp.usl.getId(), t.getVol());
 */
-                    uslVolKartGrp.vol = uslVolKartGrp.vol.add(t.getVol());
-                    uslVolKartGrp.volDet = uslVolKartGrp.volDet.add(t.getVol());
+                uslVolKartGrp.vol = uslVolKartGrp.vol.add(t.getVol());
+                uslVolKartGrp.volDet = uslVolKartGrp.volDet.add(t.getVol());
 /*
                 } else {
                     throw new ErrorWhileChrg("ОШИБКА! Объем экономии ОДН =" + t.getVol() убрал, не правильно!
