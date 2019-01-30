@@ -53,6 +53,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
     @PersistenceContext
     private EntityManager em;
 
+    // локальное хранилище объемов
+    private ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
+
     /**
      * Рассчитать начисление
      * Внимание! Расчет идёт по квартире (помещению), но информация группируется по лиц.счету(Kart)
@@ -67,8 +70,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      */
     @Override
     public void genChrg(CalcStore calcStore, Ko ko, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
-        // локальное хранилище объемов
-        ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
         // получить основной лиц счет по связи klsk квартиры
         Kart kartMainByKlsk = kartMng.getKartMain(ko);
         log.info("****** Расчет квартиры klskId={} ****** Основной лиц.счет lsk={}", ko.getId(), kartMainByKlsk.getLsk());
@@ -137,8 +138,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
 
         chrgCountAmountLocal.printVolAmnt(null);
+
         // 6. УМНОЖИТЬ объем на цену (расчет в рублях), сохранить в C_CHARGE
-        //saveCharge(); note сделать!
+        saveCharge();
 
         // 7. ОКРУГЛИТЬ для ГИС ЖКХ
 
@@ -187,7 +189,31 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * @param ko              - объект Ko квартиры
      */
     private void saveCharge(CalcStore calcStore, Ko ko) {
-        //calcStore.getChrgCountAmount().getLstUslPriceVolKart().map() note сделать!
+        // удалить информацию по текущему начислению, по квартире
+        for (Kart kart : ko.getKart()) {
+            kart.getCharge().clear();
+        }
+
+
+/*
+                    Charge charge = new Charge();
+                    charge.setType(1);
+                    charge.setUsl(u.usl);
+                    charge.setKart(u.kart);
+                    charge.setTestOpl(u.vol);
+                    charge.setTestCena(u.price);
+                if (!u.isEmpty) {
+                    // есть проживающие
+                    if (u.vol.compareTo(BigDecimal.ZERO) != 0) {
+                        BigDecimal summa = u.vol.multiply(u.price);
+                    }
+                } else {
+                    // нет проживающих
+
+                }
+            }
+*/
+        }
 
 
     }
