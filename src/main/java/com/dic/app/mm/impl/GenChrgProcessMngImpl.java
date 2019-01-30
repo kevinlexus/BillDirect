@@ -131,7 +131,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
             // 5. Добавить в объемы по вводу
             calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
-            //chrgCountAmountLocal.printVolAmnt(null);
+            chrgCountAmountLocal.printVolAmnt(null);
 
             // 6. Сгруппировать строки начислений для записи в C_CHARGE
             chrgCountAmountLocal.groupUslVolChrg();
