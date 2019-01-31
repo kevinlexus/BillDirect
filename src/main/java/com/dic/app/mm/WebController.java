@@ -1,5 +1,6 @@
 package com.dic.app.mm;
 
+import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.PrepErrDAO;
 import com.dic.bill.dao.SprGenItmDAO;
 import com.dic.bill.model.scott.PrepErr;
@@ -38,6 +39,106 @@ public class WebController {
     @Autowired
     private ApplicationContext ctx;
 
+
+    /**
+     * Расчет
+     *
+     * @param tp        - тип выполнения 0-начисление, 1-задолженность и пеня, 2 - распределение объемов по вводу
+     * @param klskId   - klskId объекта (дом, ввод, помещение)
+     * @param lskFrom   - начальный лиц.счет, если отсутствует - весь фонд
+     * @param lskTo     - конечный лиц.счет, если отсутствует - весь фонд
+     * @param debugLvl  - уровень отладки 0, null - не записивать в лог отладочную информацию, 1 - записывать
+     * @param genDt1 - дата на которую сформировать
+     * @param stop - 1 - остановить выполнение текущей операции с типом tp
+     * @param key - ключ, для выполнения ответственных заданий
+     */
+    @RequestMapping("/gen")
+    public String gen (
+            @RequestParam(value = "tp", defaultValue = "0") int tp,
+            @RequestParam(value = "klskId", defaultValue = "0", required = false) long klskId,
+            @RequestParam(value = "lskFrom", defaultValue = "0", required = false) String lskFrom,
+            @RequestParam(value = "lskTo", defaultValue = "0", required = false) String lskTo,
+            @RequestParam(value = "debugLvl", defaultValue = "0") int dbgLvl,
+            @RequestParam(value = "genDt", defaultValue = "", required = false) String genDt1,
+            @RequestParam(value = "key", defaultValue = "", required = false) String key,
+            @RequestParam(value = "stop", defaultValue = "0", required = false) int stop
+    ) {
+        log.info("GOT /gen with: tp={}, lskFrom={}, lskTo={}, debugLvl={}, genDt={}, stop={}",
+                tp, lskFrom, lskTo, dbgLvl, genDt1, stop);
+
+        // проверка валидности ключа
+        boolean isValidKey = checkValidKey(key);
+        if (!isValidKey) {
+            log.info("ERROR wrong key!");
+            return "ERROR wrong key!";
+        }
+        // проверка типа формирования
+        if (!Utl.in(tp, 0, 1, 2)) {
+            return "ERROR1 некорректный тип расчета: tp="+tp;
+        }
+
+        Date genDt = null;
+        // остановить процесс?
+        boolean isStopped = false;
+        if (stop == 1) {
+            isStopped = true;
+        } else {
+            // если не принудительная остановка, то значит - выполнение, проверить параметры
+            if (tp == 1) {
+                // задолженность и пеня, - проверить текущую дату
+                genDt = checkDate(genDt1);
+                if (genDt == null) {
+                    return "ERROR2 некорректная дата расчета: genDt="+genDt1;
+                }
+            }
+        }
+
+        // конфиг запроса
+        RequestConfig reqConf =
+                RequestConfig.RequestConfigBuilder.aRequestConfig()
+                        .withTp(tp)
+                        .withRqn(config.incNextReqNum()) // уникальный номер запроса
+                        .build();
+
+        if (tp == 1) {
+            // рассчитать долги и пеню
+            try {
+                if (!isStopped) {
+                    // если не остановка процесса
+                    if (!lskFrom.equals(lskTo)) {
+                        // заблокировать при расчете по всем лиц.счетам
+                        Boolean isLocked = config.getLock().setLockProc(reqConf.getRqn(),
+                                "ProcessGeneration");
+                        if (isLocked) {
+                            try {
+                                debitMng.genProcessAll(reqConf, genDt, dbgLvl);
+                            } finally {
+                                // разблокировать при расчете по всем лиц.счетам
+                                config.getLock().unlockProc(reqConf.getRqn(),
+                                        "ProcessGeneration");
+                            }
+                        } else {
+                            return "ERROR ОШИБКА блокировки процесса расчета задолженности и пени";
+                        }
+                    } else {
+                        // по одному лиц.счету
+                        debitMng.genProcessAll(reqConf, genDt, dbgLvl);
+                    }
+                } else {
+                    // снять маркер выполнения процесса
+                    config.getLock().stopProc(reqConf.getRqn(),
+                            "ProcessGeneration");
+                }
+            } catch (Exception e) {
+                log.error(Utl.getStackTraceString(e));
+                return "ERROR " + e.getMessage();
+            }
+
+            return "OK";
+        } else {
+            return "ERROR Не найден вызываемый метод";
+        }
+    }
 
     /**
      * Получить список элементов меню для итогового формирования
@@ -139,120 +240,6 @@ public class WebController {
     @ResponseBody
     public Integer getProgress() {
         return config.getProgress();
-    }
-
-
-    /**
-     * Расчет
-     *
-     * @param tp        - тип выполнения 0-начисление, 1-задолженность и пеня, 2 - распределение объемов по вводу
-     * @param klskId   - klskId объекта (квартиры)
-     * @param lskFrom   - начальный лиц.счет, если отсутствует - весь фонд
-     * @param lskTo     - конечный лиц.счет, если отсутствует - весь фонд
-     * @param sessionId - Id сессии, устанавливается в UTILS.prep_users_tree,
-     *                  если не заполнен, использовать 0, т.е. без записи в отчетную таблицу
-     * @param debugLvl  - уровень отладки 0, null - не записивать в лог отладочную информацию, 1 - записывать
-     * @return
-     * @key - ключ, для выполнения ответственных заданий
-     * @genDt - дата формирования
-     */
-    @RequestMapping("/gen")
-    public String gen (
-    		@RequestParam(value = "tp", defaultValue = "0") String tp,
-    		@RequestParam(value = "lskFrom", defaultValue = "0") String lskFrom,
-    		@RequestParam(value = "lskTo", defaultValue = "0") String lskTo,
-    		@RequestParam(value = "sessionId", defaultValue = "0")  Integer sessionId,
-    		@RequestParam(value = "debugLvl", defaultValue = "0") Integer debugLvl,
-    		@RequestParam(value = "genDt", defaultValue = "", required = false) String genDt1,
-    		@RequestParam(value = "key", defaultValue = "", required = false) String key,
-    		@RequestParam(value = "stop", defaultValue = "0", required = false) String stop
-    		) {
-		log.info("GOT /gen with: tp={}, lskFrom={}, lskTo={}, sessionId={}, debugLvl={}, genDt={}, stop={}",
-				tp, lskFrom, lskTo, sessionId, debugLvl, genDt1, stop);
-
-		// проверка валидности ключа
-		boolean isValidKey = checkValidKey(key);
-		if (!isValidKey) {
-			log.info("ERROR wrong key!");
-			return "ERROR wrong key!";
-		}
-		// проверка типа формирования
-		if (tp == null || !Utl.in(tp, "0")) {
-			return "ERROR1 некорректный тип расчета: tp="+tp;
-		}
-		Date genDt = null;
-		// остановить процесс?
-		boolean isStopped = false;
-		if (stop.equals("1")) {
-			isStopped = true;
-		} else {
-			// если не принудительная остановка, проверить параметры
-			genDt = checkDate(genDt1);
-			if (genDt == null) {
-				return "ERROR2 некорректная дата расчета: genDt="+genDt1;
-			}
-		}
-
-		SessionDirect sessionDirect = null;
-		if (sessionId != 0) {
-			// получить сессию Директа
-			sessionDirect = em.find(SessionDirect.class, sessionId);
-			if (sessionDirect == null) {
-				return "ERROR3 не найдена сессия Директ с Id=" + sessionId;
-			}
-		}
-
-		// конфиг запроса
-		RequestConfig reqConf =
-				RequestConfig.builder()
-				.withRqn(config.incNextReqNum()) // уникальный номер запроса
-				.withSessionDirect(sessionDirect) // сессия Директ
-				.build();
-
-		// уровень отладки
-		Integer dbgLvl = 0;
-		if (debugLvl != null) {
-			dbgLvl = Integer.valueOf(debugLvl);
-		}
-
-		if (tp.equals("0")) {
-			// рассчитать долги и пеню
-			try {
-				if (!isStopped) {
-					// если не остановка процесса
-					if (!lskFrom.equals(lskTo)) {
-						// заблокировать при расчете по всем лиц.счетам
-						Boolean isLocked = config.getLock().setLockProc(reqConf.getRqn(),
-								"ProcessGeneration");
-						if (isLocked) {
-							try {
-								debitMng.genProcessAll(lskFrom, lskTo, genDt, dbgLvl, reqConf);
-							} finally {
-								// разблокировать при расчете по всем лиц.счетам
-								config.getLock().unlockProc(reqConf.getRqn(),
-										"ProcessGeneration");
-							}
-						} else {
-							return "ERROR ОШИБКА блокировки процесса расчета задолженности и пени";
-						}
-					} else {
-						// по одному лиц.счету
-				    	debitMng.genProcessAll(lskFrom, lskTo, genDt, dbgLvl, reqConf);
-					}
-				} else {
-					// снять маркер выполнения процесса
-					config.getLock().stopProc(reqConf.getRqn(),
-							"ProcessGeneration");
-				}
-			} catch (Exception e) {
-				log.error(Utl.getStackTraceString(e));
-				return "ERROR " + e.getMessage();
-			}
-
-	        return "OK";
-		} else {
-			return "ERROR Не найден вызываемый метод";
-		}
     }
 
     @RequestMapping("/migrate")

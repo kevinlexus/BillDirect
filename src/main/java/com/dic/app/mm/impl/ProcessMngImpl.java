@@ -70,7 +70,7 @@ public class ProcessMngImpl implements ProcessMng {
     private EntityManager em;
 
     /**
-     * Выполнение процесса формирования либо по квартире, по дому, по вводу
+     * Выполнение процесса формирования либо по помещению, по дому, по вводу
      *
      * @param reqConf   - конфиг запроса
      * @param calcStore - хранилище справочников
@@ -84,7 +84,7 @@ public class ProcessMngImpl implements ProcessMng {
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО процесса {} заданных объектов", reqConf.getTpName());
 
-        // получить список квартир
+        // получить список помещений
         List<Integer> lstItem;
         String stopMark = null;
         // тип выборки
@@ -93,7 +93,7 @@ public class ProcessMngImpl implements ProcessMng {
         House house = reqConf.getHouse();
         Vvod vvod = reqConf.getVvod();
         if (ko != null) {
-            // по квартире
+            // по помещению
             tpSel = 1;
             lstItem = new ArrayList<>(1);
             lstItem.add(ko.getId());
@@ -117,9 +117,7 @@ public class ProcessMngImpl implements ProcessMng {
 
         // LAMBDA, будет выполнено позже, в создании потока
         PrepThread<Integer> reverse = (item, proc) -> {
-            log.info("************** 1");
             ProcessMng processMng = ctx.getBean(ProcessMng.class);
-            log.info("************** 2");
             return processMng.genProcess(item, calcStore, reqConf);
         };
 
@@ -186,9 +184,9 @@ public class ProcessMngImpl implements ProcessMng {
     }
 
     /**
-     * Процессинг расчета по одной квартире
+     * Процессинг расчета по одному помещению
      *
-     * @param klskId    - Id квартиры
+     * @param klskId    - Id помещения
      * @param calcStore - хранилище справочников
      * @param reqConf   - конфиг запроса
      */
@@ -226,8 +224,6 @@ public class ProcessMngImpl implements ProcessMng {
      * @param reqConf - конфиг запроса
      * @param calcStore - хранилище параметров
      * @param ko - объект
-     * @throws WrongParam
-     * @throws ErrorWhileChrg
      */
     private void selectInvokeProcess(RequestConfig reqConf, CalcStore calcStore, Ko ko) throws WrongParam, ErrorWhileChrg {
         switch (reqConf.getTp()) {
@@ -237,8 +233,8 @@ public class ProcessMngImpl implements ProcessMng {
                 break;
             }
             case 1: {
-                // расчет ДОЛГА и ПЕНИ -  TODO переделать на Ko!!! ред. 11.01.19
-                //genPenProcessMng.genDebitPen(calcStore, kart);
+                // расчет долга и пени
+                genPenProcessMng.genDebitPen(calcStore, ko);
                 break;
             }
             default:

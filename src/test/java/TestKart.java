@@ -59,7 +59,7 @@ public class TestKart {
 
 
 	/**
-	 * Тест запроса на поиск k_lsk_id квартиры по параметрам
+	 * Тест запроса на поиск k_lsk_id помещения по параметрам
 	 * @throws Exception
 	 */
 	@Test
@@ -75,7 +75,7 @@ public class TestKart {
 	}
 
 	/**
-	 * Проверка корректности расчета начисления по квартире
+	 * Проверка корректности расчета начисления по помещению
 	 */
 	@Test
 	@Rollback(true)
@@ -96,7 +96,7 @@ public class TestKart {
 		// дом
 		House house = em.find(House.class, 6091);
 
-		// построить лицевые счета по квартире
+		// построить лицевые счета по помещению
 		Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52),
 				3, true, true, 1, 1);
 
@@ -168,7 +168,7 @@ public class TestKart {
 		testDataBuilder.addVvodForTest(house, "123", 1, false,
 				new BigDecimal("120.58"), false);
 
-		// построить лицевые счета по квартире
+		// построить лицевые счета по помещению
 		testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52),
 				3,true, true, 1, 1);
 		testDataBuilder.buildKartForTest(house, "0002", BigDecimal.valueOf(50.24),

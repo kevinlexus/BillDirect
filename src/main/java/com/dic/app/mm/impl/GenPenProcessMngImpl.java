@@ -60,12 +60,24 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
     private EntityManager em;
 
     /**
-     * Рассчитать задолженность и пеню
+     * Рассчет задолженности и пени по помещению
+     * @param calcStore - хранилище объемов, справочников
+     * @param ko - помещение
+     */
+    @Override
+    public void genDebitPen(CalcStore calcStore, Ko ko) {
+        for (Kart kart : ko.getKart()) {
+            genDebitPen(calcStore, kart);
+        }
+    }
+
+    /**
+     * Рассчет задолженности и пени по лиц.счету
      *
      * @param calcStore - хранилище справочников
      * @param kart      - лиц.счет
      */
-    public void genDebitPen(CalcStore calcStore, Kart kart) {
+    private void genDebitPen(CalcStore calcStore, Kart kart) {
         Integer period = calcStore.getPeriod();
         Integer periodBack = calcStore.getPeriodBack();
         // ЗАГРУЗИТЬ все финансовые операции по лиц.счету

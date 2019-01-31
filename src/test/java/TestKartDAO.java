@@ -36,7 +36,7 @@ public class TestKartDAO {
 	private KartDAO kartDao;
 
 	/**
-	 * Тест запроса на поиск квартиры по параметрам
+	 * Тест запроса на поиск помещения по параметрам
 	 * @throws Exception
 	 */
 	@Test
