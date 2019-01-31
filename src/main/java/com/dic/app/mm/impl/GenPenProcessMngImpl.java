@@ -60,12 +60,14 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
     private EntityManager em;
 
     /**
-     * Рассчет задолженности и пени по помещению
+     * Рассчет задолженности и пени по всем лиц.счетам помещения
+     *
      * @param calcStore - хранилище объемов, справочников
-     * @param ko - помещение
+     * @param klskId    - klskId помещения
      */
     @Override
-    public void genDebitPen(CalcStore calcStore, Ko ko) {
+    public void genDebitPen(CalcStore calcStore, int klskId) {
+        Ko ko = em.find(Ko.class, klskId);
         for (Kart kart : ko.getKart()) {
             genDebitPen(calcStore, kart);
         }
@@ -126,7 +128,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
             Date curDt = c.getTime();
             // суммировать по дате
             BigDecimal debForPen = lst.stream().filter(t -> t.getDt().equals(curDt))
-                    .map(t -> t.getSumma()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                    .map(SumDebRec::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
             if (debForPen.compareTo(BigDecimal.ZERO) <= 0) {
                 // нет долгов, занулить пеню по всей дате
                 lst.stream().filter(t -> t.getDt().equals(curDt)).forEach(t -> t.setPenyaChrg(BigDecimal.ZERO));
@@ -338,12 +340,11 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      * Сгруппировать по периодам пеню, и долги на дату расчета
      *
      * @param lst - долги по всем дням
-     * @throws ErrorWhileChrgPen
      */
     private List<SumPenRec> getGroupingPenDeb(List<SumDebRec> lst) throws ErrorWhileChrgPen {
         // получить долги на последнюю дату
         List<SumPenRec> lstDebAmnt = lst.stream()
-                .filter(t -> t.getIsLastDay() == true)
+                .filter(SumDebRec::getIsLastDay)
                 .map(t -> new SumPenRec(t.getDebIn(), t.getPenyaPay(), t.getPayCorr(), t.getDebPay(),
                         t.getChrg(), t.getChng(), t.getUslId(), t.getOrgId(), t.getDebOut(),
                         t.getDebRolled(), t.getPenyaIn(),
@@ -352,7 +353,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
 
         // сгруппировать начисленную пеню по периодам
         for (SumDebRec t : lst) {
-            addPen(t.getUslId(), t.getOrgId(), lstDebAmnt, t.getMg(), t.getPenyaChrg(), t.getDays());
+            addPen(t.getUslId(), t.getOrgId(), lstDebAmnt, t.getMg(), t.getPenyaChrg());
         }
         return lstDebAmnt;
     }
@@ -365,10 +366,9 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      * @param lstDebAmnt - коллекция долгов
      * @param mg         - период долга
      * @param penya      - начисленая пеня за день
-     * @param days       - дней просрочки (если не будет найден период в долгах, использовать данный параметр)
-     * @throws ErrorWhileChrgPen
      */
-    private void addPen(String uslId, Integer orgId, List<SumPenRec> lstDebAmnt, Integer mg, BigDecimal penya, Integer days) throws ErrorWhileChrgPen {
+    private void addPen(String uslId, Integer orgId, List<SumPenRec>
+            lstDebAmnt, Integer mg, BigDecimal penya) throws ErrorWhileChrgPen {
         // найти запись долга с данным периодом
         SumPenRec recDeb = lstDebAmnt.stream()
                 .filter(t -> t.getUslId().equals(uslId))
@@ -390,7 +390,6 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      *
      * @param kart - лицевой счет
      * @param lst  - входящая коллекция долгов и пени
-     * @return
      */
     private void redirectPen(Kart kart, List<SumPenRec> lst) {
         // произвести перенаправление начисления пени, по справочнику

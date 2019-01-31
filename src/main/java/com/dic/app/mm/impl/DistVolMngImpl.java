@@ -4,7 +4,7 @@ import com.dic.app.mm.DistVolMng;
 import com.dic.app.mm.GenChrgProcessMng;
 import com.dic.app.mm.ProcessMng;
 import com.dic.bill.RequestConfig;
-import com.dic.bill.dao.KartDAO;
+import com.dic.bill.dao.VvodDAO;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.UslVolKart;
 import com.dic.bill.dto.UslVolKartGrp;
@@ -19,11 +19,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.javatuples.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -47,7 +49,7 @@ public class DistVolMngImpl implements DistVolMng {
     @Autowired
     private ProcessMng processMng;
     @Autowired
-    private KartDAO kartDAO;
+    private VvodDAO vvodDAO;
     @Autowired
     private GenChrgProcessMng genChrgProcessMng;
     @Autowired
@@ -55,14 +57,17 @@ public class DistVolMngImpl implements DistVolMng {
 
     /**
      * Распределить объемы по вводу (по всем вводам, если reqConf.vvod == null)
-     *
-     * @param reqConf   - параметры запроса
+     *  @param reqConf   - параметры запроса
      * @param calcStore - хранилище справочников, объемов начисления
+     * @param vvodId - ввод
      */
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW, // новая транзакция
+            rollbackFor = Exception.class)
     @Override
-    public void distVolByVvod(RequestConfig reqConf, CalcStore calcStore) throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist {
-
-        Vvod vvod = reqConf.getVvod();
+    public void distVolByVvod(RequestConfig reqConf, CalcStore calcStore, Integer vvodId)
+            throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist {
+        Vvod vvod = em.find(Vvod.class, vvodId);
         // тип распределения
         final Integer distTp = Utl.nvl(vvod.getDistTp(), 0);
         // использовать счетчики при распределении?
@@ -425,10 +430,7 @@ public class DistVolMngImpl implements DistVolMng {
                                                     .anyMatch((d -> d.getUsl().equals(t.usl.getUslChild()))) // где есть наборы по дочерним усл.
                                             && getIsCountOpl(tp, distTp, isUseSch, t)).collect(Collectors.toList());
 
-                    Iterator<UslVolKartGrp> iter = lstUslVolKartGrp.iterator();
-                    while (iter.hasNext()) {
-                        UslVolKartGrp uslVolKartGrp = iter.next();
-
+                    for (UslVolKartGrp uslVolKartGrp : lstUslVolKartGrp) {
                         // лимит (информационно)
                         BigDecimal limitTmp = null;
                         if (Utl.in(tp, 0)) {
@@ -445,15 +447,15 @@ public class DistVolMngImpl implements DistVolMng {
                                 .filter(d -> d.getUsl().equals(uslVolKartGrp.usl.getUslChild()))
                                 .findFirst().ifPresent(d -> d.setLimit(limit));
                         // распределить норматив ОДН
-                        BigDecimal volDistTmp = null;
+                        BigDecimal volDistTmp = BigDecimal.ZERO;
                         if (tp == 0) {
                             // х.в., г.в.
                             volDistTmp = uslVolKartGrp.area.multiply(limitODN.limitArea)
                                     .setScale(5, BigDecimal.ROUND_HALF_UP);
                         } else if (tp == 2) {
                             // эл.эн.
-                            volDistTmp = uslVolKartGrp.area.multiply(limitODN.odnNorm).divide(amnt.areaAmnt)
-                                    .setScale(5, BigDecimal.ROUND_HALF_UP);
+                            volDistTmp = uslVolKartGrp.area.multiply(limitODN.odnNorm)
+                                    .divide(amnt.areaAmnt, 5, BigDecimal.ROUND_HALF_UP);
                         }
                         BigDecimal volDist = volDistTmp;
                         uslVolKartGrp.kart.getNabor().stream()
@@ -722,28 +724,6 @@ public class DistVolMngImpl implements DistVolMng {
     }
 
     /**
-     * Распределить объемы в домах с ОДПУ
-     *
-     * @param reqConf   - параметры запроса
-     * @param calcStore - хранилище справочников
-     */
-    private void distVolWithODPU(RequestConfig reqConf, CalcStore calcStore) {
-
-
-    }
-
-    /**
-     * Распределить объемы в домах без ОДПУ
-     *
-     * @param vvod
-     * @param isMultiThreads
-     */
-    private void distVolWithoutODPU(Vvod vvod, boolean isMultiThreads) {
-
-    }
-
-
-    /**
      * таблица для возврата норматива потребления (в литрах) по соотв.площади на человека
      *
      * @param oplMan - площадь на человека
@@ -912,14 +892,12 @@ public class DistVolMngImpl implements DistVolMng {
      */
     class LimitODN {
         BigDecimal odnNorm = BigDecimal.ZERO;
-        // допустимый лимит ОДН по законодательству (общий)
-        BigDecimal limitVol = BigDecimal.ZERO;
         // допустимый лимит ОДН на 1 м2
         BigDecimal limitArea = BigDecimal.ZERO;
         // площадь общего имущества
         BigDecimal areaProp;
         // общий объем ОДН (используется для ОДН электроэнергии)
-        public BigDecimal amntVolODN;
+        BigDecimal amntVolODN;
     }
 
     /**

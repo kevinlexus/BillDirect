@@ -64,11 +64,13 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * ОПИСАНИЕ: https://docs.google.com/document/d/1mtK2KdMX4rGiF2cUeQFVD4HBcZ_F0Z8ucp1VNK8epx0/edit
      *
      * @param calcStore - хранилище справочников
-     * @param ko        - Ko помещения
+     * @param klskId    - klskId помещения
      * @param reqConf   - конфиг запроса
      */
     @Override
-    public void genChrg(CalcStore calcStore, Ko ko, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
+    public void genChrg(CalcStore calcStore, int klskId, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
+        Ko ko = em.find(Ko.class, klskId);
+
         // создать локальное хранилище объемов
         chrgCountAmountLocal = new ChrgCountAmountLocal();
         // получить основной лиц счет по связи klsk помещения

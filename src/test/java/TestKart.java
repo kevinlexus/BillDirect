@@ -184,7 +184,7 @@ public class TestKart {
 		testDataBuilder.buildKartForTest(house, "0006", BigDecimal.valueOf(35.12),
 				2,true, false,1, 0);
 
-		// загрузить справочники
+		// загрузить хранилище
 		CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
 
 		StopWatch sw = new org.springframework.util.StopWatch();
@@ -201,7 +201,7 @@ public class TestKart {
 		reqConf.setHouse(house);
 		reqConf.setTp(0);
 
-		// загрузить справочники todo еще раз??????????
+		// загрузить хранилище todo еще раз??????????
 		calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
 
 		sw.start("TIMING:Начисление");

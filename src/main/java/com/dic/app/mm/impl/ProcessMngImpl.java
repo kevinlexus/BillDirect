@@ -5,15 +5,14 @@ import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dao.PenDtDAO;
 import com.dic.bill.dao.PenRefDAO;
+import com.dic.bill.dao.VvodDAO;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.ChrgCountAmount;
 import com.dic.bill.model.scott.House;
 import com.dic.bill.model.scott.Ko;
 import com.dic.bill.model.scott.Vvod;
 import com.ric.cmn.Utl;
-import com.ric.cmn.excp.ErrorWhileChrg;
-import com.ric.cmn.excp.ErrorWhileChrgPen;
-import com.ric.cmn.excp.WrongParam;
+import com.ric.cmn.excp.*;
 import com.ric.dto.CommonResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,24 +61,64 @@ public class ProcessMngImpl implements ProcessMng {
     private GenPenProcessMng genPenProcessMng;
     @Autowired
     private GenChrgProcessMng genChrgProcessMng;
+    @Autowired
+    private DistVolMng distVolMng;
+    @Autowired
+    private VvodDAO vvodDAO;
 
     @Autowired
     private ApplicationContext ctx;
-
     @PersistenceContext
     private EntityManager em;
 
+
     /**
-     * Выполнение процесса формирования либо по помещению, по дому, по вводу
+     * Распределить объемы по вводу (по всем вводам, если reqConf.vvod == null)
+     *  @param reqConf   - параметры запроса
+     *
+     */
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
+    public void distVol(RequestConfig reqConf)
+            throws ErrorWhileGen {
+        if (reqConf.getTp() != 2) {
+            throw new ErrorWhileGen ("ОШИБКА! Задан некорректный тип выполнения");
+        } if (reqConf.getVvod() != null) {
+            // загрузить хранилище
+            CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0);
+            // распределить конкретный ввод
+            try {
+                distVolMng.distVolByVvod(reqConf, calcStore, reqConf.getVvod().getId());
+            } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist errorWhileChrgPen) {
+                errorWhileChrgPen.printStackTrace();
+                throw new ErrorWhileGen ("ОШИБКА при распределении объемов");
+            }
+        } else {
+            // распределить все вводы
+            for (Vvod vvod : vvodDAO.findAll()) {
+                // загрузить хранилище по каждому вводу
+                CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0);
+                try {
+                    distVolMng.distVolByVvod(reqConf, calcStore, vvod.getId());
+                } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist errorWhileChrgPen) {
+                    errorWhileChrgPen.printStackTrace();
+                    throw new ErrorWhileGen ("ОШИБКА при распределении объемов");
+                }
+            }
+        }
+    }
+
+    /**
+     * Выполнение процесса формирования начисления, задолженности, по помещению, по дому, по вводу
      *
      * @param reqConf   - конфиг запроса
      * @param calcStore - хранилище справочников
-     * @throws ErrorWhileChrgPen - ошибка начисления
+     * @throws ErrorWhileGen - ошибка обработки
      */
     @Override
     @CacheEvict(value = {"ReferenceMng.getUslOrgRedirect"}, allEntries = true)
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
-    public void genProcessAll(RequestConfig reqConf, CalcStore calcStore) throws ErrorWhileChrgPen {
+    public void genProcessAll(RequestConfig reqConf, CalcStore calcStore) throws ErrorWhileGen {
 
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО процесса {} заданных объектов", reqConf.getTpName());
@@ -111,13 +150,15 @@ public class ProcessMngImpl implements ProcessMng {
             lstItem = kartDao.getKoAll().stream().map(Ko::getId).collect(Collectors.toList());
             // маркер, для проверки необходимости остановки потоков(только если весь фонд задан для расчета)
             stopMark = "processMng.genProcess";
-            // установить маркер процесса
-            config.getLock().setLockProc(reqConf.getRqn(), stopMark);
+            // установить маркер процесса, вернуться, если уже выполняется
+            if (!config.getLock().setLockProc(reqConf.getRqn(), stopMark)) return;
         }
 
         // LAMBDA, будет выполнено позже, в создании потока
         PrepThread<Integer> reverse = (item, proc) -> {
+            //log.info("************** 1");
             ProcessMng processMng = ctx.getBean(ProcessMng.class);
+            //log.info("************** 2");
             return processMng.genProcess(item, calcStore, reqConf);
         };
 
@@ -129,12 +170,12 @@ public class ProcessMngImpl implements ProcessMng {
             } else {
                 // вызвать в одном потоке, последовательно для Unit тестов
                 for (Integer klskId : lstItem) {
-                    selectInvokeProcess(reqConf, calcStore, em.find(Ko.class, klskId));
+                    selectInvokeProcess(reqConf, calcStore, klskId);
                 }
             }
         } catch (InterruptedException | ExecutionException | WrongParam | ErrorWhileChrg e) {
             log.error(Utl.getStackTraceString(e));
-            throw new ErrorWhileChrgPen("ОШИБКА во время расчета!");
+            throw new ErrorWhileGen("ОШИБКА во время расчета!");
         } finally {
             if (tpSel == 0) {
                 // снять маркер процесса
@@ -204,10 +245,9 @@ public class ProcessMngImpl implements ProcessMng {
             if (!config.aquireLock(reqConf.getRqn(), klskId)) {
                 throw new RuntimeException("ОШИБКА БЛОКИРОВКИ klskId=" + klskId);
             }
-            Ko ko = em.find(Ko.class, klskId);
             log.info("******* klskId={}", klskId);
 
-            selectInvokeProcess(reqConf, calcStore, ko);
+            selectInvokeProcess(reqConf, calcStore, klskId);
         } finally {
             // разблокировать лицевой счет
             config.getLock().unlockLsk(reqConf.getRqn(), klskId);
@@ -223,18 +263,18 @@ public class ProcessMngImpl implements ProcessMng {
      * Выбрать и вызвать процесс
      * @param reqConf - конфиг запроса
      * @param calcStore - хранилище параметров
-     * @param ko - объект
+     * @param klskId - klskId объекта
      */
-    private void selectInvokeProcess(RequestConfig reqConf, CalcStore calcStore, Ko ko) throws WrongParam, ErrorWhileChrg {
+    private void selectInvokeProcess(RequestConfig reqConf, CalcStore calcStore, int klskId) throws WrongParam, ErrorWhileChrg {
         switch (reqConf.getTp()) {
             case 0: case 2:{
                 // начисление и расчет объемов
-                genChrgProcessMng.genChrg(calcStore, ko, reqConf);
+                genChrgProcessMng.genChrg(calcStore, klskId, reqConf);
                 break;
             }
             case 1: {
                 // расчет долга и пени
-                genPenProcessMng.genDebitPen(calcStore, ko);
+                genPenProcessMng.genDebitPen(calcStore, klskId);
                 break;
             }
             default:

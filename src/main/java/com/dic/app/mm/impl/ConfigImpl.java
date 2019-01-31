@@ -30,10 +30,6 @@ public class ConfigImpl implements ConfigApp {
     @Autowired
     ParamDAO paramDao;
 
-    // даты текущего периода (не зависимо от перерасчета)
-    Date curDt1;
-    Date curDt2;
-
     // номер текущего запроса
     private int reqNum = 0;
 
