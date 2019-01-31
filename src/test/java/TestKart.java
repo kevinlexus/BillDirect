@@ -218,8 +218,11 @@ public class TestKart {
 		calcStore.getChrgCountAmount().printVolAmnt(null, "123");
 */
 
+		calcStore.getChrgCountAmount().printVolAmnt(null, "003");
+/*
 		calcStore.getChrgCountAmount().printVolAmnt(null, "099");
 		calcStore.getChrgCountAmount().printVolAmnt(null, "101");
+*/
 
 		/*
 		calcStore.getChrgCountAmount().printVolAmnt(null, "053");
