@@ -73,7 +73,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         chrgCountAmountLocal = new ChrgCountAmountLocal();
         // получить основной лиц счет по связи klsk квартиры
         Kart kartMainByKlsk = kartMng.getKartMain(ko);
-        log.info("****** {} квартиры klskId={}, основной лиц.счет lsk={} - начало ******",
+        log.info("****** {} квартиры klskId={}, основной лиц.счет lsk={} - начало    ******",
                 reqConf.getTpName(), ko.getId(), kartMainByKlsk.getLsk());
         // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
         int parVarCntKpr =
@@ -126,25 +126,24 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 genVolPart(calcStore, chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
                         parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part);
             }
+        }
 
-            // 4. Округлить объемы
-            chrgCountAmountLocal.roundVol();
+        // 4. Округлить объемы
+        chrgCountAmountLocal.roundVol();
 
-            // 5. Добавить в объемы по вводу
-            calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
-            //chrgCountAmountLocal.printVolAmnt(null);
+        // 5. Добавить в объемы по вводу
+        calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
+        //chrgCountAmountLocal.printVolAmnt(null);
 
+        if (reqConf.getTp() != 2) {
             // 6. Сгруппировать строки начислений для записи в C_CHARGE
             chrgCountAmountLocal.groupUslVolChrg();
 
             // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE, округлить для ГИС ЖКХ
             chrgCountAmountLocal.saveChargeAndRound(ko);
-
-            log.info("****** {} квартиры klskId={}, основной лиц.счет lsk={} - окончание ******",
-                    reqConf.getTpName(), ko.getId(), kartMainByKlsk.getLsk());
         }
-
-        // получить кол-во проживающих по лиц.счету
+        log.info("****** {} квартиры klskId={}, основной лиц.счет lsk={} - окончание ******",
+                reqConf.getTpName(), ko.getId(), kartMainByKlsk.getLsk());
 
 /*
         log.info("ИТОГО:");
