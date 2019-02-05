@@ -10,11 +10,9 @@ import com.dic.bill.dto.UslVolKart;
 import com.dic.bill.dto.UslVolKartGrp;
 import com.dic.bill.mm.ObjParMng;
 import com.dic.bill.model.scott.*;
+import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
-import com.ric.cmn.excp.ErrorWhileChrgPen;
-import com.ric.cmn.excp.ErrorWhileDist;
-import com.ric.cmn.excp.WrongGetMethod;
-import com.ric.cmn.excp.WrongParam;
+import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
 import org.javatuples.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +40,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-public class DistVolMngImpl implements DistVolMng {
+public class DistVolMngImpl implements DistVolMng, CommonConstants {
 
     @PersistenceContext
     private EntityManager em;
@@ -56,17 +54,43 @@ public class DistVolMngImpl implements DistVolMng {
     private ObjParMng objParMng;
 
     /**
-     * Распределить объемы по вводу (по всем вводам, если reqConf.vvod == null)
-     *  @param reqConf   - параметры запроса
-     * @param calcStore - хранилище справочников, объемов начисления
-     * @param vvodId - ввод
+     * Вызов из Web контроллера
+     * @param reqConf - запрос
+     * @param calcStore - хранилище объемов
+     * @param vvodId - Id ввода
      */
     @Transactional(
             propagation = Propagation.REQUIRES_NEW, // новая транзакция
             rollbackFor = Exception.class)
     @Override
-    public void distVolByVvod(RequestConfig reqConf, CalcStore calcStore, Integer vvodId)
-            throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist {
+    public void distVolByVvodTrans(RequestConfig reqConf, CalcStore calcStore, Integer vvodId)
+            throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist, ErrorWhileGen {
+        distVolByVvod(reqConf, calcStore, vvodId);
+    }
+
+    /**
+     * Вызов из Unit - тестов
+     * @param reqConf - запрос
+     * @param calcStore - хранилище объемов
+     * @param vvodId - Id ввода
+     */
+    @Transactional(
+            propagation = Propagation.MANDATORY, // та же транзакция
+            rollbackFor = Exception.class)
+    @Override
+    public void distVolByVvodSameTrans(RequestConfig reqConf, CalcStore calcStore, Integer vvodId)
+            throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist, ErrorWhileGen {
+        distVolByVvod(reqConf, calcStore, vvodId);
+    }
+
+    /**
+     * Распределить объемы по вводу (по всем вводам, если reqConf.vvod == null)
+     *  @param reqConf   - параметры запроса
+     * @param calcStore - хранилище справочников, объемов начисления
+     * @param vvodId - ввод
+     */
+    private void distVolByVvod(RequestConfig reqConf, CalcStore calcStore, Integer vvodId)
+            throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist, ErrorWhileGen {
         Vvod vvod = em.find(Vvod.class, vvodId);
         // тип распределения
         final Integer distTp = Utl.nvl(vvod.getDistTp(), 0);
@@ -83,7 +107,6 @@ public class DistVolMngImpl implements DistVolMng {
         int tpTmp = -1;
 
         // вид услуги ограничения ОДН
-
         if (Utl.in(usl.getFkCalcTp(), 3, 17, 4, 18, 31, 38, 40)) {
             if (Utl.in(usl.getFkCalcTp(), 3, 17, 38, 4, 18, 40)) {
                 // х.в., г.в.
@@ -701,10 +724,6 @@ public class DistVolMngImpl implements DistVolMng {
             }
 
         } else if (tp == 2) {
-            // норматив по эл.энерг. ОДН в доме без лифта на м2 общ.имущ.
-            final BigDecimal ODN_EL_NORM = new BigDecimal("2.7");
-            // норматив по эл.энерг. ОДН в доме с лифтом на м2 общ.имущ.
-            final BigDecimal ODN_EL_NORM_WITH_LIFT = new BigDecimal("4.1");
             // эл.эн.
             // площадь общ.имущ., норматив, объем на площадь
             limitODN.areaProp = Utl.nvl(objParMng.getBd(houseKo, "area_general_property"), BigDecimal.ZERO);

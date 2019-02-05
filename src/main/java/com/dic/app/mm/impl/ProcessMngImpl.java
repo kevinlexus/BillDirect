@@ -11,6 +11,7 @@ import com.dic.bill.dto.ChrgCountAmount;
 import com.dic.bill.model.scott.House;
 import com.dic.bill.model.scott.Ko;
 import com.dic.bill.model.scott.Vvod;
+import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.*;
 import com.ric.dto.CommonResult;
@@ -44,7 +45,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @Scope("prototype")
-public class ProcessMngImpl implements ProcessMng {
+public class ProcessMngImpl implements ProcessMng, CommonConstants {
 
     final int CNT_THREADS = 15;
     @Autowired
@@ -88,22 +89,35 @@ public class ProcessMngImpl implements ProcessMng {
             CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0);
             // распределить конкретный ввод
             try {
-                distVolMng.distVolByVvod(reqConf, calcStore, reqConf.getVvod().getId());
+                if (reqConf.isMultiThreads()) {
+                    // вызвать в новой транзакции, многопоточно
+                    distVolMng.distVolByVvodTrans(reqConf, calcStore, reqConf.getVvod().getId());
+                } else {
+                    // вызвать в той же транзакции, однопоточно, для Unit - тестов
+                    distVolMng.distVolByVvodSameTrans(reqConf, calcStore, reqConf.getVvod().getId());
+                }
             } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist errorWhileChrgPen) {
                 errorWhileChrgPen.printStackTrace();
                 throw new ErrorWhileGen ("ОШИБКА при распределении объемов");
             }
         } else {
             // распределить все вводы
-            for (Vvod vvod : vvodDAO.findAll()) {
-                // загрузить хранилище по каждому вводу
-                CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0);
-                try {
-                    distVolMng.distVolByVvod(reqConf, calcStore, vvod.getId());
-                } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist errorWhileChrgPen) {
-                    errorWhileChrgPen.printStackTrace();
-                    throw new ErrorWhileGen ("ОШИБКА при распределении объемов");
+            // установить маркер процесса, вернуться, если уже выполняется
+            if (config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
+                for (Vvod vvod : vvodDAO.findAll()) {
+                    if (!config.getLock().isStopped(stopMark)) {
+                        // загрузить хранилище по каждому вводу
+                        CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0);
+                        try {
+                            distVolMng.distVolByVvodTrans(reqConf, calcStore, vvod.getId());
+                        } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist errorWhileChrgPen) {
+                            errorWhileChrgPen.printStackTrace();
+                            throw new ErrorWhileGen("ОШИБКА при распределении объемов");
+                        }
+                    }
                 }
+                // снять маркер процесса
+                config.getLock().unlockProc(reqConf.getRqn(), stopMark);
             }
         }
     }
@@ -125,7 +139,6 @@ public class ProcessMngImpl implements ProcessMng {
 
         // получить список помещений
         List<Integer> lstItem;
-        String stopMark = null;
         // тип выборки
         int tpSel;
         Ko ko = reqConf.getKo();
@@ -148,8 +161,6 @@ public class ProcessMngImpl implements ProcessMng {
             tpSel = 0;
             // по всему фонду
             lstItem = kartDao.getKoAll().stream().map(Ko::getId).collect(Collectors.toList());
-            // маркер, для проверки необходимости остановки потоков(только если весь фонд задан для расчета)
-            stopMark = "processMng.genProcess";
             // установить маркер процесса, вернуться, если уже выполняется
             if (!config.getLock().setLockProc(reqConf.getRqn(), stopMark)) return;
         }
@@ -165,10 +176,10 @@ public class ProcessMngImpl implements ProcessMng {
         // ВЫЗОВ
         try {
             if (reqConf.isMultiThreads()) {
-                // вызвать в потоках
+                // вызвать в новой транзакции, многопоточно
                 threadMng.invokeThreads(reverse, CNT_THREADS, lstItem, stopMark);
             } else {
-                // вызвать в одном потоке, последовательно для Unit тестов
+                // вызвать в той же транзакции, однопоточно, для Unit - тестов
                 for (Integer klskId : lstItem) {
                     selectInvokeProcess(reqConf, calcStore, klskId);
                 }

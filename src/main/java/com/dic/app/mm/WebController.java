@@ -4,8 +4,8 @@ import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.PrepErrDAO;
 import com.dic.bill.dao.SprGenItmDAO;
 import com.dic.bill.dto.CalcStore;
-import com.dic.bill.model.scott.PrepErr;
-import com.dic.bill.model.scott.SprGenItm;
+import com.dic.bill.model.scott.*;
+import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +21,7 @@ import java.util.List;
 
 @RestController
 @Slf4j
-public class WebController {
+public class WebController implements CommonConstants {
 
     @PersistenceContext
     private EntityManager em;
@@ -47,23 +47,27 @@ public class WebController {
      * Расчет
      *
      * @param tp       - тип выполнения 0-начисление, 1-задолженность и пеня, 2 - распределение объемов по вводу
-     * @param klskId   - klskId объекта (дом, ввод, помещение)
+     * @param houseId   - houseId объекта (дом)
+     * @param vvodId   - vvodId объекта (ввод)
+     * @param klskId   - klskId объекта (помещение)
      * @param debugLvl - уровень отладки 0, null - не записивать в лог отладочную информацию, 1 - записывать
-     * @param genDt1   - дата на которую сформировать
+     * @param genDtStr   - дата на которую сформировать
      * @param stop     - 1 - остановить выполнение текущей операции с типом tp
      * @param key      - ключ, для выполнения ответственных заданий
      */
     @RequestMapping("/gen")
     public String gen(
             @RequestParam(value = "tp", defaultValue = "0") int tp,
-            @RequestParam(value = "klskId", defaultValue = "0", required = false) long klskId,
+            @RequestParam(value = "houseId", defaultValue = "0", required = false) int houseId,
+            @RequestParam(value = "vvodId", defaultValue = "0", required = false) int vvodId,
+            @RequestParam(value = "klskId", defaultValue = "0", required = false) int klskId,
             @RequestParam(value = "debugLvl", defaultValue = "0") int debugLvl,
-            @RequestParam(value = "genDt", defaultValue = "", required = false) String genDt1,
+            @RequestParam(value = "genDt", defaultValue = "", required = false) String genDtStr,
             @RequestParam(value = "key", defaultValue = "", required = false) String key,
             @RequestParam(value = "stop", defaultValue = "0", required = false) int stop
     ) {
-        log.info("GOT /gen with: tp={}, debugLvl={}, genDt={}, stop={}", // FIXME
-                tp, debugLvl, genDt1, stop);
+        log.info("GOT /gen with: tp={}, key={}, debugLvl={}, genDt={}, houseId={}, vvodId={}, klskId={}, stop={}",
+                tp, key, debugLvl, genDtStr, houseId, vvodId, klskId, stop);
 
         // проверка валидности ключа
         boolean isValidKey = checkValidKey(key);
@@ -77,9 +81,26 @@ public class WebController {
         }
 
         // конфиг запроса
+        House house = null;
+        Vvod vvod = null;
+        Ko ko = null;
+        if (houseId != 0) {
+            house = em.find(House.class, houseId);
+        } else if (vvodId != 0) {
+            vvod = em.find(Vvod.class, vvodId);
+        } else if (klskId != 0) {
+            ko = em.find(Ko.class, klskId);
+        } else {
+            return "ERROR! Незаполнен объект расчета - houseId, vvodId, klskId";
+        }
+
         RequestConfig reqConf =
                 RequestConfig.RequestConfigBuilder.aRequestConfig()
                         .withTp(tp)
+                        .withGenDt(genDtStr != null ? Utl.getDateFromStr(genDtStr) : null)
+                        .withHouse(house)
+                        .withVvod(vvod)
+                        .withKo(ko)
                         .withCurDt1(config.getCurDt1())
                         .withCurDt2(config.getCurDt2())
                         .withDebugLvl(debugLvl)
@@ -88,14 +109,13 @@ public class WebController {
 
         if (stop == 1) {
             // Остановка длительного процесса
-            config.getLock().stopProc(reqConf.getRqn(), "processMng.genProcess");
+            config.getLock().stopProc(reqConf.getRqn(), stopMark);
         } else {
-
             // проверить переданные параметры
             String err = reqConf.checkArguments();
             if (err == null) {
 
-                if (Utl.in(reqConf.getTp(), 0,1)) {
+                if (Utl.in(reqConf.getTp(), 0, 1)) {
                     // загрузить хранилище
                     CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
                     // расчет начисления, задолженности и пени
@@ -105,7 +125,7 @@ public class WebController {
                         errorWhileGen.printStackTrace();
                         return "ERROR! Ошибка в процессе расчета";
                     }
-                } else {
+                } else if (reqConf.getTp() == 2) {
                     // распределение объемов
                     try {
                         processMng.distVol(reqConf);
@@ -118,7 +138,6 @@ public class WebController {
                 return err;
             }
         }
-
         return "OK";
     }
 
