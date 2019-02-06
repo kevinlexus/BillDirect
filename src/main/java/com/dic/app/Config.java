@@ -26,7 +26,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableCaching
 @EnableAsync
 //@ImportResource("file:/C:/work/BillProject/config/spring.xml")
-@ImportResource("spring.xml")
+@ImportResource("file:.\\config\\spring.xml")
 public class Config  implements ApplicationContextAware {
 
 	static ApplicationContext ctx = null;
