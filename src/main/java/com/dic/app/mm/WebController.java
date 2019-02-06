@@ -69,12 +69,6 @@ public class WebController implements CommonConstants {
         log.info("GOT /gen with: tp={}, key={}, debugLvl={}, genDt={}, houseId={}, vvodId={}, klskId={}, stop={}",
                 tp, key, debugLvl, genDtStr, houseId, vvodId, klskId, stop);
 
-        // проверка валидности ключа
-        boolean isValidKey = checkValidKey(key);
-        if (!isValidKey) {
-            log.info("ERROR! wrong key!");
-            return "ERROR! wrong key!";
-        }
         // проверка типа формирования
         if (!Utl.in(tp, 0, 1, 2)) {
             return "ERROR! Некорректный тип расчета: tp=" + tp;
@@ -93,7 +87,6 @@ public class WebController implements CommonConstants {
         } else {
             return "ERROR! Незаполнен объект расчета - houseId, vvodId, klskId";
         }
-
         RequestConfig reqConf =
                 RequestConfig.RequestConfigBuilder.aRequestConfig()
                         .withTp(tp)
@@ -104,7 +97,7 @@ public class WebController implements CommonConstants {
                         .withCurDt1(config.getCurDt1())
                         .withCurDt2(config.getCurDt2())
                         .withDebugLvl(debugLvl)
-                        .withRqn(config.incNextReqNum()) // уникальный номер запроса
+                        .withRqn(config.incNextReqNum())
                         .build();
 
         if (stop == 1) {

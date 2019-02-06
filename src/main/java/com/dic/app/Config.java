@@ -6,6 +6,7 @@ import javax.sql.DataSource;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -24,11 +25,13 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableJpaRepositories(basePackages="com.dic.bill.dao")
 @EnableCaching
 @EnableAsync
+//@ImportResource("file:/C:/work/BillProject/config/spring.xml")
 @ImportResource("spring.xml")
 public class Config  implements ApplicationContextAware {
 
 	static ApplicationContext ctx = null;
 
+	@Qualifier("dataSource")
 	@Autowired
 	DataSource ds;
 
@@ -37,6 +40,7 @@ public class Config  implements ApplicationContextAware {
 		ctx = context;
 	}
 
+/*
 	@Bean
 	public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
 	    // JPA settings
@@ -55,10 +59,8 @@ public class Config  implements ApplicationContextAware {
 	    factory.afterPropertiesSet();
 	    return factory;
 	}
+*/
 
-	/**
-	 * Note that this is a static method which expose ApplicationContext
-	 **/
 	public static ApplicationContext getContext(){
 	      return ctx;
 	}

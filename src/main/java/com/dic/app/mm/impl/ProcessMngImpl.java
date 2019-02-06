@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.AsyncResult;
@@ -47,7 +48,6 @@ import java.util.stream.Collectors;
 @Scope("prototype")
 public class ProcessMngImpl implements ProcessMng, CommonConstants {
 
-    final int CNT_THREADS = 15;
     @Autowired
     private ConfigApp config;
     @Autowired
@@ -62,8 +62,9 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     private GenPenProcessMng genPenProcessMng;
     @Autowired
     private GenChrgProcessMng genChrgProcessMng;
-    @Autowired
-    private DistVolMng distVolMng;
+
+    private final DistVolMng distVolMng;
+
     @Autowired
     private VvodDAO vvodDAO;
 
@@ -72,19 +73,24 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     @PersistenceContext
     private EntityManager em;
 
+    @Autowired
+    public ProcessMngImpl(@Lazy DistVolMng distVolMng) {
+        this.distVolMng = distVolMng;
+    }
 
     /**
      * Распределить объемы по вводу (по всем вводам, если reqConf.vvod == null)
-     *  @param reqConf   - параметры запроса
      *
+     * @param reqConf - параметры запроса
      */
     @Override
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public void distVol(RequestConfig reqConf)
             throws ErrorWhileGen {
         if (reqConf.getTp() != 2) {
-            throw new ErrorWhileGen ("ОШИБКА! Задан некорректный тип выполнения");
-        } if (reqConf.getVvod() != null) {
+            throw new ErrorWhileGen("ОШИБКА! Задан некорректный тип выполнения");
+        }
+        if (reqConf.getVvod() != null) {
             // загрузить хранилище
             CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0);
             // распределить конкретный ввод
@@ -98,26 +104,30 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                 }
             } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist errorWhileChrgPen) {
                 errorWhileChrgPen.printStackTrace();
-                throw new ErrorWhileGen ("ОШИБКА при распределении объемов");
+                throw new ErrorWhileGen("ОШИБКА при распределении объемов");
             }
         } else {
             // распределить все вводы
             // установить маркер процесса, вернуться, если уже выполняется
             if (config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
-                for (Vvod vvod : vvodDAO.findAll()) {
-                    if (!config.getLock().isStopped(stopMark)) {
-                        // загрузить хранилище по каждому вводу
-                        CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0);
-                        try {
-                            distVolMng.distVolByVvodTrans(reqConf, calcStore, vvod.getId());
-                        } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist errorWhileChrgPen) {
-                            errorWhileChrgPen.printStackTrace();
-                            throw new ErrorWhileGen("ОШИБКА при распределении объемов");
+                try {
+
+                    for (Vvod vvod : vvodDAO.findAll()) {
+                        if (!config.getLock().isStopped(stopMark)) {
+                            // загрузить хранилище по каждому вводу
+                            CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0);
+                            try {
+                                distVolMng.distVolByVvodTrans(reqConf, calcStore, vvod.getId());
+                            } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist errorWhileChrgPen) {
+                                errorWhileChrgPen.printStackTrace();
+                                throw new ErrorWhileGen("ОШИБКА при распределении объемов");
+                            }
                         }
                     }
+                } finally {
+                    // снять маркер процесса
+                    config.getLock().unlockProc(reqConf.getRqn(), stopMark);
                 }
-                // снять маркер процесса
-                config.getLock().unlockProc(reqConf.getRqn(), stopMark);
             }
         }
     }
@@ -160,7 +170,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         } else {
             tpSel = 0;
             // по всему фонду
-            lstItem = kartDao.getKoAll().stream().map(Ko::getId).collect(Collectors.toList());
+            lstItem = kartDao.getKoKwAll().stream().map(Ko::getId).collect(Collectors.toList());
             // установить маркер процесса, вернуться, если уже выполняется
             if (!config.getLock().setLockProc(reqConf.getRqn(), stopMark)) return;
         }
@@ -177,6 +187,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         try {
             if (reqConf.isMultiThreads()) {
                 // вызвать в новой транзакции, многопоточно
+                int CNT_THREADS = 15;
                 threadMng.invokeThreads(reverse, CNT_THREADS, lstItem, stopMark);
             } else {
                 // вызвать в той же транзакции, однопоточно, для Unit - тестов
@@ -272,13 +283,15 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
 
     /**
      * Выбрать и вызвать процесс
-     * @param reqConf - конфиг запроса
+     *
+     * @param reqConf   - конфиг запроса
      * @param calcStore - хранилище параметров
-     * @param klskId - klskId объекта
+     * @param klskId    - klskId объекта
      */
     private void selectInvokeProcess(RequestConfig reqConf, CalcStore calcStore, int klskId) throws WrongParam, ErrorWhileChrg {
         switch (reqConf.getTp()) {
-            case 0: case 2:{
+            case 0:
+            case 2: {
                 // начисление и расчет объемов
                 genChrgProcessMng.genChrg(calcStore, klskId, reqConf);
                 break;

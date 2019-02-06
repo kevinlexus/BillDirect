@@ -106,6 +106,9 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
         // тип услуги
         int tpTmp = -1;
 
+        if (usl.getFkCalcTp() == null) {
+            throw new ErrorWhileDist("ОШИБКА! По услуге usl="+usl.getId()+" не заполнен тип fkCalcTp");
+        }
         // вид услуги ограничения ОДН
         if (Utl.in(usl.getFkCalcTp(), 3, 17, 4, 18, 31, 38, 40)) {
             if (Utl.in(usl.getFkCalcTp(), 3, 17, 38, 4, 18, 40)) {
@@ -562,7 +565,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
         chargePrep.setUsl(usl);
         chargePrep.setVol(vol);
         chargePrep.setTp(4);
-        chargePrep.setExistMeter(isExistMeter);
+        chargePrep.setIsExistMeter(isExistMeter);
     }
 
     /**
