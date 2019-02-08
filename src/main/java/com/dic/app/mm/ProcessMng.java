@@ -15,7 +15,7 @@ public interface ProcessMng {
 
     void genProcessAll(RequestConfig reqConf, CalcStore calcStore) throws ErrorWhileGen;
 
-    CalcStore buildCalcStore(Date genDt, Integer debugLvl);
+    CalcStore buildCalcStore(Date genDt, Integer debugLvl, int tp);
 
     Future<CommonResult> genProcess(int klskId, CalcStore calcStore, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg;
 }

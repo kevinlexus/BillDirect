@@ -151,7 +151,6 @@
                     <excludes>
                         <exclude>application.properties</exclude>
                         <exclude>spring.xml</exclude>
-                        <exclude>logback.xml</exclude>
                     </excludes>
                 </configuration>
             </plugin>

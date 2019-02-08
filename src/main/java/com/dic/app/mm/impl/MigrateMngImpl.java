@@ -88,7 +88,7 @@ public class MigrateMngImpl implements MigrateMng {
 
 		// вызвать в потоках
 		try {
-			threadMng.invokeThreads(reverse, 15, lstItem, null);
+			threadMng.invokeThreads(reverse, 15, lstItem, false, null);
 		} catch (InterruptedException | ExecutionException | WrongParam | ErrorWhileChrg e) {
 			log.error(Utl.getStackTraceString(e));
 			throw new ErrorWhileDistDeb("ОШИБКА во время миграции задолженности!");

@@ -3,6 +3,7 @@ import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.GenChrgProcessMng;
 import com.dic.app.mm.ProcessMng;
 import com.dic.bill.RequestConfig;
+import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.TestDataBuilder;
@@ -19,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.ImportResource;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -28,6 +30,8 @@ import org.springframework.util.StopWatch;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = Config.class)
@@ -46,6 +50,8 @@ public class TestKart {
     private GenChrgProcessMng genChrgProcessMng;
     @Autowired
     private ConfigApp config;
+    @Autowired
+    private KartDAO kartDao;
 
     @PersistenceContext
     private EntityManager em;
@@ -83,7 +89,7 @@ public class TestKart {
                         .build();
 
         // загрузить справочники
-        CalcStore calcStore = processMng.buildCalcStore(Utl.getDateFromStr("15.04.2014"), 0);
+        CalcStore calcStore = processMng.buildCalcStore(Utl.getDateFromStr("15.04.2014"), 0, reqConf.getTp());
 
         // дом
         House house = em.find(House.class, 6091);
@@ -191,7 +197,7 @@ public class TestKart {
         reqConf.setTp(0);
 
         // загрузить хранилище
-        CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0);
+        CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0, reqConf.getTp());
         sw.start("TIMING:Начисление");
         // вызов начисления
         processMng.genProcessAll(reqConf, calcStore);
@@ -218,6 +224,18 @@ public class TestKart {
 
         System.out.println(sw.prettyPrint());
         log.info("Test genChrgProcessMngGenChrgHouse End!");
+    }
+
+
+    @Test
+    @Rollback()
+    @Transactional
+    public void testVvod() {
+        Vvod vvod = em.find(Vvod.class, 6050);
+        List<Integer> lstItem = kartDao.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
+        for (Integer id : lstItem) {
+            log.info("test id={}", id);
+        }
     }
 
 }

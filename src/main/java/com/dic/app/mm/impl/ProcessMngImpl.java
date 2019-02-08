@@ -92,7 +92,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         }
         if (reqConf.getVvod() != null) {
             // загрузить хранилище
-            CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0);
+            CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0, reqConf.getTp());
             // распределить конкретный ввод
             try {
                 if (reqConf.isMultiThreads()) {
@@ -115,7 +115,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                     for (Vvod vvod : vvodDAO.findAll()) {
                         if (!config.getLock().isStopped(stopMark)) {
                             // загрузить хранилище по каждому вводу
-                            CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0);
+                            CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0, reqConf.getTp());
                             try {
                                 distVolMng.distVolByVvodTrans(reqConf, calcStore, vvod.getId());
                             } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist errorWhileChrgPen) {
@@ -154,6 +154,8 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         Ko ko = reqConf.getKo();
         House house = reqConf.getHouse();
         Vvod vvod = reqConf.getVvod();
+        // проверка остановки процесса
+        boolean isCheckStop = false;
         if (ko != null) {
             // по помещению
             tpSel = 1;
@@ -172,7 +174,11 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             // по всему фонду
             lstItem = kartDao.getKoKwAll().stream().map(Ko::getId).collect(Collectors.toList());
             // установить маркер процесса, вернуться, если уже выполняется
-            if (!config.getLock().setLockProc(reqConf.getRqn(), stopMark)) return;
+            if (!config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
+                return;
+            } else {
+                isCheckStop = true;    ;
+            }
         }
 
         // LAMBDA, будет выполнено позже, в создании потока
@@ -188,7 +194,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             if (reqConf.isMultiThreads()) {
                 // вызвать в новой транзакции, многопоточно
                 int CNT_THREADS = 15;
-                threadMng.invokeThreads(reverse, CNT_THREADS, lstItem, stopMark);
+                threadMng.invokeThreads(reverse, CNT_THREADS, lstItem, isCheckStop, stopMark);
             } else {
                 // вызвать в той же транзакции, однопоточно, для Unit - тестов
                 for (Integer klskId : lstItem) {
@@ -216,10 +222,11 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
      *
      * @param genDt    - дата расчета
      * @param debugLvl - уровень отладочной информации (0-нет, 1-отобразить)
+     * @param tp - тип выполнения 0-начисление, 1-задолженность и пеня, 2 - распределение объемов по вводу
      * @return - хранилище
      */
     @Override
-    public CalcStore buildCalcStore(Date genDt, Integer debugLvl) {
+    public CalcStore buildCalcStore(Date genDt, Integer debugLvl, int tp) {
         CalcStore calcStore = new CalcStore();
         // уровень отладки
         calcStore.setDebugLvl(debugLvl);
@@ -234,15 +241,17 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         // период - месяц назад
         calcStore.setPeriodBack(Integer.valueOf(config.getPeriodBack()));
         log.info("Начало получения справочников");
-        // справочник дат начала пени
-        calcStore.setLstPenDt(penDtDao.findAll());
-        log.info("Загружен справочник дат начала обязательства по оплате");
-        // справочник ставок рефинансирования
-        calcStore.setLstPenRef(penRefDao.findAll());
+        if (tp == 1) {
+            // справочник дат начала пени
+            calcStore.setLstPenDt(penDtDao.findAll());
+            log.info("Загружен справочник дат начала обязательства по оплате");
+            // справочник ставок рефинансирования
+            calcStore.setLstPenRef(penRefDao.findAll());
+            log.info("Загружен справочник ставок рефинансирования");
+        }
         // хранилище параметров по дому (для ОДН и прочих нужд)
         calcStore.setChrgCountAmount(new ChrgCountAmount());
 
-        log.info("Загружен справочник ставок рефинансирования");
         return calcStore;
     }
 
@@ -267,12 +276,16 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             if (!config.aquireLock(reqConf.getRqn(), klskId)) {
                 throw new RuntimeException("ОШИБКА БЛОКИРОВКИ klskId=" + klskId);
             }
-            log.info("******* klskId={}", klskId);
+            log.info("******* klskId={} заблокирован для расчета", klskId);
 
             selectInvokeProcess(reqConf, calcStore, klskId);
+        } catch (WrongParam | ErrorWhileChrg e){
+            log.error(Utl.getStackTraceString(e));
+            throw new ErrorWhileChrg("ОШИБКА во время расчета!");
         } finally {
             // разблокировать лицевой счет
             config.getLock().unlockLsk(reqConf.getRqn(), klskId);
+            log.info("******* klskId={} разблокирован после расчета", klskId);
         }
         CommonResult res = new CommonResult(klskId, 0);
         long endTime = System.currentTimeMillis();

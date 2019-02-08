@@ -25,8 +25,8 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableJpaRepositories(basePackages="com.dic.bill.dao")
 @EnableCaching
 @EnableAsync
-//@ImportResource("file:/C:/work/BillProject/config/spring.xml")
 @ImportResource("file:.\\config\\spring.xml")
+//@ImportResource("spring.xml")
 public class Config  implements ApplicationContextAware {
 
 	static ApplicationContext ctx = null;

@@ -165,7 +165,7 @@ public class ConfigImpl implements ConfigApp {
         int waitTick = 0;
         while (!getLock().setLockLsk(rqn, klskId)) {
             waitTick++;
-            if (waitTick > 120) { // 2 минуты ожидать блокировку
+            if (waitTick > 3) { // 2 минуты ожидать блокировку
                 log.error(
                         "********ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ!");
                 log.error(

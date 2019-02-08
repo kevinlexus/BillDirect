@@ -3,6 +3,7 @@ package com.dic.app.mm.impl;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.PrepThread;
 import com.dic.app.mm.ThreadMng;
+import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.WrongParam;
@@ -42,36 +43,27 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 
     /**
      * Вызвать выполнение потоков распределения объемов/ начисления
-     *
-     * @param reverse-   lambda функция
+     *  @param reverse -   lambda функция
      * @param cntThreads - кол-во потоков
      * @param lstItem    - список Id на обработку
-     * @param stopMark       - наименование потока, если заполнен, проверять остановку главного процесса
-     * @throws ExecutionException
-     * @throws InterruptedException
+     * @param isCheckStop - проверять остановку главного процесса?
+     * @param stopMark
      */
     @Override
-    @Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
+    @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public void invokeThreads(PrepThread<T> reverse,
-                              int cntThreads, List<T> lstItem, String stopMark) throws InterruptedException, ExecutionException, WrongParam, ErrorWhileChrg {
+                              int cntThreads, List<T> lstItem, boolean isCheckStop, String stopMark)
+            throws InterruptedException, ExecutionException, WrongParam, ErrorWhileChrg {
         long startTime = System.currentTimeMillis();
         // размер очереди
         int lstSize = lstItem.size();
         int curSize = lstSize;
-        // если указано имя маркера, то проверять остановку процесса
-        boolean isCheckStop;
-        if (stopMark != null) {
-            isCheckStop = true;
-        } else {
-            isCheckStop = false;
-        }
-
-        List<Future<CommonResult>> frl = new ArrayList<Future<CommonResult>>(cntThreads);
+        List<Future<CommonResult>> frl = new ArrayList<>(cntThreads);
         for (int i = 1; i <= cntThreads; i++) {
             frl.add(null);
         }
         // проверить окончание всех потоков и запуск новых потоков
-        T itemWork = null;
+        T itemWork;
         boolean isStop = false;
         // флаг принудительной остановки
         boolean isStopProcess = false;
@@ -80,14 +72,14 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
             int i = 0;
             // флаг наличия потоков
             isStop = true;
-            for (Iterator<Future<CommonResult>> itr = frl.iterator(); itr.hasNext(); ) {
+            for (Future<CommonResult> aFrl : frl) {
                 if (isCheckStop && config.getLock().isStopped(stopMark)) {
                     // если процесс был остановлен, выход
                     isStopProcess = true;
                     break;
                 }
 
-                fut = itr.next();
+                fut = aFrl;
                 if (fut == null) {
                     // получить новый объект
                     itemWork = getNextItem(lstItem);
@@ -96,7 +88,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
                     // рассчитать процент выполнения
                     double proc = 0;
                     if (lstSize > 0) {
-                        proc = (1 - Double.valueOf(curSize) / Double.valueOf(lstSize));
+                        proc = (1 - (double) curSize / (double) lstSize);
                     }
                     if (itemWork != null) {
                         // создать новый поток, передать информацию о % выполнения
@@ -104,13 +96,15 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
                         fut = reverse.lambdaFunction(itemWork, proc);
                         frl.set(i, fut);
                     }
-                } else if (!fut.isDone()) {
-
-
                 } else {
-                    /*if (fut.get().getErr() == 1) {
-                        log.error("================================ ОШИБКА ПОЛУЧЕНА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА для лс={} ==================", fut.get().getErr());
-                    }*/
+                    // не удалять! отслеживает ошибку в потоке!
+                    try {
+                        if (fut.get().getErr() == 1) {
+                        }
+                    } catch (Exception e) {
+                        log.error(Utl.getStackTraceString(e));
+                        log.error("ОШИБКА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА", fut.get().getErr());
+                    }
                     // очистить переменную потока
                     frl.set(i, null);
 
