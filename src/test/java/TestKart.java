@@ -238,4 +238,11 @@ public class TestKart {
         }
     }
 
+    @Test
+    public void testBD() {
+        BigDecimal tt = new BigDecimal("55.23");
+        BigDecimal tt2 = new BigDecimal("55.23");
+        BigDecimal tt3 = tt.multiply(tt2).setScale(2, BigDecimal.ROUND_HALF_UP);
+        log.info("check={}", tt3);
+    }
 }
