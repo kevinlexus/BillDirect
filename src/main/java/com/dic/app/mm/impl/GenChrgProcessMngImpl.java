@@ -6,7 +6,6 @@ import com.dic.bill.dao.MeterDAO;
 import com.dic.bill.dao.StatesPrDAO;
 import com.dic.bill.dao.UslDAO;
 import com.dic.bill.dto.*;
-import com.dic.bill.dto.ChrgCountAmountLocal;
 import com.dic.bill.mm.*;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
@@ -135,7 +134,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
         // 5. Добавить в объемы по вводу
         calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
-        //chrgCountAmountLocal.printVolAmnt(null);
+
+        Usl usl = em.find(Usl.class, "003");
+        chrgCountAmountLocal.printVolAmnt(usl);
 
         if (reqConf.getTp() != 2) {
             // 6. Сгруппировать строки начислений для записи в C_CHARGE
@@ -144,6 +145,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE, округлить для ГИС ЖКХ
             chrgCountAmountLocal.saveChargeAndRound(ko);
         }
+
         log.info("****** {} помещения klskId={}, основной лиц.счет lsk={} - окончание ******",
                 reqConf.getTpName(), ko.getId(), kartMainByKlsk.getLsk());
 
@@ -219,11 +221,11 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     part == 2 && nabor.getUsl().getFkCalcTp().equals(47)) // фильтр очередности расчета
                     ) {
                 // РАСЧЕТ по основным услугам (из набора услуг или по заданным во вводе)
-                log.trace("part={}, {}: lsk={}, uslId={}, fkCalcTp={}, dt={}",
+/*                log.trace("part={}, {}: lsk={}, uslId={}, fkCalcTp={}, dt={}",
                         part,
                         reqConf.getTpName(),
                         nabor.getKart().getLsk(), nabor.getUsl().getId(),
-                        nabor.getUsl().getFkCalcTp(), Utl.getStrFromDate(curDt));
+                        nabor.getUsl().getFkCalcTp(), Utl.getStrFromDate(curDt));*/
                 final Integer fkCalcTp = nabor.getUsl().getFkCalcTp();
                 final BigDecimal naborNorm = Utl.nvl(nabor.getNorm(), BigDecimal.ZERO);
                 final BigDecimal naborVol = Utl.nvl(nabor.getVol(), BigDecimal.ZERO);
@@ -268,15 +270,20 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
                 // площади
                 final BigDecimal kartArea = Utl.nvl(kartMain.getOpl(), BigDecimal.ZERO);
-
-                BigDecimal area = BigDecimal.ZERO;
                 BigDecimal areaOverSoc = BigDecimal.ZERO;
 
-                if (Utl.in(fkCalcTp, 25)) {
-                    // Текущее содержание и подобные услуги (без свыше соц.нормы и без 0 проживающих)
-                    area = kartArea;
-                    dayVol = area.multiply(calcStore.getPartDayMonth());
-                    socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
+                if (Utl.in(fkCalcTp, 25) // Текущее содержание и подобные услуги (без свыше соц.нормы и без 0 проживающих)
+                        || fkCalcTp.equals(7) && kartMain.getStatus().getId().equals(1) // Найм (только по муниципальным помещениям) расчет на м2
+                        || (fkCalcTp.equals(24) || fkCalcTp.equals(32) // Прочие услуги, расчитываемые как расценка * норматив * общ.площадь
+                        && !kartMain.getStatus().getId().equals(1))// или 32 услуга, только не по муниципальному фонду
+                        || fkCalcTp.equals(36)// Вывоз жидких нечистот и т.п. услуги
+                        || fkCalcTp.equals(37) && !countPers.isSingleOwnerOlder70// Капремонт и если не одинокие пенсионеры старше 70
+                        ) {
+                    if (Utl.in(fkCalcTp, 25)) {
+                        // Текущее содержание - получить соц.норму
+                        socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
+                    }
+                    dayVol = kartArea.multiply(calcStore.getPartDayMonth());
                 } else if (Utl.in(fkCalcTp, 17, 18, 31)) {
                     // Х.В., Г.В., без уровня соцнормы/свыше, электроэнергия
                     // получить объем по нормативу в доле на 1 день
@@ -304,7 +311,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     }
 
                     dayVol = tempVol;
-                    area = kartArea;
+                    //area = kartArea;
 
                     // для водоотведения и Х.В.для ГВС
                     if (fkCalcTp.equals(17)) {
@@ -327,7 +334,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     tempVol = volColdWater.add(volHotWater);
                     // помещение с проживающими
                     dayVol = tempVol;
-                    area = kartArea;
+                    //area = kartArea;
 
                 } else if (Utl.in(fkCalcTp, 14)) {
                     // Отопление гкал. без уровня соцнормы/свыше
@@ -359,32 +366,15 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // помещение с проживающими
                     dayVol = tempVol.multiply(calcStore.getPartDayMonth());
                     //log.info("************************ dayVol={}", dayVol);
-                    area = kartArea;
-                } else if (fkCalcTp.equals(7) && kartMain.getStatus().getId().equals(1)) {
-                    // Найм (только по муниципальным помещениям) расчет на м2
-                    area = kartArea;
-                    dayVol = kartArea.multiply(calcStore.getPartDayMonth());
+                    //area = kartArea;
                 } else if (Utl.in(fkCalcTp, 12)) {
                     // Антенна, код.замок
-                    area = kartArea;
+                    //area = kartArea;
                     dayVol = calcStore.getPartDayMonth();
                 } else if (Utl.in(fkCalcTp, 20, 21, 23)) {
                     // Х.В., Г.В., Эл.Эн. содерж.общ.им.МКД, Эл.эн.гараж
-                    area = kartArea;
+                    //area = kartArea;
                     dayVol = naborVolAdd.multiply(calcStore.getPartDayMonth());
-                } else if (fkCalcTp.equals(24) || fkCalcTp.equals(32) && !kartMain.getStatus().getId().equals(1)) {
-                    // Прочие услуги, расчитываемые как расценка * норматив * общ.площадь
-                    // или 32 услуга, только не по муниципальному фонду
-                    area = kartArea;
-                    dayVol = kartArea.multiply(calcStore.getPartDayMonth());
-                } else if (fkCalcTp.equals(36)) {
-                    // Вывоз жидких нечистот и т.п. услуги
-                    area = kartArea;
-                    dayVol = kartArea.multiply(calcStore.getPartDayMonth());
-                } else if (fkCalcTp.equals(37) && !countPers.isSingleOwnerOlder70) {
-                    // Капремонт и если не одинокие пенсионеры старше 70
-                    area = kartArea;
-                    dayVol = kartArea.multiply(calcStore.getPartDayMonth());
                 } else if (Utl.in(fkCalcTp, 34, 44)) {
                     // Повыш.коэфф
                     if (nabor.getUsl().getParentUsl() != null) {
@@ -392,7 +382,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         UslPriceVolKart uslPriceVolKart = mapUslPriceVol.get(nabor.getUsl().getParentUsl());
                         if (uslPriceVolKart != null && !uslPriceVolKart.isMeter) {
                             // только если нет счетчика в родительской услуге
-                            area = kartArea;
+                            //area = kartArea;
                             // сложить все объемы родит.услуги, умножить на норматив текущей услуги
                             dayVol = (uslPriceVolKart.vol.add(uslPriceVolKart.volOverSoc))
                                     .multiply(naborNorm);
@@ -404,11 +394,11 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     }
                 } else if (fkCalcTp.equals(49)) {
                     // Вывоз мусора - кол-во прожив * цену (Кис.)
-                    area = kartArea;
+                    //area = kartArea;
                     dayVol = BigDecimal.valueOf(countPers.kpr).multiply(calcStore.getPartDayMonth());
                 } else if (fkCalcTp.equals(47)) {
                     // Тепл.энергия для нагрева ХВС (Кис.)
-                    area = kartArea;
+                    //area = kartArea;
                     Usl uslLinked = uslDao.getByCd("х.в. для гвс");
                     BigDecimal vvodVol2 = ko.getKart().stream()
                             .flatMap(t -> t.getNabor().stream())
@@ -436,7 +426,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 } else if (fkCalcTp.equals(6) && countPers.kpr > 0) {
                     // Очистка выгр.ям (Полыс.) (при наличии проживающих)
                     // просто взять цену
-                    area = kartArea;
+                    //area = kartArea;
                     dayVol = calcStore.getPartDayMonth();
 /*                    } else { TODO Вернуть в конце разработки!
                     throw new ErrorWhileChrg("ОШИБКА! По услуге fkCalcTp=" + fkCalcTp +
@@ -459,7 +449,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         .withPriceEmpty(detailUslPrice.priceEmpt)
                         .withVol(dayVol)
                         .withVolOverSoc(dayVolOverSoc)
-                        .withArea(area)
+                        .withArea(kartArea)
                         .withAreaOverSoc(areaOverSoc)
                         .withKpr(countPers.kpr).withKprOt(countPers.kprOt).withKprWr(countPers.kprWr)
                         .withPartDayMonth(calcStore.getPartDayMonth())

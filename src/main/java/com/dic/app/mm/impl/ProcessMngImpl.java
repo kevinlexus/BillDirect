@@ -92,7 +92,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         }
         if (reqConf.getVvod() != null) {
             // загрузить хранилище
-            CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0, reqConf.getTp());
+            CalcStore calcStore = buildCalcStore(reqConf);
             // распределить конкретный ввод
             try {
                 if (reqConf.isMultiThreads()) {
@@ -115,7 +115,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                     for (Vvod vvod : vvodDAO.findAll()) {
                         if (!config.getLock().isStopped(stopMark)) {
                             // загрузить хранилище по каждому вводу
-                            CalcStore calcStore = buildCalcStore(reqConf.getGenDt(), 0, reqConf.getTp());
+                            CalcStore calcStore = buildCalcStore(reqConf);
                             try {
                                 distVolMng.distVolByVvodTrans(reqConf, calcStore, vvod.getId());
                             } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist errorWhileChrgPen) {
@@ -220,13 +220,14 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     /**
      * Загрузить справочники в хранилище
      *
-     * @param genDt    - дата расчета
-     * @param debugLvl - уровень отладочной информации (0-нет, 1-отобразить)
-     * @param tp - тип выполнения 0-начисление, 1-задолженность и пеня, 2 - распределение объемов по вводу
+     * @param reqConf
      * @return - хранилище
      */
     @Override
-    public CalcStore buildCalcStore(Date genDt, Integer debugLvl, int tp) {
+    public CalcStore buildCalcStore(RequestConfig reqConf) {
+        int debugLvl = reqConf.getDebugLvl();
+        int tp = reqConf.getTp();
+        Date genDt = reqConf.getGenDt();
         CalcStore calcStore = new CalcStore();
         // уровень отладки
         calcStore.setDebugLvl(debugLvl);

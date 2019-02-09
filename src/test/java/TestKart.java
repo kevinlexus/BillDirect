@@ -9,8 +9,8 @@ import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.House;
 import com.dic.bill.model.scott.Ko;
+import com.dic.bill.model.scott.Param;
 import com.dic.bill.model.scott.Vvod;
-import com.ric.cmn.Utl;
 import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
@@ -20,7 +20,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.context.annotation.ImportResource;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -81,22 +80,40 @@ public class TestKart {
     public void genChrgProcessMngGenChrgAppartment() throws WrongParam, ErrorWhileChrg {
         log.info("Test genChrgProcessMngGenChrgAppartment");
 
+        Param param = em.find(Param.class, 1);
+        param.setPeriod("201901");
         // конфиг запроса
         RequestConfig reqConf =
                 RequestConfig.RequestConfigBuilder.aRequestConfig()
                         .withRqn(config.incNextReqNum()) // уникальный номер запроса
                         .withTp(0) // тип операции - начисление
+                        .withIsMultiThreads(false) // для Unit - теста однопоточно!
                         .build();
 
         // загрузить справочники
-        CalcStore calcStore = processMng.buildCalcStore(Utl.getDateFromStr("15.04.2014"), 0, reqConf.getTp());
+        CalcStore calcStore = processMng.buildCalcStore(reqConf);
 
         // дом
-        House house = em.find(House.class, 6091);
+        House house = new House();
+        Ko houseKo = new Ko();
+
+        house.setKo(houseKo);
+        house.setKul("0001");
+        house.setNd("000001");
+
+        // добавить вводы
+        // без ОДПУ
+        // Х.в.
+        testDataBuilder.addVvodForTest(house, "011", 4, false,
+                null, true);
 
         // построить лицевые счета по помещению
-        Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52),
+        Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),
                 3, true, true, 1, 1);
+
+        reqConf.setVvod(null);
+        reqConf.setKo(ko);
+        reqConf.setTp(0);
 
         // выполнить расчет
         genChrgProcessMng.genChrg(calcStore, ko.getId(), reqConf);
@@ -167,7 +184,7 @@ public class TestKart {
                 new BigDecimal("120.58"), false);
 
         // построить лицевые счета по помещению
-        testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(63.52),
+        testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),
                 3, true, true, 1, 1);
         testDataBuilder.buildKartForTest(house, "0002", BigDecimal.valueOf(50.24),
                 2, true, true, 1, 2);
@@ -197,7 +214,7 @@ public class TestKart {
         reqConf.setTp(0);
 
         // загрузить хранилище
-        CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0, reqConf.getTp());
+        CalcStore calcStore = processMng.buildCalcStore(reqConf);
         sw.start("TIMING:Начисление");
         // вызов начисления
         processMng.genProcessAll(reqConf, calcStore);

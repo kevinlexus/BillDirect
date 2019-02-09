@@ -85,7 +85,7 @@ public class WebController implements CommonConstants {
         } else if (klskId != 0) {
             ko = em.find(Ko.class, klskId);
         } else {
-            return "ERROR! Незаполнен объект расчета - houseId, vvodId, klskId";
+            return "ERROR! Не заполнен объект расчета - houseId, vvodId, klskId";
         }
         RequestConfig reqConf =
                 RequestConfig.RequestConfigBuilder.aRequestConfig()
@@ -111,7 +111,7 @@ public class WebController implements CommonConstants {
 
                 if (Utl.in(reqConf.getTp(), 0, 1)) {
                     // загрузить хранилище
-                    CalcStore calcStore = processMng.buildCalcStore(reqConf.getGenDt(), 0, reqConf.getTp()); //note сделать передачу всего reqConf!
+                    CalcStore calcStore = processMng.buildCalcStore(reqConf); //note сделать передачу всего reqConf!
                     // расчет начисления, задолженности и пени
                     try {
                         processMng.genProcessAll(reqConf, calcStore);
