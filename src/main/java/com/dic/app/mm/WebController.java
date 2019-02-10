@@ -74,18 +74,26 @@ public class WebController implements CommonConstants {
             return "ERROR! Некорректный тип расчета: tp=" + tp;
         }
 
+        String msg = null;
         // конфиг запроса
         House house = null;
         Vvod vvod = null;
         Ko ko = null;
         if (houseId != 0) {
             house = em.find(House.class, houseId);
+            msg = "дому houseId="+houseId;
         } else if (vvodId != 0) {
             vvod = em.find(Vvod.class, vvodId);
+            msg = "вводу vvodId="+vvodId;
         } else if (klskId != 0) {
             ko = em.find(Ko.class, klskId);
+            msg = "помещению klskId="+klskId;
         } else {
-            return "ERROR! Не заполнен объект расчета - houseId, vvodId, klskId";
+            if (Utl.in(tp, 0, 1)) {
+                msg = "всем помещениям";
+            } else if (tp==2) {
+                msg = "всем вводам";
+            }
         }
         RequestConfig reqConf =
                 RequestConfig.RequestConfigBuilder.aRequestConfig()
@@ -100,6 +108,9 @@ public class WebController implements CommonConstants {
                         .withRqn(config.incNextReqNum())
                         .withIsMultiThreads(true)
                         .build();
+        log.info("");
+        log.info("Задано: {} по {}", reqConf.getTpName(), msg);
+        log.info("");
 
         if (stop == 1) {
             // Остановка длительного процесса
@@ -111,7 +122,7 @@ public class WebController implements CommonConstants {
 
                 if (Utl.in(reqConf.getTp(), 0, 1)) {
                     // загрузить хранилище
-                    CalcStore calcStore = processMng.buildCalcStore(reqConf); //note сделать передачу всего reqConf!
+                    CalcStore calcStore = processMng.buildCalcStore(reqConf);
                     // расчет начисления, задолженности и пени
                     try {
                         processMng.genProcessAll(reqConf, calcStore);

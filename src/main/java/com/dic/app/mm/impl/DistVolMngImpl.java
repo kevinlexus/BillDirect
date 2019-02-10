@@ -84,13 +84,14 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
     }
 
     /**
-     * Распределить объемы по вводу (по всем вводам, если reqConf.vvod == null)
+     * Распределить объемы по вводу
      *  @param reqConf   - параметры запроса
      * @param calcStore - хранилище справочников, объемов начисления
      * @param vvodId - ввод
      */
     private void distVolByVvod(RequestConfig reqConf, CalcStore calcStore, Integer vvodId)
             throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist, ErrorWhileGen {
+        log.info("Распределение объемов по vvodId={}", vvodId);
         Vvod vvod = em.find(Vvod.class, vvodId);
         // тип распределения
         final Integer distTp = Utl.nvl(vvod.getDistTp(), 0);
@@ -131,10 +132,14 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             // ОЧИСТКА информации ОДН
             clearODN(vvod);
 
+            // конфиг для расчета по вводу // note бред! подумать, как сделать правильно!
+            RequestConfig reqConf2 = reqConf;
+            reqConf2.setVvod(vvod);
+
             // СБОР ИНФОРМАЦИИ, для расчета ОДН, подсчета итогов
             // кол-во лиц.счетов, объемы, кол-во прожив.
             // собрать информацию об объемах по лиц.счетам принадлежащим вводу
-            processMng.genProcessAll(reqConf, calcStore);
+            processMng.genProcessAll(reqConf2, calcStore);
 
             // объемы по лиц.счетам (базовый фильтр по услуге)
             final List<UslVolKart> lstUslVolKart =
