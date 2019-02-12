@@ -91,8 +91,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
      */
     private void distVolByVvod(RequestConfig reqConf, CalcStore calcStore, Integer vvodId)
             throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist, ErrorWhileGen {
-        log.info("Распределение объемов по vvodId={}", vvodId);
         Vvod vvod = em.find(Vvod.class, vvodId);
+        log.info("Распределение объемов по vvodId={}, usl={}", vvodId, vvod.getUsl().getId());
         // тип распределения
         final Integer distTp = Utl.nvl(vvod.getDistTp(), 0);
         // использовать счетчики при распределении?

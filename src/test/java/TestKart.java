@@ -168,7 +168,7 @@ public class TestKart {
 
         // Отопление Гкал
         testDataBuilder.addVvodForTest(house, "053", 1, false,
-                new BigDecimal("500.2568"), false);
+                new BigDecimal("100.25681"), false);
 
         // Х.В. для ГВС
         testDataBuilder.addVvodForTest(house, "099", 1, false,
@@ -223,9 +223,9 @@ public class TestKart {
         // распечатать объемы
 
         calcStore.getChrgCountAmount().printVolAmnt(null, "015");
-//        calcStore.getChrgCountAmount().printVolAmnt(null, "056");
 		calcStore.getChrgCountAmount().printVolAmnt(null, "057");
-		//calcStore.getChrgCountAmount().printVolAmnt(null, "123");
+        calcStore.getChrgCountAmount().printVolAmnt(null, "053");
+        //calcStore.getChrgCountAmount().printVolAmnt(null, "123");
 
         //calcStore.getChrgCountAmount().printVolAmnt(null, "003");
 

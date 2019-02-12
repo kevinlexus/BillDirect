@@ -129,15 +129,13 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             }
         }
 
-        chrgCountAmountLocal.printVolAmnt("053", "До округления");
-
         // 4. Округлить объемы
         chrgCountAmountLocal.roundVol();
 
         // 5. Добавить в объемы по вводу
         calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
 
-        chrgCountAmountLocal.printVolAmnt("053", "После округления");
+        chrgCountAmountLocal.printVolAmnt(null, "После округления");
 
         if (reqConf.getTp() != 2) {
             // 6. Сгруппировать строки начислений для записи в C_CHARGE
@@ -560,7 +558,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             uslVolKartGrp.usl.getId(), t.getVol());
 */
                 uslVolKartGrp.vol = uslVolKartGrp.vol.add(t.getVol());
-                uslVolKartGrp.volDet = uslVolKartGrp.volDet.add(t.getVol());
 /*
                 } else {
                     throw new ErrorWhileChrg("ОШИБКА! Объем экономии ОДН =" + t.getVol() убрал, не правильно!
