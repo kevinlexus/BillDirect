@@ -129,14 +129,15 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             }
         }
 
+        chrgCountAmountLocal.printVolAmnt("053", "До округления");
+
         // 4. Округлить объемы
         chrgCountAmountLocal.roundVol();
 
         // 5. Добавить в объемы по вводу
         calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
 
-        Usl usl = em.find(Usl.class, "003");
-        chrgCountAmountLocal.printVolAmnt(usl);
+        chrgCountAmountLocal.printVolAmnt("053", "После округления");
 
         if (reqConf.getTp() != 2) {
             // 6. Сгруппировать строки начислений для записи в C_CHARGE
