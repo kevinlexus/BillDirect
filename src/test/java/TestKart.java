@@ -148,14 +148,15 @@ public class TestKart {
 
         // без ОДПУ
         // Х.в.
+/*
         testDataBuilder.addVvodForTest(house, "011", 4, false,
                 null, true);
 
         // Г.в.
         testDataBuilder.addVvodForTest(house, "015", 5, false,
                 null, true);
+*/
 
-/*
         // с ОДПУ
 		// Х.в.
 		testDataBuilder.addVvodForTest(house, "011", 1, false,
@@ -164,7 +165,6 @@ public class TestKart {
 		// Г.в.
 		testDataBuilder.addVvodForTest(house, "015", 1, false,
 				new BigDecimal("162.23"), true);
-*/
 
         // Отопление Гкал
         testDataBuilder.addVvodForTest(house, "053", 1, false,
@@ -222,17 +222,15 @@ public class TestKart {
 
         // распечатать объемы
 
-		/*
-        calcStore.getChrgCountAmount().printVolAmnt(null, "056");
-		calcStore.getChrgCountAmount().printVolAmnt(null, "015");
+        calcStore.getChrgCountAmount().printVolAmnt(null, "015");
+//        calcStore.getChrgCountAmount().printVolAmnt(null, "056");
 		calcStore.getChrgCountAmount().printVolAmnt(null, "057");
-		calcStore.getChrgCountAmount().printVolAmnt(null, "123");
-*/
+		//calcStore.getChrgCountAmount().printVolAmnt(null, "123");
 
         //calcStore.getChrgCountAmount().printVolAmnt(null, "003");
 
-		calcStore.getChrgCountAmount().printVolAmnt(null, "099");
-		calcStore.getChrgCountAmount().printVolAmnt(null, "101");
+/*		calcStore.getChrgCountAmount().printVolAmnt(null, "099");
+		calcStore.getChrgCountAmount().printVolAmnt(null, "101");*/
 
 
 		/*
