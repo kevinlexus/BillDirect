@@ -90,44 +90,61 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         if (reqConf.getTp() != 2) {
             throw new ErrorWhileGen("ОШИБКА! Задан некорректный тип выполнения");
         }
-        if (reqConf.getVvod() != null) {
-            // загрузить хранилище
-            CalcStore calcStore = buildCalcStore(reqConf);
-            // распределить конкретный ввод
+        // установить маркер процесса, вернуться, если уже выполняется
+        if (config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
             try {
-                if (reqConf.isMultiThreads()) {
-                    // вызвать в новой транзакции, многопоточно
-                    distVolMng.distVolByVvodTrans(reqConf, calcStore, reqConf.getVvod().getId());
-                } else {
-                    // вызвать в той же транзакции, однопоточно, для Unit - тестов
-                    distVolMng.distVolByVvodSameTrans(reqConf, calcStore, reqConf.getVvod().getId());
-                }
-            } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist errorWhileChrgPen) {
-                errorWhileChrgPen.printStackTrace();
-                throw new ErrorWhileGen("ОШИБКА при распределении объемов");
-            }
-        } else {
-            // распределить все вводы
-            // установить маркер процесса, вернуться, если уже выполняется
-            if (config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
-                try {
-
-                    for (Vvod vvod : vvodDAO.findAll()) {
-                        if (!config.getLock().isStopped(stopMark)) {
+                if (reqConf.getVvod() != null) {
+                    // загрузить хранилище
+                    CalcStore calcStore = buildCalcStore(reqConf);
+                    // распределить конкретный ввод
+                    try {
+                        if (reqConf.isMultiThreads()) {
+                            // вызвать в новой транзакции, многопоточно
+                            distVolMng.distVolByVvodTrans(reqConf, calcStore, reqConf.getVvod().getId());
+                        } else {
+                            // вызвать в той же транзакции, однопоточно, для Unit - тестов
+                            distVolMng.distVolByVvodSameTrans(reqConf, calcStore, reqConf.getVvod().getId());
+                        }
+                        log.info("Распределение объемов по вводу vvodId={} выполнено", reqConf.getVvod().getId());
+                    } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
+                        log.error(Utl.getStackTraceString(e));
+                        throw new ErrorWhileGen("ОШИБКА при распределении объемов");
+                    }
+                } else if (reqConf.getHouse() != null) {
+                    for (Vvod vvod : vvodDAO.findVvodByHouse(reqConf.getHouse().getId())) {
+                        if (vvod.getUsl() != null && vvod.getUsl().isMain()) {
                             // загрузить хранилище по каждому вводу
                             CalcStore calcStore = buildCalcStore(reqConf);
                             try {
                                 distVolMng.distVolByVvodTrans(reqConf, calcStore, vvod.getId());
-                            } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist errorWhileChrgPen) {
-                                errorWhileChrgPen.printStackTrace();
+                            } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
+                                log.error(Utl.getStackTraceString(e));
                                 throw new ErrorWhileGen("ОШИБКА при распределении объемов");
                             }
                         }
                     }
-                } finally {
-                    // снять маркер процесса
-                    config.getLock().unlockProc(reqConf.getRqn(), stopMark);
+                    log.info("Распределение объемов по дому houseId={} выполнено", reqConf.getHouse().getId());
+                } else {
+                    // распределить все вводы
+                    for (Vvod vvod : vvodDAO.findAll()) {
+                        if (vvod.getUsl().isMain()) {
+                            if (!config.getLock().isStopped(stopMark)) {
+                                // загрузить хранилище по каждому вводу
+                                CalcStore calcStore = buildCalcStore(reqConf);
+                                try {
+                                    distVolMng.distVolByVvodTrans(reqConf, calcStore, vvod.getId());
+                                } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
+                                    log.error(Utl.getStackTraceString(e));
+                                    throw new ErrorWhileGen("ОШИБКА при распределении объемов");
+                                }
+                            }
+                        }
+                    }
+                    log.info("Распределение объемов по всем вводам выполнено");
                 }
+            } finally {
+                // снять маркер процесса
+                config.getLock().unlockProc(reqConf.getRqn(), stopMark);
             }
         }
     }
@@ -177,7 +194,8 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             if (!config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
                 return;
             } else {
-                isCheckStop = true;    ;
+                isCheckStop = true;
+                ;
             }
         }
 
@@ -280,7 +298,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             log.info("******* klskId={} заблокирован для расчета", klskId);
 
             selectInvokeProcess(reqConf, calcStore, klskId);
-        } catch (WrongParam | ErrorWhileChrg e){
+        } catch (WrongParam | ErrorWhileChrg e) {
             log.error(Utl.getStackTraceString(e));
             throw new ErrorWhileChrg("ОШИБКА во время расчета!");
         } finally {

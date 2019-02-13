@@ -126,16 +126,16 @@ public class WebController implements CommonConstants {
                     // расчет начисления, задолженности и пени
                     try {
                         processMng.genProcessAll(reqConf, calcStore);
-                    } catch (ErrorWhileGen errorWhileGen) {
-                        errorWhileGen.printStackTrace();
+                    } catch (ErrorWhileGen e) {
+                        log.error(Utl.getStackTraceString(e));
                         return "ERROR! Ошибка в процессе расчета";
                     }
                 } else if (reqConf.getTp() == 2) {
                     // распределение объемов
                     try {
                         processMng.distVol(reqConf);
-                    } catch (ErrorWhileGen errorWhileGen) {
-                        errorWhileGen.printStackTrace();
+                    } catch (ErrorWhileGen e) {
+                        log.error(Utl.getStackTraceString(e));
                         return "ERROR! Ошибка при распределении объемов";
                     }
                 }
@@ -143,6 +143,8 @@ public class WebController implements CommonConstants {
                 return err;
             }
         }
+        log.info("");
+        log.info("Выполнено: {} по {}", reqConf.getTpName(), msg);
         return "OK";
     }
 

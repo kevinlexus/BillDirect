@@ -7,10 +7,7 @@ import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.TestDataBuilder;
-import com.dic.bill.model.scott.House;
-import com.dic.bill.model.scott.Ko;
-import com.dic.bill.model.scott.Param;
-import com.dic.bill.model.scott.Vvod;
+import com.dic.bill.model.scott.*;
 import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
@@ -236,7 +233,9 @@ public class TestKart {
 		/*
 		calcStore.getChrgCountAmount().printVolAmnt(null, "053");
 */
-
+        // распечатать C_CHARGE
+        calcStore.getChrgCountAmount().printChrg(em.find(Kart.class, "ОСН_0001"));
+        calcStore.getChrgCountAmount().printChrg(em.find(Kart.class, "РСО_0001"));
         System.out.println(sw.prettyPrint());
         log.info("Test genChrgProcessMngGenChrgHouse End!");
     }

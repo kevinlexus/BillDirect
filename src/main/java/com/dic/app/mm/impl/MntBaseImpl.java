@@ -164,7 +164,7 @@ public class MntBaseImpl implements MntBase {
 									//		fut.get().getLsk(), fut.get().getErr());
 								} catch (InterruptedException | ExecutionException e) {
 									// TODO Auto-generated catch block
-									e.printStackTrace();
+									log.error(Utl.getStackTraceString(e));
 								}
 						}
 					}
