@@ -276,7 +276,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         || (fkCalcTp.equals(24) || fkCalcTp.equals(32) // Прочие услуги, расчитываемые как расценка * норматив * общ.площадь
                         && !kartMain.getStatus().getId().equals(1))// или 32 услуга, только не по муниципальному фонду
                         || fkCalcTp.equals(36)// Вывоз жидких нечистот и т.п. услуги
-                        || fkCalcTp.equals(37) && !countPers.isSingleOwnerOlder70// Капремонт и если не одинокие пенсионеры старше 70
+                        || fkCalcTp.equals(37) && !countPers.isSingleOwnerOlder70// Капремонт и если не одинокие пенсионеры старше 70, кроме муницип.помещений
+                        && !kartMain.getStatus().getId().equals(1)
                         ) {
                     if (Utl.in(fkCalcTp, 25)) {
                         // Текущее содержание - получить соц.норму
@@ -438,6 +439,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         .withDt(curDt)
                         .withKart(nabor.getKart()) // группировать по лиц.счету из nabor!
                         .withUsl(nabor.getUsl())
+                        .withUslOverSoc(detailUslPrice.uslOverSoc)
+                        .withUslEmpt(detailUslPrice.uslEmpt)
                         .withOrg(nabor.getOrg())
                         .withIsCounter(isLinkedExistMeter != null ? isLinkedExistMeter : isMeterExist)
                         .withIsEmpty(isLinkedEmpty != null ? isLinkedEmpty : countPers.isEmpty)

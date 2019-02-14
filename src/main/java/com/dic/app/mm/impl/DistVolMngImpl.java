@@ -99,7 +99,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
         final Boolean isUseSch = Utl.nvl(vvod.getIsUseSch(), false);
 
         // объем для распределения
-        final BigDecimal kub = Utl.nvl(vvod.getKub(), BigDecimal.ZERO).setScale(5, BigDecimal.ROUND_HALF_UP);
+        BigDecimal kub = Utl.nvl(vvod.getKub(), BigDecimal.ZERO).setScale(5, BigDecimal.ROUND_HALF_UP);
         final Usl usl = vvod.getUsl();
         // неограничивать лимитом потребления ОДН?
         final boolean isWithoutLimit = Utl.nvl(vvod.getIsWithoutLimit(), false);
@@ -222,8 +222,10 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
 
             Amnt amnt = new Amnt();
             // Итоги
-            // весь объем
+            // объем
             amnt.volAmnt = vvod.getKubNorm().add(vvod.getKubSch()).add(vvod.getKubAr());
+            amnt.volSchAmnt = vvod.getKubSch();
+            amnt.volNormAmnt = vvod.getKubNorm();
             // объем кроме арендаторов
             amnt.volAmntResident = vvod.getKubNorm().add(vvod.getKubSch());
             // кол-во проживающих
@@ -235,10 +237,11 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             // кол-во лиц.счетов по нормативам
             amnt.cntNormAmnt = vvod.getCntLsk();
 
-            log.info("*** Ввод id={}, услуга usl={}, площадь={}, кол-во лиц сч.={}, кол-во лиц норм.={}, кол-во прож.={}, объем={}," +
+            log.info("*** Ввод id={}, услуга usl={}, площадь={}, кол-во лиц сч.={}, кол-во лиц норм.={}, кол-во прож.={}, " +
+                            "объем={}, объем сч={}, объем норм.={}" +
                             " объем за искл.аренд.={},  введено={}",
                     vvod.getId(), vvod.getUsl().getId(), amnt.areaAmnt, amnt.cntSchAmnt, amnt.cntNormAmnt,
-                    amnt.kprAmnt, amnt.volAmnt, amnt.volAmntResident, kub);
+                    amnt.kprAmnt, amnt.volAmnt, amnt.volSchAmnt, amnt.volNormAmnt, amnt.volAmntResident, kub);
 
             // ОГРАНИЧЕНИЕ распределения по законодательству
             final LimitODN limitODN = calcLimit(vvod.getHouse().getKo(), tp, amnt.kprAmnt, amnt.areaAmnt);
@@ -249,6 +252,14 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                 if (kub.compareTo(BigDecimal.ZERO) != 0) {
                     if (Utl.in(usl.getFkCalcTp(), 3, 17, 4, 18, 31, 38, 40)) {
                         if (Utl.in(distTp, 1, 3)) {
+                            BigDecimal volAmntWithODN = (amnt.volAmnt.add(limitODN.amntVolODN)).setScale(3, BigDecimal.ROUND_HALF_UP);
+                            log.info("*** органичение ОДН по вводу ={}", limitODN.amntVolODN);
+                            if (kub.compareTo(volAmntWithODN) > 0) {
+                                // установить предельно допустимый объем по дому
+                                kub = volAmntWithODN;
+                                log.info("*** установлен новый объем для распределения по вводу ={}", volAmntWithODN);
+                            }
+
                             BigDecimal diff = kub.subtract(amnt.volAmnt);
                             BigDecimal diffDist = diff.abs();
                             if (diff.compareTo(BigDecimal.ZERO) != 0 && amnt.areaAmnt.compareTo(BigDecimal.ZERO) != 0) {
@@ -290,7 +301,9 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                                     .multiply(uslVolKartGrp.area).divide(amnt.areaAmnt, 20, BigDecimal.ROUND_HALF_UP);
                                         }
                                         BigDecimal limit = limitTmp;
-                                        uslVolKartGrp.kart.getNabor().stream()
+                                        // uslVolKartGrp.kart - был из другой сессии, поэтому, найти опять
+                                        Kart kart = em.find(Kart.class, uslVolKartGrp.kart.getLsk());
+                                        kart.getNabor().stream()
                                                 .filter(d -> d.getUsl().equals(usl.getUslChild()))
                                                 .findFirst().ifPresent(d -> {
                                             log.info("Перерасход lsk={}, usl={}, vol={}",
@@ -301,8 +314,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                         // добавить инфу по ОДН.
                                         if (volDist.compareTo(BigDecimal.ZERO) != 0) {
                                             Charge charge = new Charge();
-                                            uslVolKartGrp.kart.getCharge().add(charge);
-                                            charge.setKart(uslVolKartGrp.kart);
+                                            kart.getCharge().add(charge);
+                                            charge.setKart(kart);
                                             charge.setUsl(uslVolKartGrp.usl.getUslChild());
                                             charge.setTestOpl(volDist);
                                             charge.setType(5);
@@ -347,7 +360,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                             }
                                             BigDecimal limit = limitTmp;
                                             // установить лимит
-                                            uslVolKartGrp.kart.getNabor().stream()
+                                            Kart kart = em.find(Kart.class, uslVolKartGrp.kart.getLsk());
+                                            kart.getNabor().stream()
                                                     .filter(d -> d.getUsl().equals(uslVolKartGrp.usl.getUslChild()))
                                                     .findFirst().ifPresent(d -> d.setLimit(limit));
 
@@ -425,7 +439,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
 
                             while (iter.hasNext()) {
                                 UslVolKartGrp t = iter.next();
-                                for (Nabor nabor : t.kart.getNabor()) {
+                                Kart kart = em.find(Kart.class, t.kart.getLsk());
+                                for (Nabor nabor : kart.getNabor()) {
                                     if (nabor.getUsl().equals(usl)) {
                                         BigDecimal volDistKart;
                                         if (iter.hasNext()) {
@@ -474,7 +489,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                         }
                         BigDecimal limit = limitTmp;
                         // установить лимит
-                        uslVolKartGrp.kart.getNabor().stream()
+                        Kart kart = em.find(Kart.class, uslVolKartGrp.kart.getLsk());
+                        kart.getNabor().stream()
                                 .filter(d -> d.getUsl().equals(uslVolKartGrp.usl.getUslChild()))
                                 .findFirst().ifPresent(d -> d.setLimit(limit));
                         // распределить норматив ОДН
@@ -489,7 +505,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                     .divide(amnt.areaAmnt, 5, BigDecimal.ROUND_HALF_UP);
                         }
                         BigDecimal volDist = volDistTmp;
-                        uslVolKartGrp.kart.getNabor().stream()
+
+                        kart.getNabor().stream()
                                 .filter(d -> d.getUsl().equals(usl.getUslChild()))
                                 .findFirst().ifPresent(d -> {
                             log.info("Норматив ОДН lsk={}, usl={}, vol={}",
@@ -500,8 +517,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                         // добавить инфу по ОДН.
                         if (volDist.compareTo(BigDecimal.ZERO) != 0) {
                             Charge charge = new Charge();
-                            uslVolKartGrp.kart.getCharge().add(charge);
-                            charge.setKart(uslVolKartGrp.kart);
+                            kart.getCharge().add(charge);
+                            charge.setKart(kart);
                             charge.setUsl(usl.getUslChild());
                             charge.setTestOpl(volDist);
                             charge.setType(5);
@@ -729,6 +746,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                 limitODN.odnNorm = oplLiter;
                 limitODN.limitArea = oplLiter
                         .divide(BigDecimal.valueOf(1000), 5, BigDecimal.ROUND_HALF_UP);
+                // общий допустимый объем ОДН
+                limitODN.amntVolODN = limitODN.limitArea.multiply(area).setScale(3, BigDecimal.ROUND_HALF_UP);
             }
 
         } else if (tp == 2) {
@@ -744,7 +763,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                 // дом с лифтом
                 limitODN.odnNorm = ODN_EL_NORM_WITH_LIFT;
             }
-            // общий объем ОДН
+            // общий допустимый объем ОДН
             limitODN.amntVolODN = limitODN.areaProp.multiply(limitODN.odnNorm);
         }
         return limitODN;
@@ -933,6 +952,10 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
     class Amnt {
         // общий объем
         BigDecimal volAmnt = BigDecimal.ZERO;
+        // объем по счетчикам
+        BigDecimal volSchAmnt = BigDecimal.ZERO;
+        // объем по нормативам
+        BigDecimal volNormAmnt = BigDecimal.ZERO;
         // объем кроме арендаторов
         BigDecimal volAmntResident = BigDecimal.ZERO;
         // кол-во проживающих
