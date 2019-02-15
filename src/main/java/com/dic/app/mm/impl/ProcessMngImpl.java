@@ -21,6 +21,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Scope;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Service;
@@ -126,8 +127,9 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                     log.info("Распределение объемов по дому houseId={} выполнено", reqConf.getHouse().getId());
                 } else {
                     // распределить все вводы
-                    for (Vvod vvod : vvodDAO.findAll()) {
-                        if (vvod.getUsl().isMain()) {
+                    for (Vvod vvod : vvodDAO.findAll(new Sort(Sort.Direction.ASC, "id"))) {
+                        log.info("Удалить это сообщение vvodId={}", vvod.getId());
+                        if (vvod.getUsl()!=null && vvod.getUsl().isMain()) {
                             if (!config.getLock().isStopped(stopMark)) {
                                 // загрузить хранилище по каждому вводу
                                 CalcStore calcStore = buildCalcStore(reqConf);
@@ -211,7 +213,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         try {
             if (reqConf.isMultiThreads()) {
                 // вызвать в новой транзакции, многопоточно
-                int CNT_THREADS = 15;
+                int CNT_THREADS = 5;
                 threadMng.invokeThreads(reverse, CNT_THREADS, lstItem, isCheckStop, stopMark);
             } else {
                 // вызвать в той же транзакции, однопоточно, для Unit - тестов

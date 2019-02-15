@@ -135,7 +135,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         // 5. Добавить в объемы по вводу
         calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
 
-        chrgCountAmountLocal.printVolAmnt(null, "После округления");
+        //chrgCountAmountLocal.printVolAmnt(null, "После округления");
 
         if (reqConf.getTp() != 2) {
             // 6. Сгруппировать строки начислений для записи в C_CHARGE
@@ -272,7 +272,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 BigDecimal areaOverSoc = BigDecimal.ZERO;
 
                 if (Utl.in(fkCalcTp, 25) // Текущее содержание и подобные услуги (без свыше соц.нормы и без 0 проживающих)
-                        || fkCalcTp.equals(7) && kartMain.getStatus().getId().equals(1) // Найм (только по муниципальным помещениям) расчет на м2
+                        || fkCalcTp.equals(7) && nabor.getKart().getStatus().getId().equals(1) // Найм (только по муниципальным помещениям) расчет на м2
+                        // fixme: по Найму скорее всего ошибка, так как надо смотреть в kartMain - исправить, когда перейдём на новую версию начисления
                         || (fkCalcTp.equals(24) || fkCalcTp.equals(32) // Прочие услуги, расчитываемые как расценка * норматив * общ.площадь
                         && !kartMain.getStatus().getId().equals(1))// или 32 услуга, только не по муниципальному фонду
                         || fkCalcTp.equals(36)// Вывоз жидких нечистот и т.п. услуги

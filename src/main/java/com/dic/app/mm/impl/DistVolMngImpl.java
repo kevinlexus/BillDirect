@@ -941,9 +941,9 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
         // допустимый лимит ОДН на 1 м2
         BigDecimal limitArea = BigDecimal.ZERO;
         // площадь общего имущества
-        BigDecimal areaProp;
+        BigDecimal areaProp = BigDecimal.ZERO;
         // общий объем ОДН (используется для ОДН электроэнергии)
-        BigDecimal amntVolODN;
+        BigDecimal amntVolODN = BigDecimal.ZERO;
     }
 
     /**
