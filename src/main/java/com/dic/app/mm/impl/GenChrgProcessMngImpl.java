@@ -270,7 +270,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 // площади
                 final BigDecimal kartArea = Utl.nvl(kartMain.getOpl(), BigDecimal.ZERO);
                 BigDecimal areaOverSoc = BigDecimal.ZERO;
-
                 if (Utl.in(fkCalcTp, 25) // Текущее содержание и подобные услуги (без свыше соц.нормы и без 0 проживающих)
                         || fkCalcTp.equals(7) && nabor.getKart().getStatus().getId().equals(1) // Найм (только по муниципальным помещениям) расчет на м2
                         // fixme: по Найму скорее всего ошибка, так как надо смотреть в kartMain - исправить, когда перейдём на новую версию начисления
