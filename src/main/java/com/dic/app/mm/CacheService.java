@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
  */
 public class CacheService {
 
+/*
 
 	  @Component
 	  public static class CachingSetup implements JCacheManagerCustomizer
@@ -29,11 +30,20 @@ public class CacheService {
 		  	        .setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(new Duration(TimeUnit.SECONDS, 600)))
 		  	        .setStoreByValue(true)
 		  	        .setStatisticsEnabled(false));
+	      cacheManager.createCache("NaborMng.getDetailUslPrice", new MutableConfiguration<>()
+		  	        .setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(new Duration(TimeUnit.SECONDS, 600)))
+		  	        .setStoreByValue(true)
+		  	        .setStatisticsEnabled(false));
+	      cacheManager.createCache("NaborMng.getCached", new MutableConfiguration<>()
+		  	        .setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(new Duration(TimeUnit.SECONDS, 600)))
+		  	        .setStoreByValue(true)
+		  	        .setStatisticsEnabled(false));
 	    }
 
 
 
 
 	  }
+*/
 
 }

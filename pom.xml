@@ -108,11 +108,11 @@
             <artifactId>spring-boot-starter-cache</artifactId>
         </dependency>
 
-        <dependency>
+<!--  убрал, перешел на SimpleCacheManager  <dependency>
             <groupId>org.ehcache</groupId>
             <artifactId>ehcache</artifactId>
             <version>3.0.0</version>
-        </dependency>
+        </dependency> -->
 
         <dependency>
             <groupId>javax.cache</groupId>

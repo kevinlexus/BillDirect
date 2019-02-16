@@ -6,8 +6,10 @@ import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.mm.KartMng;
+import com.dic.bill.mm.NaborMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
+import com.ric.cmn.Utl;
 import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
@@ -17,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -26,12 +29,14 @@ import org.springframework.util.StopWatch;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = Config.class)
 @AutoConfigureTestDatabase(replace = Replace.NONE)
+@EnableCaching
 @DataJpaTest
 @Slf4j
 public class TestKart {
@@ -40,6 +45,8 @@ public class TestKart {
     private TestDataBuilder testDataBuilder;
     @Autowired
     private KartMng kartMng;
+    @Autowired
+    private NaborMng naborMng;
     @Autowired
     private ProcessMng processMng;
     @Autowired
@@ -259,4 +266,13 @@ public class TestKart {
         BigDecimal tt3 = tt.multiply(tt2).setScale(2, BigDecimal.ROUND_HALF_UP);
         log.info("check={}", tt3);
     }
+
+    @Test
+    public void testCache() {
+        log.info("check1={}",
+        naborMng.getCached("bla1", 2, Utl.getDateFromStr("01.01.2019")));
+        log.info("check2={}",
+        naborMng.getCached("bla1", 2, Utl.getDateFromStr("01.01.2019")));
+    }
+
 }

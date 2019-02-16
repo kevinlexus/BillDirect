@@ -208,7 +208,7 @@ public Future<Result> chrgAndSaveLsk(RequestConfig reqConfig,Integer kartId)thro
         // РАСЧЕТ задолжности и пени по услуге
         return debitThrMng.genDebitUsl(kart,t,calcStore,localStore).stream();
         }catch(ErrorWhileChrgPen e){
-        e.printStackTrace();
+        log.error(Utl.getStackTraceString(e));
         throw new RuntimeException("ОШИБКА в процессе начисления пени по лc.="+lsk);
         }
 

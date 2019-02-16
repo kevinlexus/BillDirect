@@ -14,6 +14,7 @@ import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.SerializationUtils;
 import org.javatuples.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -133,7 +134,13 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             clearODN(vvod);
 
             // конфиг для расчета по вводу // note бред! подумать, как сделать правильно!
-            RequestConfig reqConf2 = reqConf;
+            RequestConfig reqConf2;
+            try {
+                reqConf2 = (RequestConfig) reqConf.clone();
+            } catch (CloneNotSupportedException e) {
+                log.error(Utl.getStackTraceString(e));
+                throw new ErrorWhileDist("ОШИБКА! RequestConfig не может быть склонирован!");
+            }
             reqConf2.setVvod(vvod);
 
             // СБОР ИНФОРМАЦИИ, для расчета ОДН, подсчета итогов

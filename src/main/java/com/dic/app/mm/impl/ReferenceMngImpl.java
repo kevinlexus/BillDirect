@@ -24,8 +24,12 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class ReferenceMngImpl implements ReferenceMng {
 
+	private final RedirPayDAO redirPayDao;
+
 	@Autowired
-	private RedirPayDAO redirPayDao;
+	public ReferenceMngImpl(RedirPayDAO redirPayDao) {
+		this.redirPayDao = redirPayDao;
+	}
 
 	/**
 	 * Получить редирект пени
@@ -39,7 +43,6 @@ public class ReferenceMngImpl implements ReferenceMng {
 		UslOrg uo = new UslOrg(null, null);
 		List<RedirPay> lst = redirPayDao.getRedirPayOrd(tp,
 				kart.getUk().getReu(), uslOrg.getUslId(), uslOrg.getOrgId()) .stream()
-			//.filter(t-> t.getTp().equals(tp))
 			.filter(t->  t.getUk()==null || t.getUk() // либо заполненный УК, либо пуст
 					.equals(kart.getUk()))
 			.filter(t-> t.getUslSrc()==null || t.getUslSrc().getId() // либо заполненный источник услуги, либо пуст
@@ -50,22 +53,16 @@ public class ReferenceMngImpl implements ReferenceMng {
 		for (RedirPay t : lst) {
 				if (t.getUslDst() != null) {
 					// перенаправить услугу
-/*					log.info("пеня перенаправлена, услуга {}->{}",
-							uslOrg.getUslId(), t.getUslDst().getId());
-*/					uo.setUslId(t.getUslDst().getId());
+					uo.setUslId(t.getUslDst().getId());
 				}
 				if (t.getOrgDstId() != null) {
 					if (t.getOrgDstId().equals(-1)) {
 						// перенаправить на организацию, обслуживающую фонд
-/*						log.info("пеня перенаправлена, организация {}->УК {}",
-								uslOrg.getOrgId(), kart.getUk().getId());
-*/						uo.setOrgId(kart.getUk().getId());
+						uo.setOrgId(kart.getUk().getId());
 					} else {
 						// перенаправить на организацию
 						uo.setOrgId(t.getOrgDstId());
-/*						log.info("пеня перенаправлена, организация {}->{}",
-								uslOrg.getOrgId(), t.getOrgDstId());
-*/					}
+					}
 				}
 				if (uo.getUslId() != null &&
 						uo.getOrgId() != null) {

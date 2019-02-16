@@ -4,6 +4,7 @@ import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.PrepErrDAO;
 import com.dic.bill.dao.SprGenItmDAO;
 import com.dic.bill.dto.CalcStore;
+import com.dic.bill.mm.NaborMng;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
@@ -26,7 +27,7 @@ public class WebController implements CommonConstants {
     @PersistenceContext
     private EntityManager em;
     @Autowired
-    private ProcessMng debitMng;
+    private NaborMng naborMng;
     @Autowired
     private MigrateMng migrateMng;
     @Autowired
@@ -282,5 +283,21 @@ public class WebController implements CommonConstants {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd");
         String str = formatter.format(new Date());
         return key.equals("lasso_the_moose_".concat(str));
+    }
+
+    @RequestMapping("/checkCache")
+    @ResponseBody
+    public String checkCache() {
+        log.info("check1={}",
+                naborMng.getCached("bla1", null, Utl.getDateFromStr("01.01.2019")));
+        log.info("check2={}",
+                naborMng.getCached("bla1", null, null));
+        log.info("check3={}",
+                naborMng.getCached("bla1", null, Utl.getDateFromStr("01.01.2019")));
+        log.info("check3={}",
+                naborMng.getCached("bla1", null, Utl.getDateFromStr("01.01.2019")));
+        log.info("check3={}",
+                naborMng.getCached(null, null, null));
+        return "ok";
     }
 }

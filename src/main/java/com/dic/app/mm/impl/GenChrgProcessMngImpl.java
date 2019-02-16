@@ -100,6 +100,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 calcStore);
 
         Calendar c = Calendar.getInstance();
+
+        // получить действующие, отсортированные услуги по помещению (по всем счетам)
+        // перенести данный метод внутрь genVolPart, после того как будет реализованна архитектурная возможность
+        // отключать услугу в течении месяца
+        List<Nabor> lstNabor = naborMng.getValidNabor(ko, null);
+
         // РАСЧЕТ по блокам:
 
         // 1. Основные услуги
@@ -109,7 +115,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         for (c.setTime(calcStore.getCurDt1()); !c.getTime()
                 .after(calcStore.getCurDt2()); c.add(Calendar.DATE, 1)) {
             genVolPart(calcStore, chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
-                    parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part);
+                    parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part, lstNabor);
         }
 
         // кроме распределения объемов (там нечего еще считать, нет экономии ОДН
@@ -125,7 +131,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             for (c.setTime(calcStore.getCurDt1()); !c.getTime()
                     .after(calcStore.getCurDt2()); c.add(Calendar.DATE, 1)) {
                 genVolPart(calcStore, chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
-                        parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part);
+                        parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part, lstNabor);
             }
         }
 
@@ -195,15 +201,14 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * @param lstDayMeterVol       - хранилище объемов по счетчикам
      * @param curDt                - дата расчета
      * @param part                 - группа расчета (услуги рассчитываемые до(1) /после(2) рассчета ОДН
+     * @param lstNabor             - список действующих услуг
      * @throws ErrorWhileChrg - ошибка во время расчета
      * @throws WrongParam     - ошибочный параметр
      */
     private void genVolPart(CalcStore calcStore, ChrgCountAmountLocal chrgCountAmountLocal,
                             RequestConfig reqConf, Kart kartMainByKlsk, int parVarCntKpr,
                             int parCapCalcKprTp, Ko ko, List<SumMeterVol> lstMeterVol, List<Usl> lstSelUsl,
-                            List<UslMeterDateVol> lstDayMeterVol, Date curDt, int part) throws ErrorWhileChrg, WrongParam {
-        // получить действующие, отсортированные услуги по помещению (по всем счетам)
-        List<Nabor> lstNabor = naborMng.getValidNabor(ko, curDt);
+                            List<UslMeterDateVol> lstDayMeterVol, Date curDt, int part, List<Nabor> lstNabor) throws ErrorWhileChrg, WrongParam {
 
         boolean isExistsMeterColdWater = false;
         boolean isExistsMeterHotWater = false;
@@ -220,11 +225,13 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     part == 2 && nabor.getUsl().getFkCalcTp().equals(47)) // фильтр очередности расчета
                     ) {
                 // РАСЧЕТ по основным услугам (из набора услуг или по заданным во вводе)
-/*                log.trace("part={}, {}: lsk={}, uslId={}, fkCalcTp={}, dt={}",
+/*
+                log.trace("part={}, {}: lsk={}, uslId={}, fkCalcTp={}, dt={}",
                         part,
                         reqConf.getTpName(),
                         nabor.getKart().getLsk(), nabor.getUsl().getId(),
-                        nabor.getUsl().getFkCalcTp(), Utl.getStrFromDate(curDt));*/
+                        nabor.getUsl().getFkCalcTp(), Utl.getStrFromDate(curDt));
+*/
                 final Integer fkCalcTp = nabor.getUsl().getFkCalcTp();
                 final BigDecimal naborNorm = Utl.nvl(nabor.getNorm(), BigDecimal.ZERO);
                 final BigDecimal naborVol = Utl.nvl(nabor.getVol(), BigDecimal.ZERO);

@@ -1,5 +1,8 @@
 package com.dic.app;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
 
 import javax.sql.DataSource;
@@ -7,7 +10,12 @@ import javax.sql.DataSource;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.concurrent.ConcurrentMapCache;
+import org.springframework.cache.concurrent.ConcurrentMapCacheFactoryBean;
+import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
@@ -26,7 +34,6 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableCaching
 @EnableAsync
 @ImportResource("file:.\\config\\spring.xml")
-//@ImportResource("spring.xml")
 public class Config  implements ApplicationContextAware {
 
 	static ApplicationContext ctx = null;
@@ -40,26 +47,16 @@ public class Config  implements ApplicationContextAware {
 		ctx = context;
 	}
 
-/*
-	@Bean
-	public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
-	    // JPA settings
-	    HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
-	    // vendorAdapter.setGenerateDdl(true);
-	    // vendorAdapter.setShowSql(true);
-	    vendorAdapter.setDatabase(Database.ORACLE);
 
-	    LocalContainerEntityManagerFactoryBean factory = new LocalContainerEntityManagerFactoryBean();
-	    factory.setJpaVendorAdapter(vendorAdapter);
-	    factory.setPackagesToScan("com.ric.bill", "com.dic.bill");
-		factory.setDataSource(ds);
-		Properties jpaProperties = new Properties();
-		jpaProperties.put("hibernate.enable_lazy_load_no_trans", true);
-	    factory.setJpaProperties(jpaProperties);
-	    factory.afterPropertiesSet();
-	    return factory;
+	@Bean
+	public CacheManager cacheManager() {
+		SimpleCacheManager cacheManager = new SimpleCacheManager();
+		cacheManager.setCaches(Arrays.asList(
+				new ConcurrentMapCache("NaborMng.getCached"),
+				new ConcurrentMapCache("NaborMng.getDetailUslPrice"),
+				new ConcurrentMapCache("ReferenceMng.getUslOrgRedirect")));
+		return cacheManager;
 	}
-*/
 
 	public static ApplicationContext getContext(){
 	      return ctx;
