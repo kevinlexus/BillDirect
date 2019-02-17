@@ -11,6 +11,7 @@ import com.ric.cmn.Utl;
 import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.bind.annotation.*;
 
@@ -54,7 +55,6 @@ public class WebController implements CommonConstants {
      * @param debugLvl - уровень отладки 0, null - не записивать в лог отладочную информацию, 1 - записывать
      * @param genDtStr   - дата на которую сформировать
      * @param stop     - 1 - остановить выполнение текущей операции с типом tp
-     * @param key      - ключ, для выполнения ответственных заданий
      */
     @RequestMapping("/gen")
     public String gen(
@@ -64,11 +64,10 @@ public class WebController implements CommonConstants {
             @RequestParam(value = "klskId", defaultValue = "0", required = false) int klskId,
             @RequestParam(value = "debugLvl", defaultValue = "0") int debugLvl,
             @RequestParam(value = "genDt", defaultValue = "", required = false) String genDtStr,
-            @RequestParam(value = "key", defaultValue = "", required = false) String key,
             @RequestParam(value = "stop", defaultValue = "0", required = false) int stop
     ) {
-        log.info("GOT /gen with: tp={}, key={}, debugLvl={}, genDt={}, houseId={}, vvodId={}, klskId={}, stop={}",
-                tp, key, debugLvl, genDtStr, houseId, vvodId, klskId, stop);
+        log.info("GOT /gen with: tp={}, debugLvl={}, genDt={}, houseId={}, vvodId={}, klskId={}, stop={}",
+                tp, debugLvl, genDtStr, houseId, vvodId, klskId, stop);
 
         // проверка типа формирования
         if (!Utl.in(tp, 0, 1, 2)) {
@@ -298,6 +297,19 @@ public class WebController implements CommonConstants {
                 naborMng.getCached("bla1", null, Utl.getDateFromStr("01.01.2019")));
         log.info("check3={}",
                 naborMng.getCached(null, null, null));
-        return "ok";
+        log.info("");
+        return "cached";
+    }
+
+    /**
+     * Выполнение очистки кэша, связанного с Nabor, Price, Kart
+     * @return
+     */
+    @RequestMapping("/evictCacheNaborKartPrice")
+    @ResponseBody
+    @CacheEvict(value = {"NaborMng.getDetailUslPrice"}, allEntries = true)
+    public String evictCacheNaborKartPrice() {
+        log.info("Кэш 'NaborMng.getDetailUslPrice' очищен!");
+        return "OK";
     }
 }
