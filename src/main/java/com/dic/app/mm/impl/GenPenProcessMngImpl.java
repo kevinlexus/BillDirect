@@ -66,7 +66,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      * @param klskId    - klskId помещения
      */
     @Override
-    public void genDebitPen(CalcStore calcStore, int klskId) {
+    public void genDebitPen(CalcStore calcStore, long klskId) {
         Ko ko = em.find(Ko.class, klskId);
         for (Kart kart : ko.getKart()) {
             genDebitPen(calcStore, kart);

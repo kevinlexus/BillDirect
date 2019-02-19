@@ -160,7 +160,7 @@ public class ConfigImpl implements ConfigApp {
      * Выполнить блокировку лицевого счета
      */
     @Override
-    public boolean aquireLock(int rqn, int klskId) {
+    public boolean aquireLock(int rqn, long klskId) {
         // блокировка лиц.счета
         int waitTick = 0;
         while (!getLock().setLockLsk(rqn, klskId)) {

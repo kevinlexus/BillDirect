@@ -7,6 +7,6 @@ import com.ric.dto.CommonResult;
 
 public interface GenThrMng {
 
-	Future<CommonResult> doJob(Integer var, Integer id, SprGenItm spr, double proc);
+	Future<CommonResult> doJob(Integer var, Long id, SprGenItm spr, double proc);
 
 }

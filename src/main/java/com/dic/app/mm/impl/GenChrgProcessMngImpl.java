@@ -67,8 +67,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * @param reqConf   - конфиг запроса
      */
     @Override
-    public void genChrg(CalcStore calcStore, int klskId, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
-        Ko ko = em.find(Ko.class, klskId);
+    public void genChrg(CalcStore calcStore, long klskId, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
+        //Ko ko = em.find(Ko.class, klskId);
+        Ko ko = em.getReference(Ko.class, klskId);
 
         // создать локальное хранилище объемов
         chrgCountAmountLocal = new ChrgCountAmountLocal();
@@ -138,10 +139,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         // 4. Округлить объемы
         chrgCountAmountLocal.roundVol();
 
-        // 5. Добавить в объемы по вводу
-        calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
+        if (reqConf.getTp() == 2) {
+            // 5. Добавить в объемы по вводу
+            calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
+        }
 
-        //chrgCountAmountLocal.printVolAmnt(null, "После округления");
+        chrgCountAmountLocal.printVolAmnt(null, "После округления");
 
         if (reqConf.getTp() != 2) {
             // 6. Сгруппировать строки начислений для записи в C_CHARGE
@@ -254,18 +257,30 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     vvodVol = Utl.nvl(vvod.getKub(), BigDecimal.ZERO);
                 }
                 Kart kartMain;
-                // получить основной лиц.счет, если указан явно
+                // получить родительский лиц.счет, если указан явно
                 if (nabor.getKart().getParentKart() != null) {
-                    kartMain = nabor.getKart();
+                    kartMain = nabor.getKart().getParentKart();
                 } else {
                     kartMain = kartMainByKlsk;
                 }
                 // получить цены по услуге по лицевому счету из набора услуг!
                 final DetailUslPrice detailUslPrice = naborMng.getDetailUslPrice(kartMain, nabor);
 
-                // получить кол-во проживающих по лицевому счету из набора услуг!
+                // получить isEmpty, кол-во проживающих,
+                // для определения расценки по родительскому (если указан по parentKart) или текущему лиц.счету
                 final CountPers countPers = kartPrMng.getCountPersByDate(kartMain, nabor,
                         parVarCntKpr, parCapCalcKprTp, curDt);
+                if (nabor.getKart().getParentKart() != null) {
+                    // дополнить информацией из текущего лиц.счета, из nabor
+                    final CountPers countPersCurr = kartPrMng.getCountPersByDate(nabor.getKart(), nabor,
+                            parVarCntKpr, parCapCalcKprTp, curDt);
+                    countPers.kpr=countPersCurr.kpr;
+                    countPers.kprNorm=countPersCurr.kprNorm;
+                    countPers.kprWr=countPersCurr.kprWr;
+                    countPers.kprOt=countPersCurr.kprOt;
+                    countPers.kprMax=countPersCurr.kprMax;
+                }
+
                 SocStandart socStandart = null;
                 // получить наличие счетчика
                 boolean isMeterExist = false;
@@ -523,7 +538,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * @param ko                   - помещение
      * @param lstSelUsl            - список ограничения услуг (например при распределении ОДН)
      */
-    private void distODNeconomy(CalcStore calcStore, ChrgCountAmountLocal chrgCountAmountLocal,
+    private synchronized void distODNeconomy(CalcStore calcStore, ChrgCountAmountLocal chrgCountAmountLocal,
                                 Ko ko, List<Usl> lstSelUsl) throws ErrorWhileChrg {
         // получить объемы экономии по всем лиц.счетам помещения
         List<ChargePrep> lstChargePrep = ko.getKart().stream()

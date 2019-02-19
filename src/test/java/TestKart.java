@@ -253,8 +253,8 @@ public class TestKart {
     @Transactional
     public void testVvod() {
         Vvod vvod = em.find(Vvod.class, 6050);
-        List<Integer> lstItem = kartDao.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
-        for (Integer id : lstItem) {
+        List<Long> lstItem = kartMng.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
+        for (Long id : lstItem) {
             log.info("test id={}", id);
         }
     }

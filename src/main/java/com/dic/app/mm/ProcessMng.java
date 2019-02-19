@@ -16,5 +16,5 @@ public interface ProcessMng {
 
     CalcStore buildCalcStore(RequestConfig reqConf);
 
-    Future<CommonResult> genProcess(int klskId, CalcStore calcStore, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg;
+    Future<CommonResult> genProcess(long klskId, CalcStore calcStore, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg;
 }

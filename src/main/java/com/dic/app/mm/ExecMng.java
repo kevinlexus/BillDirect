@@ -8,7 +8,7 @@ import com.dic.bill.model.scott.SprGenItm;
 public interface ExecMng {
 
 	void updateSprGenItem(List<SprGenItm> lst);
-	Integer execProc(Integer var, Integer id, Integer sel);
+	Integer execProc(Integer var, Long id, Integer sel);
 	void clearError(SprGenItm menuGenItg);
 	void setGenDate();
 	void stateBase(int state);

@@ -61,7 +61,7 @@ public class WebController implements CommonConstants {
             @RequestParam(value = "tp", defaultValue = "0") int tp,
             @RequestParam(value = "houseId", defaultValue = "0", required = false) int houseId,
             @RequestParam(value = "vvodId", defaultValue = "0", required = false) int vvodId,
-            @RequestParam(value = "klskId", defaultValue = "0", required = false) int klskId,
+            @RequestParam(value = "klskId", defaultValue = "0", required = false) long klskId,
             @RequestParam(value = "debugLvl", defaultValue = "0") int debugLvl,
             @RequestParam(value = "genDt", defaultValue = "", required = false) String genDtStr,
             @RequestParam(value = "stop", defaultValue = "0", required = false) int stop
@@ -194,7 +194,7 @@ public class WebController implements CommonConstants {
      */
     @RequestMapping(value = "/checkItms", method = RequestMethod.POST)
     @ResponseBody
-    public String checkItms(@RequestParam(value = "id") int id, @RequestParam(value = "sel") int sel) {
+    public String checkItms(@RequestParam(value = "id") long id, @RequestParam(value = "sel") int sel) {
         execMng.execProc(35, id, sel);
         return null;
     }

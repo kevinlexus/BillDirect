@@ -8,6 +8,7 @@ import com.dic.bill.dao.PenRefDAO;
 import com.dic.bill.dao.VvodDAO;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.ChrgCountAmount;
+import com.dic.bill.mm.KartMng;
 import com.dic.bill.model.scott.House;
 import com.dic.bill.model.scott.Ko;
 import com.dic.bill.model.scott.Vvod;
@@ -16,6 +17,7 @@ import com.ric.cmn.Utl;
 import com.ric.cmn.excp.*;
 import com.ric.dto.CommonResult;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.collection.PredicatedCollection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationContext;
@@ -31,11 +33,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 /**
@@ -58,7 +62,9 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     @Autowired
     private KartDAO kartDao;
     @Autowired
-    private ThreadMng<Integer> threadMng;
+    private KartMng kartMng;
+    @Autowired
+    private ThreadMng<Long> threadMng;
     @Autowired
     private GenPenProcessMng genPenProcessMng;
     @Autowired
@@ -167,7 +173,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         log.info("НАЧАЛО процесса {} заданных объектов", reqConf.getTpName());
 
         // получить список помещений
-        List<Integer> lstItem;
+        List<Long> lstItem;
         // тип выборки
         int tpSel;
         Ko ko = reqConf.getKo();
@@ -183,15 +189,16 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         } else if (house != null) {
             // по дому
             tpSel = 2;
-            lstItem = kartDao.getKoByHouse(house).stream().map(Ko::getId).collect(Collectors.toList());
+            lstItem = kartMng.getKoByHouse(house).stream().map(Ko::getId).collect(Collectors.toList());
         } else if (vvod != null) {
             // по вводу
             tpSel = 3;
-            lstItem = kartDao.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
+            lstItem = kartMng.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
         } else {
             tpSel = 0;
             // по всему фонду
-            lstItem = kartDao.getKoKwAll().stream().map(Ko::getId).collect(Collectors.toList());
+            // конвертировать из List<BD> в List<Long> (native JPA представляет k_lsk_id только в BD и происходит type Erasure)
+            lstItem = kartDao.findAllKlskId().stream().map(BigDecimal::longValue).collect(Collectors.toList());
             // установить маркер процесса, вернуться, если уже выполняется
             if (!config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
                 return;
@@ -202,7 +209,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         }
 
         // LAMBDA, будет выполнено позже, в создании потока
-        PrepThread<Integer> reverse = (item, proc) -> {
+        PrepThread<Long> reverse = (item, proc) -> {
             //log.info("************** 1");
             ProcessMng processMng = ctx.getBean(ProcessMng.class);
             //log.info("************** 2");
@@ -213,11 +220,11 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         try {
             if (reqConf.isMultiThreads()) {
                 // вызвать в новой транзакции, многопоточно
-                int CNT_THREADS = 5;
+                int CNT_THREADS = 7;
                 threadMng.invokeThreads(reverse, CNT_THREADS, lstItem, isCheckStop, stopMark);
             } else {
                 // вызвать в той же транзакции, однопоточно, для Unit - тестов
-                for (Integer klskId : lstItem) {
+                for (Long klskId : lstItem) {
                     selectInvokeProcess(reqConf, calcStore, klskId);
                 }
             }
@@ -289,7 +296,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             propagation = Propagation.REQUIRES_NEW, // новая транзакция, Не ставить Propagation.MANADATORY! - не даёт запустить поток!
             isolation = Isolation.READ_COMMITTED, // читать только закомиченные данные, не ставить другое, не даст запустить поток!
             rollbackFor = Exception.class) //
-    public Future<CommonResult> genProcess(int klskId, CalcStore calcStore, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
+    public Future<CommonResult> genProcess(long klskId, CalcStore calcStore, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО потока {}, по klskId={}", reqConf.getTpName(), klskId);
         try {
@@ -322,7 +329,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
      * @param calcStore - хранилище параметров
      * @param klskId    - klskId объекта
      */
-    private void selectInvokeProcess(RequestConfig reqConf, CalcStore calcStore, int klskId) throws WrongParam, ErrorWhileChrg {
+    private void selectInvokeProcess(RequestConfig reqConf, CalcStore calcStore, long klskId) throws WrongParam, ErrorWhileChrg {
         switch (reqConf.getTp()) {
             case 0:
             case 2: {

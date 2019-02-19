@@ -13,5 +13,5 @@ import java.util.concurrent.Future;
 
 public interface GenPenProcessMng {
 
-    void genDebitPen(CalcStore calcStore, int klskId);
+    void genDebitPen(CalcStore calcStore, long klskId);
 }

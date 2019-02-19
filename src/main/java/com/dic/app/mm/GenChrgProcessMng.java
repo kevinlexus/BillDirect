@@ -8,5 +8,5 @@ import com.ric.cmn.excp.WrongParam;
 
 public interface GenChrgProcessMng {
 
-    void genChrg(CalcStore calcStore, int klskId, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg;
+    void genChrg(CalcStore calcStore, long klskId, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg;
 }

@@ -56,7 +56,7 @@ public class GenMainMngImpl implements GenMainMng {
     @Autowired
     private ApplicationContext ctx;
     @Autowired
-    private ThreadMng<Integer> threadMng;
+    private ThreadMng<Long> threadMng;
 
     /**
      * ОСНОВНОЙ поток формирования
@@ -120,7 +120,7 @@ public class GenMainMngImpl implements GenMainMng {
             execMng.setMenuElemPercent(menuGenItg, 0.10D);
 
             // список Id объектов
-            List<Integer> lst;
+            List<Long> lst;
             //**********Начать формирование
             for (SprGenItm itm : sprGenItmDao.getAllCheckedOrdered()) {
 
@@ -146,7 +146,7 @@ public class GenMainMngImpl implements GenMainMng {
                         // распределить где нет ОДПУ
                         dt1 = new Date();
                         lst = vvodDao.getWoODPU()
-                                .stream().map(t -> t.getId()).collect(Collectors.toList());
+                                .stream().map(t -> t.getId().longValue()).collect(Collectors.toList());
                         if (!doInThread(lst, itm, 1)) {
                             // ошибка распределения
                             menuGenItg.setState("Найдены ошибки во время распределения объемов где нет ОДПУ!");
@@ -159,7 +159,7 @@ public class GenMainMngImpl implements GenMainMng {
                         //распределить где есть ОДПУ
                         dt1 = new Date();
                         lst = vvodDao.getWithODPU()
-                                .stream().map(t -> t.getId()).collect(Collectors.toList());
+                                .stream().map(t -> t.getId().longValue()).collect(Collectors.toList());
                         if (!doInThread(lst, itm, 2)) {
                             // ошибка распределения
                             menuGenItg.setState("Найдены ошибки во время распределения объемов где есть ОДПУ!");
@@ -173,7 +173,7 @@ public class GenMainMngImpl implements GenMainMng {
                         // начисление по домам
                         dt1 = new Date();
                         lst = houseDao.findAll()
-                                .stream().map(t -> t.getId()).collect(Collectors.toList());
+                                .stream().map(t -> t.getId().longValue()).collect(Collectors.toList());
                         if (!doInThread(lst, itm, 4)) {
                             // ошибка распределения
                             menuGenItg.setState("Найдены ошибки во время расчета начисления по домам!");
@@ -199,7 +199,7 @@ public class GenMainMngImpl implements GenMainMng {
                         // начисление пени по домам
                         dt1 = new Date();
                         lst = houseDao.getNotClosed()
-                                .stream().map(t -> t.getId()).collect(Collectors.toList());
+                                .stream().map(t -> t.getId().longValue()).collect(Collectors.toList());
                         if (!doInThread(lst, itm, 3)) {
                             // ошибка распределения
                             menuGenItg.setState("Найдены ошибки во время начисления пени по домам!");
@@ -375,9 +375,9 @@ public class GenMainMngImpl implements GenMainMng {
      * @param var - вариант выполнения
      * @return
      */
-    private boolean doInThread(List<Integer> lst, SprGenItm spr, int var) {
+    private boolean doInThread(List<Long> lst, SprGenItm spr, int var) {
         // будет выполнено позже, в создании потока
-        PrepThread<Integer> reverse = (item, proc) -> {
+        PrepThread<Long> reverse = (item, proc) -> {
             // сохранить процент выполнения
             //execMng.setPercent(spr, proc);
             // потоковый сервис

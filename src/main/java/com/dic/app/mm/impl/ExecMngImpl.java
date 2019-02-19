@@ -51,7 +51,7 @@ public class ExecMngImpl implements ExecMng {
 
 	@Override
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
-	public Integer execProc(Integer var, Integer id, Integer sel) {
+	public Integer execProc(Integer var, Long id, Integer sel) {
 		StoredProcedureQuery qr;
 		Integer ret = null;
 		Integer par = null;

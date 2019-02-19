@@ -40,7 +40,7 @@ public class GenThrMngImpl implements GenThrMng {
 	@Async
 	@Override
 	@Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
-	public Future<CommonResult> doJob(Integer var, Integer id, SprGenItm spr, double proc) {
+	public Future<CommonResult> doJob(Integer var, Long id, SprGenItm spr, double proc) {
 		switch (var) {
 		case 1:
 			log.info("Выполняется поток распределения объемов во вводе id={}, где нет ОДПУ", id);
