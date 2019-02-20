@@ -266,20 +266,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 // получить цены по услуге по лицевому счету из набора услуг!
                 final DetailUslPrice detailUslPrice = naborMng.getDetailUslPrice(kartMain, nabor);
 
-                // получить isEmpty, кол-во проживающих,
-                // для определения расценки по родительскому (если указан по parentKart) или текущему лиц.счету
-                final CountPers countPers = kartPrMng.getCountPersByDate(kartMain, nabor,
-                        parVarCntKpr, parCapCalcKprTp, curDt);
-                if (nabor.getKart().getParentKart() != null) {
-                    // дополнить информацией из текущего лиц.счета, из nabor
-                    final CountPers countPersCurr = kartPrMng.getCountPersByDate(nabor.getKart(), nabor,
-                            parVarCntKpr, parCapCalcKprTp, curDt);
-                    countPers.kpr=countPersCurr.kpr;
-                    countPers.kprNorm=countPersCurr.kprNorm;
-                    countPers.kprWr=countPersCurr.kprWr;
-                    countPers.kprOt=countPersCurr.kprOt;
-                    countPers.kprMax=countPersCurr.kprMax;
-                }
+                CountPers countPers;
+                countPers = getCountPersAmount(parVarCntKpr, parCapCalcKprTp, curDt, nabor, kartMain);
 
                 SocStandart socStandart = null;
                 // получить наличие счетчика
@@ -289,8 +277,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 BigDecimal dayVol = BigDecimal.ZERO;
                 BigDecimal dayVolOverSoc = BigDecimal.ZERO;
 
-                // площади
-                final BigDecimal kartArea = Utl.nvl(kartMain.getOpl(), BigDecimal.ZERO);
+                // площади (взять с текущего лиц.счета)
+                final BigDecimal kartArea = Utl.nvl(nabor.getKart().getOpl(), BigDecimal.ZERO);
                 BigDecimal areaOverSoc = BigDecimal.ZERO;
                 if (Utl.in(fkCalcTp, 25) // Текущее содержание и подобные услуги (без свыше соц.нормы и без 0 проживающих)
                         || fkCalcTp.equals(7) && nabor.getKart().getStatus().getId().equals(1) // Найм (только по муниципальным помещениям) расчет на м2
@@ -417,7 +405,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 } else if (fkCalcTp.equals(49)) {
                     // Вывоз мусора - кол-во прожив * цену (Кис.)
                     //area = kartArea;
-                    dayVol = BigDecimal.valueOf(countPers.kpr).multiply(calcStore.getPartDayMonth());
+                    dayVol = BigDecimal.valueOf(countPers.kprNorm).multiply(calcStore.getPartDayMonth());
                 } else if (fkCalcTp.equals(47)) {
                     // Тепл.энергия для нагрева ХВС (Кис.)
                     //area = kartArea;
@@ -528,6 +516,61 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
             }
         }
+
+    }
+
+    /**
+     * Получить совокупное кол-во проживающих (родительский и дочерний лиц.счета)
+     * @param parVarCntKpr - тип подсчета кол-во проживающих
+     * @param parCapCalcKprTp - тип подсчета кол-во проживающих для капремонта
+     * @param curDt - дата расчета
+     * @param nabor - строка услуги
+     * @param kartMain - основной лиц.счет
+     */
+    private CountPers getCountPersAmount(int parVarCntKpr, int parCapCalcKprTp, Date curDt, Nabor nabor, Kart kartMain) {
+        CountPers countPers;
+        if (parVarCntKpr == 0 && nabor.getKart().getParentKart() != null) {
+            // вариант Кис.
+            // в дочернем лиц.счете
+            // для определения расценки по родительскому (если указан по parentKart) или текущему лиц.счету
+            countPers = kartPrMng.getCountPersByDate(nabor.getKart().getParentKart(), nabor,
+                    parVarCntKpr, parCapCalcKprTp, curDt);
+            // алгоритм взят из C_KART, строка 786
+            if (countPers.kprNorm == 0 && Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_RSO")
+                    && countPers.kprOt == 0 && !kartMain.getStatus().getCd().equals("MUN")) {
+                // в РСО счетах и кол-во временно отсут.=0
+                countPers.kprNorm = 1;
+            }
+            // из текущего лиц.счета
+            CountPers countPersCur = kartPrMng.getCountPersByDate(nabor.getKart(), nabor,
+                    parVarCntKpr, parCapCalcKprTp, curDt);
+            countPers.kpr = countPersCur.kpr;
+            countPers.kprWr = countPersCur.kprWr;
+            countPers.kprOt = countPersCur.kprOt;
+            countPers.kprMax = countPersCur.kprMax;
+        } else {
+            // в родительском лиц.счете
+            countPers = kartPrMng.getCountPersByDate(nabor.getKart(), nabor,
+                    parVarCntKpr, parCapCalcKprTp, curDt);
+            if (parVarCntKpr == 0) {
+                // Киселёвск
+                if (countPers.kprNorm == 0 && !kartMain.getStatus().getCd().equals("MUN")) {
+                    // не муницип. помещение
+                    if (nabor.getUsl().getFkCalcTp().equals(49)) {
+                        // услуга по обращению с ТКО
+                        countPers.kpr = 1;
+                        countPers.kprNorm = 1;
+                    } else {
+                        countPers.kprNorm = 1;
+                    }
+                }
+            } else if (parVarCntKpr == 1) {
+                // Полысаево
+                countPers.kprNorm = 1;
+            }
+        }
+        countPers.isEmpty = countPers.kpr == 0;
+        return countPers;
     }
 
     /**
@@ -539,7 +582,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * @param lstSelUsl            - список ограничения услуг (например при распределении ОДН)
      */
     private synchronized void distODNeconomy(CalcStore calcStore, ChrgCountAmountLocal chrgCountAmountLocal,
-                                Ko ko, List<Usl> lstSelUsl) throws ErrorWhileChrg {
+                                             Ko ko, List<Usl> lstSelUsl) throws ErrorWhileChrg {
         // получить объемы экономии по всем лиц.счетам помещения
         List<ChargePrep> lstChargePrep = ko.getKart().stream()
                 .flatMap(t -> t.getChargePrep().stream())

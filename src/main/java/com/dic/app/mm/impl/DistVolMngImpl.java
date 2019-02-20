@@ -213,6 +213,10 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                 for (UslVolKart t : lstUslVolKart) {
                     //log.trace("usl={}, cnt={}, empt={}, resid={}, t.vol={}, t.area={}",
                     //        t.usl.getId(), t.isMeter, t.isEmpty, t.isResidental, t.vol, t.area);
+                    // кол-во лицевых
+                    vvod.setSchCnt(vvod.getSchCnt().add(new BigDecimal("1")));
+                    // кол-во проживающих
+                    vvod.setSchKpr(vvod.getSchKpr().add(t.kpr));
                     if (!t.isResidental) {
                         // сохранить объемы по вводу для статистики
                         // площадь по нежилым помещениям

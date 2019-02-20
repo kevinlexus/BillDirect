@@ -134,7 +134,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                 } else {
                     // распределить все вводы
                     for (Vvod vvod : vvodDAO.findAll(new Sort(Sort.Direction.ASC, "id"))) {
-                        log.info("Удалить это сообщение vvodId={}", vvod.getId());
+                        //log.info("Удалить это сообщение vvodId={}", vvod.getId());
                         if (vvod.getUsl()!=null && vvod.getUsl().isMain()) {
                             if (!config.getLock().isStopped(stopMark)) {
                                 // загрузить хранилище по каждому вводу
