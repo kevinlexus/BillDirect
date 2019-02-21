@@ -103,7 +103,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
                         }
                     } catch (Exception e) {
                         log.error(Utl.getStackTraceString(e));
-                        log.error("ОШИБКА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА", fut.get().getErr());
+                        log.error("ОШИБКА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА");
                     }
                     // очистить переменную потока
                     frl.set(i, null);

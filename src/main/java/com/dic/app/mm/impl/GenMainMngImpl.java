@@ -177,7 +177,7 @@ public class GenMainMngImpl implements GenMainMng {
                         if (!doInThread(lst, itm, 4)) {
                             // ошибка распределения
                             menuGenItg.setState("Найдены ошибки во время расчета начисления по домам!");
-                            log.error("Найдены ошибки во время расчета начисления домам!");
+                            log.error("Найдены ошибки во время расчета начисления по домам!");
                             return;
                         }
                         setMenuProc(menuGenItg, itm, 0.40D, dt1, new Date());
@@ -388,7 +388,7 @@ public class GenMainMngImpl implements GenMainMng {
         // вызвать в потоках
         try {
             // вызвать потоки, проверять наличие маркера работы процесса
-            threadMng.invokeThreads(reverse, 1, lst, true,"AmountGeneration");
+            threadMng.invokeThreads(reverse, 10, lst, true,"AmountGeneration");
         } catch (InterruptedException | ExecutionException | WrongParam | ErrorWhileChrg e) {
             log.error(Utl.getStackTraceString(e));
             return false;

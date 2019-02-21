@@ -166,7 +166,7 @@ public class ExecMngImpl implements ExecMng {
 			qr = em.createStoredProcedureQuery("scott.c_cpenya.gen_charge_pay_pen");
 
 			qr.registerStoredProcedureParameter(1, Date.class, ParameterMode.IN);
-			qr.registerStoredProcedureParameter(2, Integer.class, ParameterMode.IN);
+			qr.registerStoredProcedureParameter(2, Long.class, ParameterMode.IN);
 			qr.setParameter(1, null);
 			qr.setParameter(2, 0);
 			qr.executeUpdate();
@@ -235,7 +235,7 @@ public class ExecMngImpl implements ExecMng {
 		case 35:
 			// вызов из WebCtrl
 			qr = em.createStoredProcedureQuery("scott.p_thread.check_itms");
-			qr.registerStoredProcedureParameter(1, Integer.class, ParameterMode.IN);
+			qr.registerStoredProcedureParameter(1, Long.class, ParameterMode.IN);
 			qr.registerStoredProcedureParameter(2, Integer.class, ParameterMode.IN);
 
 			qr.setParameter(1, id);
@@ -267,7 +267,7 @@ public class ExecMngImpl implements ExecMng {
 			// дата, не заполняем, null
 			qr.registerStoredProcedureParameter(1, Date.class, ParameterMode.IN);
 			// id дома
-			qr.registerStoredProcedureParameter(2, Integer.class, ParameterMode.IN);
+			qr.registerStoredProcedureParameter(2, Long.class, ParameterMode.IN);
 			qr.setParameter(1, new Date());
 			qr.setParameter(2, id);
 			qr.executeUpdate();
@@ -276,7 +276,7 @@ public class ExecMngImpl implements ExecMng {
 			// расчитать начисление по домам
 			qr = em.createStoredProcedureQuery("scott.c_charges.gen_charges");
 			// id дома
-			qr.registerStoredProcedureParameter(1, Integer.class, ParameterMode.IN);
+			qr.registerStoredProcedureParameter(1, Long.class, ParameterMode.IN);
 			qr.setParameter(1, id);
 			qr.executeUpdate();
 			break;
