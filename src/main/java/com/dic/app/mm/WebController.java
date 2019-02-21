@@ -1,6 +1,7 @@
 package com.dic.app.mm;
 
 import com.dic.bill.RequestConfig;
+import com.dic.bill.dao.OrgDAO;
 import com.dic.bill.dao.PrepErrDAO;
 import com.dic.bill.dao.SprGenItmDAO;
 import com.dic.bill.dto.CalcStore;
@@ -38,6 +39,8 @@ public class WebController implements CommonConstants {
     @Autowired
     private PrepErrDAO prepErrDao;
     @Autowired
+    private OrgDAO orgDAO;
+    @Autowired
     private ProcessMng processMng;
     @Autowired
     private ConfigApp config;
@@ -63,11 +66,13 @@ public class WebController implements CommonConstants {
             @RequestParam(value = "vvodId", defaultValue = "0", required = false) int vvodId,
             @RequestParam(value = "klskId", defaultValue = "0", required = false) long klskId,
             @RequestParam(value = "debugLvl", defaultValue = "0") int debugLvl,
+            @RequestParam(value = "uslId", required = false) String uslId,
+            @RequestParam(value = "reuId", required = false) String reuId,
             @RequestParam(value = "genDt", defaultValue = "", required = false) String genDtStr,
             @RequestParam(value = "stop", defaultValue = "0", required = false) int stop
     ) {
-        log.info("GOT /gen with: tp={}, debugLvl={}, genDt={}, houseId={}, vvodId={}, klskId={}, stop={}",
-                tp, debugLvl, genDtStr, houseId, vvodId, klskId, stop);
+        log.info("GOT /gen with: tp={}, debugLvl={}, genDt={}, reuId={}, houseId={}, vvodId={}, klskId={}, uslId={}, stop={}",
+                tp, debugLvl, genDtStr, reuId, houseId, vvodId, klskId, uslId, stop);
 
         // проверка типа формирования
         if (!Utl.in(tp, 0, 1, 2)) {
@@ -79,7 +84,11 @@ public class WebController implements CommonConstants {
         House house = null;
         Vvod vvod = null;
         Ko ko = null;
-        if (houseId != 0) {
+        Org uk = null;
+        if (reuId != null) {
+            uk = orgDAO.getByReu(reuId);
+            msg = "УК reuId=" + reuId;
+        } else if (houseId != 0) {
             house = em.find(House.class, houseId);
             msg = "дому houseId="+houseId;
         } else if (vvodId != 0) {
@@ -95,13 +104,20 @@ public class WebController implements CommonConstants {
                 msg = "всем вводам";
             }
         }
+        Usl usl = null;
+        if (uslId != null) {
+            msg = msg.concat(", по услуге uslId="+uslId);
+            usl = em.find(Usl.class, uslId);
+        }
         RequestConfig reqConf =
                 RequestConfig.RequestConfigBuilder.aRequestConfig()
                         .withTp(tp)
                         .withGenDt(genDtStr != null ? Utl.getDateFromStr(genDtStr) : null)
+                        .withUk(uk)
                         .withHouse(house)
                         .withVvod(vvod)
                         .withKo(ko)
+                        .withUsl(usl)
                         .withCurDt1(config.getCurDt1())
                         .withCurDt2(config.getCurDt2())
                         .withDebugLvl(debugLvl)

@@ -11,6 +11,7 @@ import com.dic.bill.dto.ChrgCountAmount;
 import com.dic.bill.mm.KartMng;
 import com.dic.bill.model.scott.House;
 import com.dic.bill.model.scott.Ko;
+import com.dic.bill.model.scott.Org;
 import com.dic.bill.model.scott.Vvod;
 import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
@@ -117,6 +118,22 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                         log.error(Utl.getStackTraceString(e));
                         throw new ErrorWhileGen("ОШИБКА при распределении объемов");
                     }
+                } else if (reqConf.getUk() != null) {
+                    for (Integer vvodId : vvodDAO.findVvodByUk(reqConf.getUk().getReu())
+                            .stream().map(BigDecimal::intValue).collect(Collectors.toList())) {
+                        Vvod vvod = em.find(Vvod.class, vvodId);
+                        if (vvod.getUsl() != null && vvod.getUsl().isMain()) {
+                            // загрузить хранилище по каждому вводу
+                            CalcStore calcStore = buildCalcStore(reqConf);
+                            try {
+                                distVolMng.distVolByVvodTrans(reqConf, calcStore, vvod.getId());
+                            } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
+                                log.error(Utl.getStackTraceString(e));
+                                throw new ErrorWhileGen("ОШИБКА при распределении объемов");
+                            }
+                        }
+                    }
+                    log.info("Распределение объемов по УК reuId={} выполнено", reqConf.getUk().getReu());
                 } else if (reqConf.getHouse() != null) {
                     for (Vvod vvod : vvodDAO.findVvodByHouse(reqConf.getHouse().getId())) {
                         if (vvod.getUsl() != null && vvod.getUsl().isMain()) {
@@ -135,7 +152,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                     // распределить все вводы
                     for (Vvod vvod : vvodDAO.findAll(new Sort(Sort.Direction.ASC, "id"))) {
                         //log.info("Удалить это сообщение vvodId={}", vvod.getId());
-                        if (vvod.getUsl()!=null && vvod.getUsl().isMain()) {
+                        if (vvod.getUsl() != null && vvod.getUsl().isMain()) {
                             if (!config.getLock().isStopped(stopMark)) {
                                 // загрузить хранилище по каждому вводу
                                 CalcStore calcStore = buildCalcStore(reqConf);
@@ -178,6 +195,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         int tpSel;
         Ko ko = reqConf.getKo();
         House house = reqConf.getHouse();
+        Org uk = reqConf.getUk();
         Vvod vvod = reqConf.getVvod();
         // проверка остановки процесса
         boolean isCheckStop = false;
@@ -186,6 +204,16 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             tpSel = 1;
             lstItem = new ArrayList<>(1);
             lstItem.add(ko.getId());
+        } else if (uk != null) {
+            // по УК
+            tpSel = 0;
+            lstItem = kartDao.findAllByUk(uk.getReu()).stream().map(BigDecimal::longValue).collect(Collectors.toList());
+            // установить маркер процесса, вернуться, если уже выполняется
+            if (!config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
+                return;
+            } else {
+                isCheckStop = true;
+            }
         } else if (house != null) {
             // по дому
             tpSel = 2;
@@ -204,7 +232,6 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                 return;
             } else {
                 isCheckStop = true;
-                ;
             }
         }
 

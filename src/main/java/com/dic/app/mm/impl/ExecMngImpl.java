@@ -250,14 +250,14 @@ public class ExecMngImpl implements ExecMng {
 		case 100:
 			// распределить ОДН во вводах, где нет ОДПУ
 			qr = em.createStoredProcedureQuery("scott.p_vvod.gen_dist_wo_vvod_usl");
-			qr.registerStoredProcedureParameter(1, Integer.class, ParameterMode.IN);
+			qr.registerStoredProcedureParameter(1, Long.class, ParameterMode.IN);
 			qr.setParameter(1, id);
 			qr.executeUpdate();
 			break;
 		case 101:
 			// распределить ОДН во вводах, где есть ОДПУ
 			qr = em.createStoredProcedureQuery("scott.p_thread.gen_dist_odpu");
-			qr.registerStoredProcedureParameter(1, Integer.class, ParameterMode.IN);
+			qr.registerStoredProcedureParameter(1, Long.class, ParameterMode.IN);
 			qr.setParameter(1, id);
 			qr.executeUpdate();
 			break;

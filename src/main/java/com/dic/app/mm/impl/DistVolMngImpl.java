@@ -141,6 +141,9 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                 log.error(Utl.getStackTraceString(e));
                 throw new ErrorWhileDist("ОШИБКА! RequestConfig не может быть склонирован!");
             }
+            reqConf2.setUk(null);
+            reqConf2.setHouse(null);
+            reqConf2.setKo(null);
             reqConf2.setVvod(vvod);
 
             // СБОР ИНФОРМАЦИИ, для расчета ОДН, подсчета итогов

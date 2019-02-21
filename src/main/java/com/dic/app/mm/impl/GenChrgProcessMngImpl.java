@@ -75,8 +75,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         chrgCountAmountLocal = new ChrgCountAmountLocal();
         // получить основной лиц счет по связи klsk помещения
         Kart kartMainByKlsk = kartMng.getKartMain(ko);
-        log.info("****** {} помещения klskId={}, основной лиц.счет lsk={} - начало    ******",
-                reqConf.getTpName(), ko.getId(), kartMainByKlsk.getLsk());
+        log.info("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - начало    ******",
+                reqConf.getTpName(), ko.getId(), kartMainByKlsk!=null?kartMainByKlsk.getHouse().getId():-11111111,
+                kartMainByKlsk!=null?kartMainByKlsk.getLsk():-11111111);
         // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
         int parVarCntKpr =
                 Utl.nvl(sprParamMng.getN1("VAR_CNT_KPR"), 0D).intValue();
@@ -87,7 +88,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         //ChrgCount chrgCount = new ChrgCount();
         // выбранные услуги для формирования
         List<Usl> lstSelUsl = new ArrayList<>();
-        if (reqConf.getTp() == 2) {
+        if (reqConf.getTp() == 0 && reqConf.getUsl()!=null) {
+            // начисление по выбранной услуге
+            lstSelUsl.add(reqConf.getUsl());
+        } else if (reqConf.getTp() == 2) {
             // распределение по вводу, добавить услуги для ограничения формирования только по ним
             lstSelUsl.add(reqConf.getVvod().getUsl());
         }
@@ -151,11 +155,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             chrgCountAmountLocal.groupUslVolChrg();
 
             // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE, округлить для ГИС ЖКХ
-            chrgCountAmountLocal.saveChargeAndRound(ko);
+            chrgCountAmountLocal.saveChargeAndRound(ko, lstSelUsl);
         }
 
-        log.info("****** {} помещения klskId={}, основной лиц.счет lsk={} - окончание ******",
-                reqConf.getTpName(), ko.getId(), kartMainByKlsk.getLsk());
+        log.info("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - окончание   ******",
+                reqConf.getTpName(), ko.getId(), kartMainByKlsk!=null?kartMainByKlsk.getHouse().getId():-11111111,
+                kartMainByKlsk!=null?kartMainByKlsk.getLsk():-11111111);
 
 /*
         log.info("ИТОГО:");
@@ -258,10 +263,16 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 }
                 Kart kartMain;
                 // получить родительский лиц.счет, если указан явно
-                if (nabor.getKart().getParentKart() != null) {
-                    kartMain = nabor.getKart().getParentKart();
+                if (Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_ADDIT", "LSK_TP_RSO")) {
+                    // дополнит.счета Капрем., РСО
+                    if (nabor.getKart().getParentKart() != null) {
+                        kartMain = nabor.getKart().getParentKart();
+                    } else {
+                        kartMain = kartMainByKlsk;
+                    }
                 } else {
-                    kartMain = kartMainByKlsk;
+                    // основные лиц.счета - взять текущий лиц.счет
+                    kartMain = nabor.getKart();
                 }
                 // получить цены по услуге по лицевому счету из набора услуг!
                 final DetailUslPrice detailUslPrice = naborMng.getDetailUslPrice(kartMain, nabor);
@@ -521,52 +532,53 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
     /**
      * Получить совокупное кол-во проживающих (родительский и дочерний лиц.счета)
-     * @param parVarCntKpr - тип подсчета кол-во проживающих
+     *
+     * @param parVarCntKpr    - тип подсчета кол-во проживающих
      * @param parCapCalcKprTp - тип подсчета кол-во проживающих для капремонта
-     * @param curDt - дата расчета
-     * @param nabor - строка услуги
-     * @param kartMain - основной лиц.счет
+     * @param curDt           - дата расчета
+     * @param nabor           - строка услуги
+     * @param kartMain        - основной лиц.счет
      */
     private CountPers getCountPersAmount(int parVarCntKpr, int parCapCalcKprTp, Date curDt, Nabor nabor, Kart kartMain) {
         CountPers countPers;
-        if (parVarCntKpr == 0 && nabor.getKart().getParentKart() != null) {
-            // вариант Кис.
+        countPers = kartPrMng.getCountPersByDate(kartMain, nabor,
+                parVarCntKpr, parCapCalcKprTp, curDt);
+
+        if (nabor.getKart().getParentKart() != null) {
             // в дочернем лиц.счете
             // для определения расценки по родительскому (если указан по parentKart) или текущему лиц.счету
-            countPers = kartPrMng.getCountPersByDate(nabor.getKart().getParentKart(), nabor,
+            CountPers countPersParent = kartPrMng.getCountPersByDate(nabor.getKart().getParentKart(), nabor,
                     parVarCntKpr, parCapCalcKprTp, curDt);
+            countPers.kpr = countPersParent.kpr;
+            countPers.isEmpty = countPersParent.isEmpty;
+
             // алгоритм взят из C_KART, строка 786
-            if (countPers.kprNorm == 0 && Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_RSO")
+            if (parVarCntKpr == 0 && Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_RSO")
+                    && countPers.kprNorm == 0
                     && countPers.kprOt == 0 && !kartMain.getStatus().getCd().equals("MUN")) {
+                // вариант Кис.
                 // в РСО счетах и кол-во временно отсут.=0
                 countPers.kprNorm = 1;
             }
-            // из текущего лиц.счета
-            CountPers countPersCur = kartPrMng.getCountPersByDate(nabor.getKart(), nabor,
-                    parVarCntKpr, parCapCalcKprTp, curDt);
-            countPers.kpr = countPersCur.kpr;
-            countPers.kprWr = countPersCur.kprWr;
-            countPers.kprOt = countPersCur.kprOt;
-            countPers.kprMax = countPersCur.kprMax;
         } else {
             // в родительском лиц.счете
-            countPers = kartPrMng.getCountPersByDate(nabor.getKart(), nabor,
-                    parVarCntKpr, parCapCalcKprTp, curDt);
-            if (parVarCntKpr == 0) {
-                // Киселёвск
-                if (countPers.kprNorm == 0 && !kartMain.getStatus().getCd().equals("MUN")) {
-                    // не муницип. помещение
-                    if (nabor.getUsl().getFkCalcTp().equals(49)) {
-                        // услуга по обращению с ТКО
-                        countPers.kpr = 1;
-                        countPers.kprNorm = 1;
-                    } else {
-                        countPers.kprNorm = 1;
+            if (countPers.kprNorm == 0) {
+                if (parVarCntKpr == 0) {
+                    // Киселёвск
+                    if (!kartMain.getStatus().getCd().equals("MUN")) {
+                        // не муницип. помещение
+                        if (nabor.getUsl().getFkCalcTp().equals(49)) {
+                            // услуга по обращению с ТКО
+                            countPers.kpr = 1;
+                            countPers.kprNorm = 1;
+                        } else if (countPers.kprOt == 0) {
+                            countPers.kprNorm = 1;
+                        }
                     }
+                } else if (parVarCntKpr == 1 && countPers.kprOt == 0) {
+                    // Полысаево
+                    countPers.kprNorm = 1;
                 }
-            } else if (parVarCntKpr == 1) {
-                // Полысаево
-                countPers.kprNorm = 1;
             }
         }
         countPers.isEmpty = countPers.kpr == 0;
