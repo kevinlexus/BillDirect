@@ -442,8 +442,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                                     .multiply(vvodVol);
                         }
                     }
-
-
                 } else if (fkCalcTp.equals(6) && countPers.kpr > 0) {
                     // Очистка выгр.ям (Полыс.) (при наличии проживающих)
                     // просто взять цену
@@ -633,22 +631,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     .filter(d -> d.kart.equals(t.getKart()) && d.usl.equals(t.getUsl()))
                     .findFirst().orElse(null);
             if (uslVolKartGrp != null) {
-//                if (uslVolKartGrp.vol.compareTo(t.getVol().abs()) >= 0) {
-/*
-                    log.info("ЭКОНОМИЯ ОДН по lsk={}, usl={}, vol={}", uslVolKartGrp.kart.getLsk(),
-                            uslVolKartGrp.usl.getId(), t.getVol());
-*/
                 uslVolKartGrp.vol = uslVolKartGrp.vol.add(t.getVol());
-/*
-                } else {
-                    throw new ErrorWhileChrg("ОШИБКА! Объем экономии ОДН =" + t.getVol() убрал, не правильно!
-                            + " больше чем собственный объем=" + uslVolKartGrp.vol
-                            + " по lsk="
-                            + t.getKart().getLsk()
-                            + " по usl="+ t.getUsl().getId()
-                    );
-                }
-*/
             }
         }
     }
