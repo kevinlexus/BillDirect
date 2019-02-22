@@ -168,7 +168,7 @@ public class ExecMngImpl implements ExecMng {
 			qr.registerStoredProcedureParameter(1, Date.class, ParameterMode.IN);
 			qr.registerStoredProcedureParameter(2, Long.class, ParameterMode.IN);
 			qr.setParameter(1, null);
-			qr.setParameter(2, 0);
+			qr.setParameter(2, 0L);
 			qr.executeUpdate();
 			break;
 		case 22:

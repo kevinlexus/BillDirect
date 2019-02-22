@@ -388,7 +388,7 @@ public class GenMainMngImpl implements GenMainMng {
         // вызвать в потоках
         try {
             // вызвать потоки, проверять наличие маркера работы процесса
-            threadMng.invokeThreads(reverse, 10, lst, true,"AmountGeneration");
+            threadMng.invokeThreads(reverse, 5, lst, true,"AmountGeneration");
         } catch (InterruptedException | ExecutionException | WrongParam | ErrorWhileChrg e) {
             log.error(Utl.getStackTraceString(e));
             return false;

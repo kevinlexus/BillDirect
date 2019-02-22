@@ -127,7 +127,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         if (reqConf.getTp() != 2) {
             // 2. распределить экономию ОДН по услуге, пропорционально объемам
             log.trace("Распределение экономии ОДН");
-            distODNeconomy(calcStore, chrgCountAmountLocal, ko, lstSelUsl);
+            distODNeconomy(chrgCountAmountLocal, ko, lstSelUsl);
 
             // 3. Зависимые услуги, которые необходимо рассчитать после учета экономии ОДН в основных расчетах
             // цикл по дням месяца (например calcTp=47 - Тепл.энергия для нагрева ХВС)
@@ -587,24 +587,24 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
     /**
      * Распределить объемы экономии по услугам лиц.счетов, рассчитанных по помещению
-     *
-     * @param calcStore            - хранилище объемов
      * @param chrgCountAmountLocal - локальное хранилище объемов по помещению
      * @param ko                   - помещение
      * @param lstSelUsl            - список ограничения услуг (например при распределении ОДН)
      */
-    private synchronized void distODNeconomy(CalcStore calcStore, ChrgCountAmountLocal chrgCountAmountLocal,
+    private synchronized void distODNeconomy(ChrgCountAmountLocal chrgCountAmountLocal,
                                              Ko ko, List<Usl> lstSelUsl) throws ErrorWhileChrg {
         // получить объемы экономии по всем лиц.счетам помещения
         List<ChargePrep> lstChargePrep = ko.getKart().stream()
                 .flatMap(t -> t.getChargePrep().stream())
-                .filter(t -> t.getTp().equals(4) && lstSelUsl.size() == 0)
+                .filter(c -> c.getTp().equals(4) && lstSelUsl.size() == 0)
+                .filter(c -> c.getKart().getNabor().stream()
+                        .anyMatch(n -> n.getUsl().equals(c.getUsl()) && n.isValid())) // только по действительным услугам ОДН
                 .collect(Collectors.toList());
 
         // распределить экономию
         for (ChargePrep t : lstChargePrep) {
             // РАСПРЕДЕЛИТЬ весь объем экономии по элементам объема в лиц.счете (когда были проживающие)
-            List<UslVolKart> lstUslVolKart = calcStore.getChrgCountAmount().getLstUslVolKart().stream()
+            List<UslVolKart> lstUslVolKart = chrgCountAmountLocal.getLstUslVolKart().stream()
                     .filter(d -> d.kart.equals(t.getKart()) && d.kpr.compareTo(BigDecimal.ZERO) != 0 && d.usl.equals(t.getUsl()))
                     .collect(Collectors.toList());
 
@@ -612,7 +612,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             Utl.distBigDecimalByList(t.getVol(), lstUslVolKart, 5);
 
             // РАСПРЕДЕЛИТЬ весь объем экономии по элементам объема во вводе (когда были проживающие)
-            List<UslVolVvod> lstUslVolVvod = calcStore.getChrgCountAmount().getLstUslVolVvod().stream()
+            List<UslVolVvod> lstUslVolVvod = chrgCountAmountLocal.getLstUslVolVvod().stream()
                     .filter(d -> d.kpr.compareTo(BigDecimal.ZERO) != 0 && d.usl.equals(t.getUsl()))
                     .collect(Collectors.toList());
 
@@ -628,7 +628,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             Utl.distBigDecimalByList(t.getVol(), lstUslPriceVolKart, 5);
 
             // ПО СГРУППИРОВАННЫМ объемам до лиц.счетов, просто снять объем
-            UslVolKartGrp uslVolKartGrp = calcStore.getChrgCountAmount().getLstUslVolKartGrp().stream()
+            UslVolKartGrp uslVolKartGrp = chrgCountAmountLocal.getLstUslVolKartGrp().stream()
                     .filter(d -> d.kart.equals(t.getKart()) && d.usl.equals(t.getUsl()))
                     .findFirst().orElse(null);
             if (uslVolKartGrp != null) {

@@ -251,7 +251,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             // кол-во лиц.счетов по нормативам
             amnt.cntNormAmnt = vvod.getCntLsk();
 
-            log.info("*** Ввод id={}, услуга usl={}, площадь={}, кол-во лиц сч.={}, кол-во лиц норм.={}, кол-во прож.={}, " +
+            log.info("*** Ввод vvodId={}, услуга usl={}, площадь={}, кол-во лиц сч.={}, кол-во лиц норм.={}, кол-во прож.={}, " +
                             "объем={}, объем сч={}, объем норм.={}" +
                             " объем за искл.аренд.={},  введено={}",
                     vvod.getId(), vvod.getUsl().getId(), amnt.areaAmnt, amnt.cntSchAmnt, amnt.cntNormAmnt,
@@ -591,7 +591,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
      */
     private void addChargePrep(Usl usl, Map.Entry<Kart, Pair<BigDecimal, BigDecimal>> entry,
                                boolean isExistMeter) {
-        Kart kart = entry.getKey();
+        // получить Kart, так как entry.getKey() - из другой сессии
+        Kart kart = em.find(Kart.class, entry.getKey().getLsk());
         Pair<BigDecimal, BigDecimal> mapVal = entry.getValue();
         BigDecimal vol = mapVal.getValue0().setScale(5, BigDecimal.ROUND_HALF_UP).multiply(new BigDecimal("-1"));
 
@@ -611,7 +612,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
      * @param entry - информационная строка
      */
     private void addCharge(Usl usl, Map.Entry<Kart, Pair<BigDecimal, BigDecimal>> entry) {
-        Kart kart = entry.getKey();
+        // получить Kart, так как entry.getKey() - из другой сессии
+        Kart kart = em.find(Kart.class, entry.getKey().getLsk());
         Pair<BigDecimal, BigDecimal> mapVal = entry.getValue();
         BigDecimal vol = mapVal.getValue0().setScale(5, BigDecimal.ROUND_HALF_UP).multiply(new BigDecimal("-1"));
 
