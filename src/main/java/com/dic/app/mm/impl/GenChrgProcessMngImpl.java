@@ -598,7 +598,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 .flatMap(t -> t.getChargePrep().stream())
                 .filter(c -> c.getTp().equals(4) && lstSelUsl.size() == 0)
                 .filter(c -> c.getKart().getNabor().stream()
-                        .anyMatch(n -> n.getUsl().equals(c.getUsl()) && n.isValid())) // только по действительным услугам ОДН
+                        .anyMatch(n -> n.getUsl().equals(c.getUsl().getUslChild())
+                                && n.isValid())) // только по действительным услугам ОДН
                 .collect(Collectors.toList());
 
         // распределить экономию
