@@ -110,6 +110,9 @@ public class TestKart {
         // Х.в.
         testDataBuilder.addVvodForTest(house, "011", 4, false,
                 null, true);
+        // Х.в.
+        testDataBuilder.addVvodForTest(house, "015", 4, false,
+                null, true);
 
         // построить лицевые счета по помещению
         Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),

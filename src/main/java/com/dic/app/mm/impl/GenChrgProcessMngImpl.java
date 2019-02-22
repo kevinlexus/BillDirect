@@ -76,8 +76,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         // получить основной лиц счет по связи klsk помещения
         Kart kartMainByKlsk = kartMng.getKartMain(ko);
         log.info("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - начало    ******",
-                reqConf.getTpName(), ko.getId(), kartMainByKlsk!=null?kartMainByKlsk.getHouse().getId():-11111111,
-                kartMainByKlsk!=null?kartMainByKlsk.getLsk():-11111111);
+                reqConf.getTpName(), ko.getId(), kartMainByKlsk != null ? kartMainByKlsk.getHouse().getId() : -11111111,
+                kartMainByKlsk != null ? kartMainByKlsk.getLsk() : -11111111);
         // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
         int parVarCntKpr =
                 Utl.nvl(sprParamMng.getN1("VAR_CNT_KPR"), 0D).intValue();
@@ -88,7 +88,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         //ChrgCount chrgCount = new ChrgCount();
         // выбранные услуги для формирования
         List<Usl> lstSelUsl = new ArrayList<>();
-        if (reqConf.getTp() == 0 && reqConf.getUsl()!=null) {
+        if (reqConf.getTp() == 0 && reqConf.getUsl() != null) {
             // начисление по выбранной услуге
             lstSelUsl.add(reqConf.getUsl());
         } else if (reqConf.getTp() == 2) {
@@ -130,7 +130,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             distODNeconomy(chrgCountAmountLocal, ko, lstSelUsl);
 
             // 3. Зависимые услуги, которые необходимо рассчитать после учета экономии ОДН в основных расчетах
-            // цикл по дням месяца (например calcTp=47 - Тепл.энергия для нагрева ХВС)
+            // цикл по дням месяца (например calcTp=47 - Тепл.энергия для нагрева ХВС или calcTp=19 - Водоотведение)
             part = 2;
             log.trace("Расчет объемов услуг, после учёта экономии ОДН");
             for (c.setTime(calcStore.getCurDt1()); !c.getTime()
@@ -159,8 +159,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         }
 
         log.info("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - окончание   ******",
-                reqConf.getTpName(), ko.getId(), kartMainByKlsk!=null?kartMainByKlsk.getHouse().getId():-11111111,
-                kartMainByKlsk!=null?kartMainByKlsk.getLsk():-11111111);
+                reqConf.getTpName(), ko.getId(), kartMainByKlsk != null ? kartMainByKlsk.getHouse().getId() : -11111111,
+                kartMainByKlsk != null ? kartMainByKlsk.getLsk() : -11111111);
 
 /*
         log.info("ИТОГО:");
@@ -220,8 +220,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
         boolean isExistsMeterColdWater = false;
         boolean isExistsMeterHotWater = false;
-        BigDecimal volColdWater = BigDecimal.ZERO;
-        BigDecimal volHotWater = BigDecimal.ZERO;
+        //BigDecimal volColdWater = BigDecimal.ZERO;
+        //BigDecimal volHotWater = BigDecimal.ZERO;
 
         // объем по услуге, за рассчитанный день
 
@@ -229,8 +229,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
         for (Nabor nabor : lstNabor) {
             if (nabor.getUsl().isMain() && (lstSelUsl.size() == 0 || lstSelUsl.contains(nabor.getUsl()))
-                    && (part == 1 && !nabor.getUsl().getFkCalcTp().equals(47) ||
-                    part == 2 && nabor.getUsl().getFkCalcTp().equals(47)) // фильтр очередности расчета
+                    && (part == 1 && !Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19) ||
+                    part == 2 && Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19)) // фильтр очередности расчета
                     ) {
                 // РАСЧЕТ по основным услугам (из набора услуг или по заданным во вводе)
 /*
@@ -335,11 +335,13 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     //area = kartArea;
 
                     // для водоотведения и Х.В.для ГВС
+/*
                     if (fkCalcTp.equals(17)) {
                         volColdWater = tempVol;
                     } else if (fkCalcTp.equals(18)) {
                         volHotWater = tempVol;
                     }
+*/
                 } else if (Utl.in(fkCalcTp, 19)) {
                     // Водоотведение без уровня соцнормы/свыше
                     // получить объем по нормативу в доле на 1 день
@@ -352,11 +354,16 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         isMeterExist = true;
                     }
                     // сложить предварительно рассчитанные объемы х.в.+г.в.
+                    dayVol = chrgCountAmountLocal.getLstUslPriceVolKartDetailed().stream()
+                            .filter(t -> t.dt.equals(curDt)
+                                    && t.kart.getKoKw().equals(nabor.getKart().getKoKw())
+                                    && Utl.in(t.usl.getFkCalcTp(), 17, 18))
+                            .map(t -> t.vol).reduce(BigDecimal.ZERO, BigDecimal::add);
+/*
                     tempVol = volColdWater.add(volHotWater);
+*/
                     // помещение с проживающими
-                    dayVol = tempVol;
-                    //area = kartArea;
-
+                    //dayVol = tempVol;
                 } else if (Utl.in(fkCalcTp, 14)) {
                     // Отопление гкал. без уровня соцнормы/свыше
                     if (Utl.nvl(kartMain.getPot(), BigDecimal.ZERO).compareTo(BigDecimal.ZERO) != 0) {
@@ -428,7 +435,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             .findFirst().orElse(BigDecimal.ZERO);
 
                     // получить объем по расчетному дню связанной услуги
-                    UslPriceVolKart uslPriceVolKart = chrgCountAmountLocal.getLstUslPriceVolKartLinked().stream()
+                    UslPriceVolKart uslPriceVolKart = chrgCountAmountLocal.getLstUslPriceVolKartDetailed().stream()
                             .filter(t -> t.dt.equals(curDt)
                                     && t.kart.getKoKw().equals(nabor.getKart().getKoKw())
                                     && t.usl.equals(uslLinked))
@@ -585,6 +592,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
     /**
      * Распределить объемы экономии по услугам лиц.счетов, рассчитанных по помещению
+     *
      * @param chrgCountAmountLocal - локальное хранилище объемов по помещению
      * @param ko                   - помещение
      * @param lstSelUsl            - список ограничения услуг (например при распределении ОДН)
@@ -618,8 +626,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             // распределить объем экономии по списку объемов ввода
             Utl.distBigDecimalByList(t.getVol(), lstUslVolVvod, 5);
 
-            // РАСПРЕДЕЛИТЬ по датам, детально, в.т.ч. для услуги calcTp=47 (Тепл.энергия для нагрева ХВС (Кис.)) (когда были проживающие)
-            List<UslPriceVolKart> lstUslPriceVolKart = chrgCountAmountLocal.getLstUslPriceVolKartLinked().stream()
+            // РАСПРЕДЕЛИТЬ по датам, детально
+            // в т.ч. для услуги calcTp=47 (Тепл.энергия для нагрева ХВС (Кис.)) (когда были проживающие)
+            // в т.ч. по услугам х.в. и г.в. (для водоотведения)
+            List<UslPriceVolKart> lstUslPriceVolKart = chrgCountAmountLocal.getLstUslPriceVolKartDetailed().stream()
                     .filter(d -> d.kart.equals(t.getKart()) && d.kpr.compareTo(BigDecimal.ZERO) != 0 && d.usl.equals(t.getUsl()))
                     .collect(Collectors.toList());
 
