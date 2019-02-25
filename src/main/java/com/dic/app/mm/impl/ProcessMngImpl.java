@@ -190,7 +190,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         log.info("НАЧАЛО процесса {} заданных объектов", reqConf.getTpName());
 
         // получить список помещений
-        List<Long> lstItem;
+        List<Long> lstItems;
         // тип выборки
         int tpSel;
         Ko ko = reqConf.getKo();
@@ -202,12 +202,12 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         if (ko != null) {
             // по помещению
             tpSel = 1;
-            lstItem = new ArrayList<>(1);
-            lstItem.add(ko.getId());
+            lstItems = new ArrayList<>(1);
+            lstItems.add(ko.getId());
         } else if (uk != null) {
             // по УК
             tpSel = 0;
-            lstItem = kartDao.findAllByUk(uk.getReu()).stream().map(BigDecimal::longValue).collect(Collectors.toList());
+            lstItems = kartDao.findAllByUk(uk.getReu()).stream().map(BigDecimal::longValue).collect(Collectors.toList());
             // установить маркер процесса, вернуться, если уже выполняется
             if (!config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
                 return;
@@ -217,16 +217,16 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         } else if (house != null) {
             // по дому
             tpSel = 2;
-            lstItem = kartMng.getKoByHouse(house).stream().map(Ko::getId).collect(Collectors.toList());
+            lstItems = kartMng.getKoByHouse(house).stream().map(Ko::getId).collect(Collectors.toList());
         } else if (vvod != null) {
             // по вводу
             tpSel = 3;
-            lstItem = kartMng.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
+            lstItems = kartMng.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
         } else {
             tpSel = 0;
             // по всему фонду
             // конвертировать из List<BD> в List<Long> (native JPA представляет k_lsk_id только в BD и происходит type Erasure)
-            lstItem = kartDao.findAllKlskId().stream().map(BigDecimal::longValue).collect(Collectors.toList());
+            lstItems = kartDao.findAllKlskId().stream().map(BigDecimal::longValue).collect(Collectors.toList());
             // установить маркер процесса, вернуться, если уже выполняется
             if (!config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
                 return;
@@ -247,11 +247,11 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         try {
             if (reqConf.isMultiThreads()) {
                 // вызвать в новой транзакции, многопоточно
-                int CNT_THREADS = 7;
-                threadMng.invokeThreads(reverse, CNT_THREADS, lstItem, isCheckStop, stopMark);
+                int CNT_THREADS = 15;
+                threadMng.invokeThreads(reverse, CNT_THREADS, lstItems, isCheckStop, reqConf.getRqn(), stopMark);
             } else {
                 // вызвать в той же транзакции, однопоточно, для Unit - тестов
-                for (Long klskId : lstItem) {
+                for (Long klskId : lstItems) {
                     selectInvokeProcess(reqConf, calcStore, klskId);
                 }
             }

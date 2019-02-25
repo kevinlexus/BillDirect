@@ -3,7 +3,6 @@ package com.dic.app.mm.impl;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.PrepThread;
 import com.dic.app.mm.ThreadMng;
-import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.WrongParam;
@@ -43,17 +42,19 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 
     /**
      * Вызвать выполнение потоков распределения объемов/ начисления
-     *  @param reverse -   lambda функция
+     * @param reverse -   lambda функция
      * @param cntThreads - кол-во потоков
      * @param lstItem    - список Id на обработку
      * @param isCheckStop - проверять остановку главного процесса?
+     * @param rqn - номер запроса
      * @param stopMark
      */
     @Override
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public void invokeThreads(PrepThread<T> reverse,
-                              int cntThreads, List<T> lstItem, boolean isCheckStop, String stopMark)
+                              int cntThreads, List<T> lstItem, boolean isCheckStop, int rqn, String stopMark)
             throws InterruptedException, ExecutionException, WrongParam, ErrorWhileChrg {
+        log.info("Будет создано {} потоков", cntThreads);
         long startTime = System.currentTimeMillis();
         // размер очереди
         int lstSize = lstItem.size();
@@ -103,11 +104,11 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
                         }
                     } catch (Exception e) {
                         log.error(Utl.getStackTraceString(e));
-                        log.error("ОШИБКА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА");
+                        log.error("ОШИБКА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА, ВЫПОЛНЕНИЕ ОСТАНОВКИ ПРОЧИХ ПОТОКОВ!");
+                        config.getLock().stopProc(rqn, stopMark);
                     }
                     // очистить переменную потока
                     frl.set(i, null);
-
                 }
 
                 if (fut != null) {
@@ -118,7 +119,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
             }
 
             try {
-                Thread.sleep(100);
+                Thread.sleep(10);
             } catch (InterruptedException e) {
                 log.error(Utl.getStackTraceString(e));
             }

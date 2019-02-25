@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.Executor;
 
 import javax.sql.DataSource;
 
@@ -26,7 +27,9 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.Database;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.springframework.scheduling.annotation.AsyncConfigurer;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 @Configuration
 @ComponentScan({"com.dic.bill", "com.dic.app"}) // это нужно чтобы работали Unit-тесты! (по сути можно закомментить)
@@ -34,7 +37,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableCaching
 @EnableAsync
 @ImportResource("file:.\\config\\spring.xml")
-public class Config  implements ApplicationContextAware {
+public class Config  implements ApplicationContextAware, AsyncConfigurer {
 
 	static ApplicationContext ctx = null;
 
@@ -56,6 +59,20 @@ public class Config  implements ApplicationContextAware {
 				new ConcurrentMapCache("NaborMng.getDetailUslPrice"),
 				new ConcurrentMapCache("ReferenceMng.getUslOrgRedirect")));
 		return cacheManager;
+	}
+
+	/**
+	 * Макс количество потоков запускаемых @Async и прочие настройки
+	 */
+	@Override
+	public Executor getAsyncExecutor() {
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setCorePoolSize(20);
+		executor.setMaxPoolSize(25);
+		executor.setQueueCapacity(50);
+		executor.setThreadNamePrefix("BillDirectExecutor-");
+		executor.initialize();
+		return executor;
 	}
 
 	public static ApplicationContext getContext(){
