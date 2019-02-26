@@ -111,7 +111,10 @@ public class RequestConfigDirect implements Cloneable {
     }
 
 
-    private void prepare() {
+    /**
+     * Подготовка списка помещений, - klskId для расчета
+     */
+    public void prepareKlskId() {
         KartDAO kartDao = SpringContext.getBean(KartDAO.class);
         KartMng kartMng = SpringContext.getBean(KartMng.class);
         if (ko != null) {
@@ -137,6 +140,14 @@ public class RequestConfigDirect implements Cloneable {
             // конвертировать из List<BD> в List<Long> (native JPA представляет k_lsk_id только в BD и происходит type Erasure)
             lstItems = kartDao.findAllKlskId().stream().map(BigDecimal::longValue).collect(Collectors.toList());
         }
+    }
+
+    /**
+     * Подготовка хранилища для расчета ОДН
+     */
+    public void prepareChrgCountAmount() {
+        // хранилище параметров по дому (для ОДН и прочих нужд)
+        setChrgCountAmount(new ChrgCountAmount());
     }
 
     /**
@@ -213,11 +224,6 @@ public class RequestConfigDirect implements Cloneable {
         List<Long> lstItems;
         // хранилище справочников
         CalcStore calcStore;
-        private ConfigApp config;
-        private PenDtDAO penDtDao;
-        private PenRefDAO penRefDao;
-        private KartDAO kartDao;
-        private KartMng kartMng;
         // выбранный тип объекта формирования
         private int tpSel;
         // хранилище объемов по вводу (дому) (для ОДН и прочих нужд)
@@ -309,12 +315,7 @@ public class RequestConfigDirect implements Cloneable {
             requestConfigDirect.setCalcStore(calcStore);
             requestConfigDirect.isMultiThreads = this.isMultiThreads;
 
-            // построить дополнительно
-            requestConfigDirect.prepare();
             requestConfigDirect.setCalcStore(requestConfigDirect.buildCalcStore(genDt, tp));
-            // хранилище параметров по дому (для ОДН и прочих нужд)
-            requestConfigDirect.setChrgCountAmount(new ChrgCountAmount());
-
             return requestConfigDirect;
         }
     }

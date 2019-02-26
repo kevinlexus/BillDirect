@@ -142,6 +142,8 @@ public class WebController implements CommonConstants {
                 if (Utl.in(reqConf.getTp(), 0, 1)) {
                     // расчет начисления, задолженности и пени
                     try {
+                        reqConf.prepareChrgCountAmount();
+                        reqConf.prepareKlskId();
                         processMng.genProcessAll(reqConf);
                     } catch (ErrorWhileGen e) {
                         log.error(Utl.getStackTraceString(e));

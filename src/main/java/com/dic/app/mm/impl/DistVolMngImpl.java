@@ -129,7 +129,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             // ОЧИСТКА информации ОДН
             clearODN(vvod);
 
-            // конфиг для расчета по вводу // note бред! подумать, как сделать правильно!
+            // конфиг для расчета по вводу
             RequestConfigDirect reqConf2;
             try {
                 reqConf2 = (RequestConfigDirect) reqConf.clone();
@@ -141,6 +141,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             reqConf2.setHouse(null);
             reqConf2.setKo(null);
             reqConf2.setVvod(vvod);
+            reqConf2.prepareKlskId();
+            reqConf2.prepareChrgCountAmount();
 
             // СБОР ИНФОРМАЦИИ, для расчета ОДН, подсчета итогов
             // кол-во лиц.счетов, объемы, кол-во прожив.
@@ -149,10 +151,10 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
 
             // объемы по лиц.счетам (базовый фильтр по услуге)
             final List<UslVolKart> lstUslVolKart =
-                    reqConf.getChrgCountAmount().getLstUslVolKart().stream()
+                    reqConf2.getChrgCountAmount().getLstUslVolKart().stream()
                             .filter(t -> t.usl.equals(usl)).collect(Collectors.toList());
             final List<UslVolKartGrp> lstUslVolKartGrpBase =
-                    reqConf.getChrgCountAmount().getLstUslVolKartGrp().stream()
+                    reqConf2.getChrgCountAmount().getLstUslVolKartGrp().stream()
                             .filter(t -> t.usl.equals(usl)).collect(Collectors.toList());
 
             // ПОЛУЧИТЬ итоговые объемы по вводу

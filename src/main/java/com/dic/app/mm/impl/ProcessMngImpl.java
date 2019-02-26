@@ -98,8 +98,6 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         if (config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
             try {
                 if (reqConf.getVvod() != null) {
-                    // очиситить объемы по вводам
-                    reqConf.getChrgCountAmount().clear();
                     // распределить конкретный ввод
                     try {
                         if (reqConf.isMultiThreads()) {
@@ -119,8 +117,6 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                             .stream().map(BigDecimal::intValue).collect(Collectors.toList())) {
                         Vvod vvod = em.find(Vvod.class, vvodId);
                         if (vvod.getUsl() != null && vvod.getUsl().isMain()) {
-                            // очиситить объемы по вводам
-                            reqConf.getChrgCountAmount().clear();
                             try {
                                 distVolMng.distVolByVvodTrans(reqConf, vvod.getId());
                             } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
@@ -133,8 +129,6 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                 } else if (reqConf.getHouse() != null) {
                     for (Vvod vvod : vvodDAO.findVvodByHouse(reqConf.getHouse().getId())) {
                         if (vvod.getUsl() != null && vvod.getUsl().isMain()) {
-                            // очиситить объемы по вводам
-                            reqConf.getChrgCountAmount().clear();
                             try {
                                 distVolMng.distVolByVvodTrans(reqConf, vvod.getId());
                             } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
@@ -150,8 +144,6 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                         //log.info("Удалить это сообщение vvodId={}", vvod.getId());
                         if (vvod.getUsl() != null && vvod.getUsl().isMain()) {
                             if (!config.getLock().isStopped(stopMark)) {
-                                // очиситить объемы по вводам
-                                reqConf.getChrgCountAmount().clear();
                                 try {
                                     distVolMng.distVolByVvodTrans(reqConf, vvod.getId());
                                 } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
@@ -184,16 +176,8 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО процесса {} заданных объектов", reqConf.getTpName());
 
-        // получить список помещений
-        List<Long> lstItems;
-        // тип выборки
-        int tpSel;
-        Ko ko = reqConf.getKo();
-        House house = reqConf.getHouse();
-        Org uk = reqConf.getUk();
-        Vvod vvod = reqConf.getVvod();
         // проверка остановки процесса
-        boolean isCheckStop = false;
+        boolean isCheckStop = false; // note решить что с этим делать!
 
         // LAMBDA, будет выполнено позже, в создании потока
         PrepThread<Long> reverse = (item, proc) -> {
@@ -269,7 +253,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
 
 
     /**
-     * Выбрать и вызвать процесс
+     * Выбрать и вызвать поток
      *
      * @param reqConf   - конфиг запроса
      */

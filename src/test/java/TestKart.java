@@ -206,22 +206,19 @@ public class TestKart {
 
         StopWatch sw = new org.springframework.util.StopWatch();
         sw.start("TIMING:Распределение объемов");
+
         // ВЫЗОВ распределения объемов
         for (Vvod vvod : house.getVvod()) {
             reqConf.setVvod(vvod);
-            // очиситить объемы по вводам
-            reqConf.getChrgCountAmount().clear();
             processMng.distVolAll(reqConf);
         }
         sw.stop();
 
-
         reqConf.setVvod(null);
         reqConf.setHouse(house);
         reqConf.setTp(0);
-
-        // загрузить хранилище
-        reqConf.setCalcStore(new CalcStore());
+        reqConf.prepareChrgCountAmount();
+        reqConf.prepareKlskId();
         sw.start("TIMING:Начисление");
         // вызов начисления
         processMng.genProcessAll(reqConf);

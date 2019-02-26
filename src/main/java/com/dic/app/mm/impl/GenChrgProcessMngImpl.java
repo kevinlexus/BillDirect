@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-//@Scope("prototype")
 public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
     @Autowired
@@ -67,13 +66,13 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      */
     @Override
     @Transactional(
-            propagation = Propagation.REQUIRES_NEW, // новая транзакция
+            propagation = Propagation.REQUIRED,
             isolation = Isolation.READ_COMMITTED, // читать только закомиченные данные, не ставить другое, не даст запустить поток!
             rollbackFor = Exception.class) //
     public void genChrg(RequestConfigDirect reqConf, long klskId) throws WrongParam, ErrorWhileChrg {
         CalcStore calcStore = reqConf.getCalcStore();
-        //Ko ko = em.find(Ko.class, klskId);
-        Ko ko = em.getReference(Ko.class, klskId);
+        Ko ko = em.find(Ko.class, klskId); //note Разобраться что оставить!
+        //Ko ko = em.getReference(Ko.class, klskId);
 
         // создать локальное хранилище объемов
         ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
@@ -282,7 +281,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 final DetailUslPrice detailUslPrice = naborMng.getDetailUslPrice(kartMain, nabor);
 
                 CountPers countPers;
-                countPers = getCountPersAmount(parVarCntKpr, parCapCalcKprTp, curDt, nabor, kartMain);
+                countPers = getCountPersAmount(reqConf, parVarCntKpr, parCapCalcKprTp, curDt, nabor, kartMain);
 
                 SocStandart socStandart = null;
                 // получить наличие счетчика
@@ -548,7 +547,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * @param nabor           - строка услуги
      * @param kartMain        - основной лиц.счет
      */
-    private CountPers getCountPersAmount(int parVarCntKpr, int parCapCalcKprTp, Date curDt, Nabor nabor, Kart kartMain) {
+    private CountPers getCountPersAmount(RequestConfigDirect reqConf, int parVarCntKpr, int parCapCalcKprTp,
+                                         Date curDt, Nabor nabor, Kart kartMain) {
         CountPers countPers;
         countPers = kartPrMng.getCountPersByDate(kartMain, nabor,
                 parVarCntKpr, parCapCalcKprTp, curDt);
@@ -562,7 +562,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             countPers.isEmpty = countPersParent.isEmpty;
 
             // алгоритм взят из C_KART, строка 786
-            if (parVarCntKpr == 0 && Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_RSO")
+            if (parVarCntKpr == 0 &&
+                    (reqConf.getGenDt().getTime() > Utl.getDateFromStr("01.02.2019").getTime() // после 01.02.19 - не учитывать тип счетов
+                    || Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_RSO"))
                     && countPers.kprNorm == 0
                     && countPers.kprOt == 0 && !kartMain.getStatus().getCd().equals("MUN")) {
                 // вариант Кис.
