@@ -1,20 +1,22 @@
 package com.dic.app.mm;
 
-import java.util.concurrent.Future;
-
+import com.dic.app.RequestConfigDirect;
 import com.dic.bill.RequestConfig;
 import com.dic.bill.dto.CalcStore;
-import com.ric.cmn.excp.*;
+import com.ric.cmn.excp.ErrorWhileChrg;
+import com.ric.cmn.excp.ErrorWhileGen;
+import com.ric.cmn.excp.WrongParam;
 import com.ric.dto.CommonResult;
+
+import java.util.Date;
+import java.util.concurrent.Future;
 
 public interface ProcessMng {
 
-    void distVol(RequestConfig reqConf)
+    void distVolAll(RequestConfigDirect reqConf)
             throws ErrorWhileGen;
 
-    void genProcessAll(RequestConfig reqConf, CalcStore calcStore) throws ErrorWhileGen;
+    void genProcessAll(RequestConfigDirect reqConf) throws ErrorWhileGen;
 
-    CalcStore buildCalcStore(RequestConfig reqConf);
-
-    Future<CommonResult> genProcess(long klskId, CalcStore calcStore, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg;
+    Future<CommonResult> genProcess(RequestConfigDirect reqConf) throws WrongParam, ErrorWhileChrg;
 }

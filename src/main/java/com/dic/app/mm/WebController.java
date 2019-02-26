@@ -1,5 +1,6 @@
 package com.dic.app.mm;
 
+import com.dic.app.RequestConfigDirect;
 import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.OrgDAO;
 import com.dic.bill.dao.PrepErrDAO;
@@ -52,11 +53,11 @@ public class WebController implements CommonConstants {
      * Расчет
      *
      * @param tp       - тип выполнения 0-начисление, 1-задолженность и пеня, 2 - распределение объемов по вводу
-     * @param houseId   - houseId объекта (дом)
+     * @param houseId  - houseId объекта (дом)
      * @param vvodId   - vvodId объекта (ввод)
      * @param klskId   - klskId объекта (помещение)
      * @param debugLvl - уровень отладки 0, null - не записивать в лог отладочную информацию, 1 - записывать
-     * @param genDtStr   - дата на которую сформировать
+     * @param genDtStr - дата на которую сформировать
      * @param stop     - 1 - остановить выполнение текущей операции с типом tp
      */
     @RequestMapping("/gen")
@@ -90,29 +91,31 @@ public class WebController implements CommonConstants {
             msg = "УК reuId=" + reuId;
         } else if (houseId != 0) {
             house = em.find(House.class, houseId);
-            msg = "дому houseId="+houseId;
+            msg = "дому houseId=" + houseId;
         } else if (vvodId != 0) {
             vvod = em.find(Vvod.class, vvodId);
-            msg = "вводу vvodId="+vvodId;
+            msg = "вводу vvodId=" + vvodId;
         } else if (klskId != 0) {
             ko = em.find(Ko.class, klskId);
-            msg = "помещению klskId="+klskId;
+            msg = "помещению klskId=" + klskId;
         } else {
             if (Utl.in(tp, 0, 1)) {
                 msg = "всем помещениям";
-            } else if (tp==2) {
+            } else if (tp == 2) {
                 msg = "всем вводам";
             }
         }
         Usl usl = null;
         if (uslId != null) {
-            msg = msg.concat(", по услуге uslId="+uslId);
+            assert msg != null;
+            msg = msg.concat(", по услуге uslId=" + uslId);
             usl = em.find(Usl.class, uslId);
         }
-        RequestConfig reqConf =
-                RequestConfig.RequestConfigBuilder.aRequestConfig()
+        Date genDt = genDtStr != null ? Utl.getDateFromStr(genDtStr) : null;
+        // построить запрос
+        RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
                         .withTp(tp)
-                        .withGenDt(genDtStr != null ? Utl.getDateFromStr(genDtStr) : null)
+                        .withGenDt(genDt)
                         .withUk(uk)
                         .withHouse(house)
                         .withVvod(vvod)
@@ -137,11 +140,9 @@ public class WebController implements CommonConstants {
             if (err == null) {
 
                 if (Utl.in(reqConf.getTp(), 0, 1)) {
-                    // загрузить хранилище
-                    CalcStore calcStore = processMng.buildCalcStore(reqConf);
                     // расчет начисления, задолженности и пени
                     try {
-                        processMng.genProcessAll(reqConf, calcStore);
+                        processMng.genProcessAll(reqConf);
                     } catch (ErrorWhileGen e) {
                         log.error(Utl.getStackTraceString(e));
                         return "ERROR! Ошибка в процессе расчета";
@@ -149,7 +150,7 @@ public class WebController implements CommonConstants {
                 } else if (reqConf.getTp() == 2) {
                     // распределение объемов
                     try {
-                        processMng.distVol(reqConf);
+                        processMng.distVolAll(reqConf);
                     } catch (ErrorWhileGen e) {
                         log.error(Utl.getStackTraceString(e));
                         return "ERROR! Ошибка при распределении объемов";
@@ -319,6 +320,7 @@ public class WebController implements CommonConstants {
 
     /**
      * Выполнение очистки кэша, связанного с Nabor, Price, Kart
+     *
      * @return
      */
     @RequestMapping("/evictCacheNaborKartPrice")

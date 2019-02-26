@@ -1,4 +1,5 @@
 import com.dic.app.Config;
+import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.GenChrgProcessMng;
 import com.dic.app.mm.ProcessMng;
@@ -29,7 +30,6 @@ import org.springframework.util.StopWatch;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
-import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -87,15 +87,12 @@ public class TestKart {
         Param param = em.find(Param.class, 1);
         param.setPeriod("201901");
         // конфиг запроса
-        RequestConfig reqConf =
-                RequestConfig.RequestConfigBuilder.aRequestConfig()
+        RequestConfigDirect reqConf =
+                RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
                         .withRqn(config.incNextReqNum()) // уникальный номер запроса
                         .withTp(0) // тип операции - начисление
                         .withIsMultiThreads(false) // для Unit - теста однопоточно!
                         .build();
-
-        // загрузить справочники
-        CalcStore calcStore = processMng.buildCalcStore(reqConf);
 
         // дом
         House house = new House();
@@ -123,7 +120,7 @@ public class TestKart {
         reqConf.setTp(0);
 
         // выполнить расчет
-        genChrgProcessMng.genChrg(calcStore, ko.getId(), reqConf);
+        genChrgProcessMng.genChrg(reqConf, ko.getId());
 
     }
 
@@ -136,9 +133,10 @@ public class TestKart {
     public void genChrgProcessMngGenChrgHouse() throws WrongParam, ErrorWhileChrg, ErrorWhileChrgPen, WrongGetMethod, ErrorWhileDist, ErrorWhileGen {
         log.info("Test genChrgProcessMngGenChrgHouse Start!");
         // конфиг запроса
-        RequestConfig reqConf =
-                RequestConfig.RequestConfigBuilder.aRequestConfig()
+        RequestConfigDirect reqConf =
+                RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
                         .withRqn(config.incNextReqNum()) // уникальный номер запроса
+                        .withGenDt(Utl.getDateFromStr("11.04.2014"))
                         .withTp(2) // тип операции - распределение объема
                         .withIsMultiThreads(false) // для Unit - теста однопоточно!
                         .build();
@@ -211,7 +209,9 @@ public class TestKart {
         // ВЫЗОВ распределения объемов
         for (Vvod vvod : house.getVvod()) {
             reqConf.setVvod(vvod);
-            processMng.distVol(reqConf);
+            // очиситить объемы по вводам
+            reqConf.getChrgCountAmount().clear();
+            processMng.distVolAll(reqConf);
         }
         sw.stop();
 
@@ -221,17 +221,17 @@ public class TestKart {
         reqConf.setTp(0);
 
         // загрузить хранилище
-        CalcStore calcStore = processMng.buildCalcStore(reqConf);
+        reqConf.setCalcStore(new CalcStore());
         sw.start("TIMING:Начисление");
         // вызов начисления
-        processMng.genProcessAll(reqConf, calcStore);
+        processMng.genProcessAll(reqConf);
         sw.stop();
 
         // распечатать объемы
 
-        calcStore.getChrgCountAmount().printVolAmnt(null, "015");
-		calcStore.getChrgCountAmount().printVolAmnt(null, "057");
-        calcStore.getChrgCountAmount().printVolAmnt(null, "053");
+        reqConf.getChrgCountAmount().printVolAmnt(null, "015");
+        reqConf.getChrgCountAmount().printVolAmnt(null, "057");
+        reqConf.getChrgCountAmount().printVolAmnt(null, "053");
         //calcStore.getChrgCountAmount().printVolAmnt(null, "123");
 
         //calcStore.getChrgCountAmount().printVolAmnt(null, "003");
@@ -244,8 +244,8 @@ public class TestKart {
 		calcStore.getChrgCountAmount().printVolAmnt(null, "053");
 */
         // распечатать C_CHARGE
-        calcStore.getChrgCountAmount().printChrg(em.find(Kart.class, "ОСН_0001"));
-        calcStore.getChrgCountAmount().printChrg(em.find(Kart.class, "РСО_0001"));
+        reqConf.getChrgCountAmount().printChrg(em.find(Kart.class, "ОСН_0001"));
+        reqConf.getChrgCountAmount().printChrg(em.find(Kart.class, "РСО_0001"));
         System.out.println(sw.prettyPrint());
         log.info("Test genChrgProcessMngGenChrgHouse End!");
     }

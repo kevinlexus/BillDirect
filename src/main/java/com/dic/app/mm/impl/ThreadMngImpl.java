@@ -132,6 +132,55 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
         }
     }
 
+    /**
+     * Вызвать выполнение потоков распределения объемов/ начисления
+     * @param reverse -   lambda функция
+     * @param cntThreads - кол-во потоков
+     * @param isCheckStop - проверять остановку главного процесса?
+     * @param rqn - номер запроса
+     * @param stopMark
+     */
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
+    public void invokeThreads(PrepThread<T> reverse,
+                              int cntThreads, boolean isCheckStop, int rqn, String stopMark)
+            throws InterruptedException, ExecutionException, WrongParam, ErrorWhileChrg {
+        log.info("Будет создано {} потоков", cntThreads);
+        // размер очереди
+        List<Future<CommonResult>> frl = new ArrayList<>(cntThreads);
+        for (int i = 0; i < cntThreads; i++) {
+            // создать новый поток, передать информацию о % выполнения
+            log.info("********* Создан новый поток!");
+            frl.add(reverse.lambdaFunction(null, -11111));
+        }
+        // проверить окончание всех потоков
+        boolean isStop = false;
+        while (!isStop) {
+            isStop = true;
+            for (Future<CommonResult> fut : frl) {
+                if (!fut.isDone() && fut.get() != null) {
+                    // не завершен поток
+                    isStop = false;
+                }
+            }
+            Thread.sleep(1000);
+            log.info("$$$$$$$$$$$ Ожидание окончания потоков");
+        }
+
+        for (Future<CommonResult> fut : frl) {
+            // не удалять! отслеживает ошибку в потоке!
+            try {
+                if (fut.get().getErr() == 1) {
+                }
+            } catch (Exception e) {
+                log.error(Utl.getStackTraceString(e));
+                log.error("ОШИБКА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА, ВЫПОЛНЕНИЕ ОСТАНОВКИ ПРОЧИХ ПОТОКОВ!");
+                config.getLock().stopProc(rqn, stopMark);
+            }
+        }
+
+    }
+
     // получить следующий объект, для расчета в потоках
     private T getNextItem(List<T> lstItem) {
         Iterator<T> itr = lstItem.iterator();

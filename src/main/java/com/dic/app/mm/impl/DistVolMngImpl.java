@@ -1,5 +1,6 @@
 package com.dic.app.mm.impl;
 
+import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.DistVolMng;
 import com.dic.app.mm.GenChrgProcessMng;
 import com.dic.app.mm.ProcessMng;
@@ -14,11 +15,9 @@ import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.SerializationUtils;
 import org.javatuples.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,40 +56,37 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
     /**
      * Вызов из Web контроллера
      * @param reqConf - запрос
-     * @param calcStore - хранилище объемов
      * @param vvodId - Id ввода
      */
     @Transactional(
             propagation = Propagation.REQUIRES_NEW, // новая транзакция
             rollbackFor = Exception.class)
     @Override
-    public void distVolByVvodTrans(RequestConfig reqConf, CalcStore calcStore, Integer vvodId)
+    public void distVolByVvodTrans(RequestConfigDirect reqConf, Integer vvodId)
             throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist, ErrorWhileGen {
-        distVolByVvod(reqConf, calcStore, vvodId);
+        distVolByVvod(reqConf, vvodId);
     }
 
     /**
      * Вызов из Unit - тестов
      * @param reqConf - запрос
-     * @param calcStore - хранилище объемов
      * @param vvodId - Id ввода
      */
     @Transactional(
             propagation = Propagation.MANDATORY, // та же транзакция
             rollbackFor = Exception.class)
     @Override
-    public void distVolByVvodSameTrans(RequestConfig reqConf, CalcStore calcStore, Integer vvodId)
+    public void distVolByVvodSameTrans(RequestConfigDirect reqConf, Integer vvodId)
             throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist, ErrorWhileGen {
-        distVolByVvod(reqConf, calcStore, vvodId);
+        distVolByVvod(reqConf, vvodId);
     }
 
     /**
      * Распределить объемы по вводу
      *  @param reqConf   - параметры запроса
-     * @param calcStore - хранилище справочников, объемов начисления
      * @param vvodId - ввод
      */
-    private void distVolByVvod(RequestConfig reqConf, CalcStore calcStore, Integer vvodId)
+    private void distVolByVvod(RequestConfigDirect reqConf, Integer vvodId)
             throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist, ErrorWhileGen {
         Vvod vvod = em.find(Vvod.class, vvodId);
         log.info("Распределение объемов по vvodId={}, usl={}", vvodId, vvod.getUsl().getId());
@@ -134,9 +130,9 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             clearODN(vvod);
 
             // конфиг для расчета по вводу // note бред! подумать, как сделать правильно!
-            RequestConfig reqConf2;
+            RequestConfigDirect reqConf2;
             try {
-                reqConf2 = (RequestConfig) reqConf.clone();
+                reqConf2 = (RequestConfigDirect) reqConf.clone();
             } catch (CloneNotSupportedException e) {
                 log.error(Utl.getStackTraceString(e));
                 throw new ErrorWhileDist("ОШИБКА! RequestConfig не может быть склонирован!");
@@ -149,14 +145,14 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             // СБОР ИНФОРМАЦИИ, для расчета ОДН, подсчета итогов
             // кол-во лиц.счетов, объемы, кол-во прожив.
             // собрать информацию об объемах по лиц.счетам принадлежащим вводу
-            processMng.genProcessAll(reqConf2, calcStore);
+            processMng.genProcessAll(reqConf2);
 
             // объемы по лиц.счетам (базовый фильтр по услуге)
             final List<UslVolKart> lstUslVolKart =
-                    calcStore.getChrgCountAmount().getLstUslVolKart().stream()
+                    reqConf.getChrgCountAmount().getLstUslVolKart().stream()
                             .filter(t -> t.usl.equals(usl)).collect(Collectors.toList());
             final List<UslVolKartGrp> lstUslVolKartGrpBase =
-                    calcStore.getChrgCountAmount().getLstUslVolKartGrp().stream()
+                    reqConf.getChrgCountAmount().getLstUslVolKartGrp().stream()
                             .filter(t -> t.usl.equals(usl)).collect(Collectors.toList());
 
             // ПОЛУЧИТЬ итоговые объемы по вводу

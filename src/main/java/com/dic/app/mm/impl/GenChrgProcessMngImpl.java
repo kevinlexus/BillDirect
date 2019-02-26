@@ -1,5 +1,6 @@
 package com.dic.app.mm.impl;
 
+import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.GenChrgProcessMng;
 import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.MeterDAO;
@@ -13,8 +14,10 @@ import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -30,7 +33,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-@Scope("prototype")
+//@Scope("prototype")
 public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
     @Autowired
@@ -52,30 +55,31 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
     @PersistenceContext
     private EntityManager em;
 
-    // локальное хранилище объемов
-    private ChrgCountAmountLocal chrgCountAmountLocal;
 
     /**
      * Рассчитать начисление
      * Внимание! Расчет идёт по помещению (помещению), но информация группируется по лиц.счету(Kart)
      * так как теоретически может быть одинаковая услуга на разных лиц.счетах, но на одной помещению!
-     * <p>
      * ОПИСАНИЕ: https://docs.google.com/document/d/1mtK2KdMX4rGiF2cUeQFVD4HBcZ_F0Z8ucp1VNK8epx0/edit
      *
-     * @param calcStore - хранилище справочников
-     * @param klskId    - klskId помещения
      * @param reqConf   - конфиг запроса
+     * @param klskId    - klskId помещения
      */
     @Override
-    public void genChrg(CalcStore calcStore, long klskId, RequestConfig reqConf) throws WrongParam, ErrorWhileChrg {
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW, // новая транзакция
+            isolation = Isolation.READ_COMMITTED, // читать только закомиченные данные, не ставить другое, не даст запустить поток!
+            rollbackFor = Exception.class) //
+    public void genChrg(RequestConfigDirect reqConf, long klskId) throws WrongParam, ErrorWhileChrg {
+        CalcStore calcStore = reqConf.getCalcStore();
         //Ko ko = em.find(Ko.class, klskId);
         Ko ko = em.getReference(Ko.class, klskId);
 
         // создать локальное хранилище объемов
-        chrgCountAmountLocal = new ChrgCountAmountLocal();
+        ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
         // получить основной лиц счет по связи klsk помещения
         Kart kartMainByKlsk = kartMng.getKartMain(ko);
-        log.info("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - начало    ******",
+        log.trace("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - начало    ******",
                 reqConf.getTpName(), ko.getId(), kartMainByKlsk != null ? kartMainByKlsk.getHouse().getId() : -11111111,
                 kartMainByKlsk != null ? kartMainByKlsk.getLsk() : -11111111);
         // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
@@ -119,7 +123,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         log.trace("Расчет объемов услуг, до учёта экономии ОДН");
         for (c.setTime(calcStore.getCurDt1()); !c.getTime()
                 .after(calcStore.getCurDt2()); c.add(Calendar.DATE, 1)) {
-            genVolPart(calcStore, chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
+            genVolPart(chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
                     parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part, lstNabor);
         }
 
@@ -135,7 +139,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             log.trace("Расчет объемов услуг, после учёта экономии ОДН");
             for (c.setTime(calcStore.getCurDt1()); !c.getTime()
                     .after(calcStore.getCurDt2()); c.add(Calendar.DATE, 1)) {
-                genVolPart(calcStore, chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
+                genVolPart(chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
                         parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part, lstNabor);
             }
         }
@@ -145,10 +149,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
         if (reqConf.getTp() == 2) {
             // 5. Добавить в объемы по вводу
-            calcStore.getChrgCountAmount().append(chrgCountAmountLocal);
+            reqConf.getChrgCountAmount().append(chrgCountAmountLocal);
         }
 
-        chrgCountAmountLocal.printVolAmnt(null, "После округления");
+        //chrgCountAmountLocal.printVolAmnt(null, "После округления");
 
         if (reqConf.getTp() != 2) {
             // 6. Сгруппировать строки начислений для записи в C_CHARGE
@@ -158,7 +162,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             chrgCountAmountLocal.saveChargeAndRound(ko, lstSelUsl);
         }
 
-        log.info("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - окончание   ******",
+        log.trace("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - окончание   ******",
                 reqConf.getTpName(), ko.getId(), kartMainByKlsk != null ? kartMainByKlsk.getHouse().getId() : -11111111,
                 kartMainByKlsk != null ? kartMainByKlsk.getLsk() : -11111111);
 
@@ -197,7 +201,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
     /**
      * Расчет объема по услугам
      *
-     * @param calcStore            - хранилище объемов
      * @param chrgCountAmountLocal - локальное хранилище объемов, по помещению
      * @param reqConf              - запрос
      * @param kartMainByKlsk       - основной лиц.счет
@@ -213,11 +216,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * @throws ErrorWhileChrg - ошибка во время расчета
      * @throws WrongParam     - ошибочный параметр
      */
-    private void genVolPart(CalcStore calcStore, ChrgCountAmountLocal chrgCountAmountLocal,
-                            RequestConfig reqConf, Kart kartMainByKlsk, int parVarCntKpr,
+    private void genVolPart(ChrgCountAmountLocal chrgCountAmountLocal,
+                            RequestConfigDirect reqConf, Kart kartMainByKlsk, int parVarCntKpr,
                             int parCapCalcKprTp, Ko ko, List<SumMeterVol> lstMeterVol, List<Usl> lstSelUsl,
                             List<UslMeterDateVol> lstDayMeterVol, Date curDt, int part, List<Nabor> lstNabor) throws ErrorWhileChrg, WrongParam {
 
+        CalcStore calcStore = reqConf.getCalcStore();
         boolean isExistsMeterColdWater = false;
         boolean isExistsMeterHotWater = false;
         //BigDecimal volColdWater = BigDecimal.ZERO;
