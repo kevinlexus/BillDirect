@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationContext;
+import org.springframework.util.StopWatch;
 import org.springframework.web.bind.annotation.*;
 
 import javax.persistence.EntityManager;
@@ -114,57 +115,56 @@ public class WebController implements CommonConstants {
         Date genDt = genDtStr != null ? Utl.getDateFromStr(genDtStr) : null;
         // построить запрос
         RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
-                        .withTp(tp)
-                        .withGenDt(genDt)
-                        .withUk(uk)
-                        .withHouse(house)
-                        .withVvod(vvod)
-                        .withKo(ko)
-                        .withUsl(usl)
-                        .withCurDt1(config.getCurDt1())
-                        .withCurDt2(config.getCurDt2())
-                        .withDebugLvl(debugLvl)
-                        .withRqn(config.incNextReqNum())
-                        .withIsMultiThreads(true)
-                        .build();
+                .withTp(tp)
+                .withGenDt(genDt)
+                .withUk(uk)
+                .withHouse(house)
+                .withVvod(vvod)
+                .withKo(ko)
+                .withUsl(usl)
+                .withCurDt1(config.getCurDt1())
+                .withCurDt2(config.getCurDt2())
+                .withDebugLvl(debugLvl)
+                .withRqn(config.incNextReqNum())
+                .withIsMultiThreads(true)
+                .build();
         log.info("");
         log.info("Задано: {} по {}", reqConf.getTpName(), msg);
         log.info("");
-
+        StopWatch sw = new org.springframework.util.StopWatch();
+        sw.start("TIMING: " + reqConf.getTpName());
+        String retStatus = "ERROR";
         if (stop == 1) {
-            // Остановка длительного процесса
-            config.getLock().stopProc(reqConf.getRqn(), stopMark);
+            // Остановка всех процессов (отмена формирования например)
+            config.getLock().stopAllProc(reqConf.getRqn());
         } else {
             // проверить переданные параметры
-            String err = reqConf.checkArguments();
-            if (err == null) {
-
-                if (Utl.in(reqConf.getTp(), 0, 1)) {
-                    // расчет начисления, задолженности и пени
-                    try {
+            retStatus = reqConf.checkArguments();
+            if (retStatus == null) {
+                try {
+                    if (Utl.in(reqConf.getTp(), 0, 1)) {
+                        // расчет начисления, задолженности и пени
                         reqConf.prepareChrgCountAmount();
                         reqConf.prepareKlskId();
                         processMng.genProcessAll(reqConf);
-                    } catch (ErrorWhileGen e) {
-                        log.error(Utl.getStackTraceString(e));
-                        return "ERROR! Ошибка в процессе расчета";
-                    }
-                } else if (reqConf.getTp() == 2) {
-                    // распределение объемов
-                    try {
+                    } else if (reqConf.getTp() == 2) {
+                        // распределение объемов
                         processMng.distVolAll(reqConf);
-                    } catch (ErrorWhileGen e) {
-                        log.error(Utl.getStackTraceString(e));
-                        return "ERROR! Ошибка при распределении объемов";
                     }
+                    retStatus = "OK";
+                } catch (ErrorWhileGen e) {
+                    log.error(Utl.getStackTraceString(e));
+                } finally {
+                    config.getLock().unlockProc(reqConf.getRqn(), stopMark);
                 }
-            } else {
-                return err;
             }
         }
+        sw.stop();
+        System.out.println(sw.prettyPrint());
         log.info("");
         log.info("Выполнено: {} по {}", reqConf.getTpName(), msg);
-        return "OK";
+        log.info("Статус: retStatus = {}");
+        return retStatus;
     }
 
     /**

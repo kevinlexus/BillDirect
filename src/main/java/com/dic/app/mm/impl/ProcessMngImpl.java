@@ -95,69 +95,66 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             throw new ErrorWhileGen("ОШИБКА! Задан некорректный тип выполнения");
         }
         // установить маркер процесса, вернуться, если уже выполняется
-        if (config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
+        if (reqConf.getVvod() != null) {
+            // распределить конкретный ввод
             try {
-                if (reqConf.getVvod() != null) {
-                    // распределить конкретный ввод
-                    try {
-                        if (reqConf.isMultiThreads()) {
-                            // вызвать в новой транзакции, многопоточно
-                            distVolMng.distVolByVvodTrans(reqConf, reqConf.getVvod().getId());
-                        } else {
-                            // вызвать в той же транзакции, однопоточно, для Unit - тестов
-                            distVolMng.distVolByVvodSameTrans(reqConf, reqConf.getVvod().getId());
-                        }
-                        log.info("Распределение объемов по вводу vvodId={} выполнено", reqConf.getVvod().getId());
-                    } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
-                        log.error(Utl.getStackTraceString(e));
-                        throw new ErrorWhileGen("ОШИБКА при распределении объемов");
-                    }
-                } else if (reqConf.getUk() != null) {
-                    for (Integer vvodId : vvodDAO.findVvodByUk(reqConf.getUk().getReu())
-                            .stream().map(BigDecimal::intValue).collect(Collectors.toList())) {
-                        Vvod vvod = em.find(Vvod.class, vvodId);
-                        if (vvod.getUsl() != null && vvod.getUsl().isMain()) {
-                            try {
-                                distVolMng.distVolByVvodTrans(reqConf, vvod.getId());
-                            } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
-                                log.error(Utl.getStackTraceString(e));
-                                throw new ErrorWhileGen("ОШИБКА при распределении объемов");
-                            }
-                        }
-                    }
-                    log.info("Распределение объемов по УК reuId={} выполнено", reqConf.getUk().getReu());
-                } else if (reqConf.getHouse() != null) {
-                    for (Vvod vvod : vvodDAO.findVvodByHouse(reqConf.getHouse().getId())) {
-                        if (vvod.getUsl() != null && vvod.getUsl().isMain()) {
-                            try {
-                                distVolMng.distVolByVvodTrans(reqConf, vvod.getId());
-                            } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
-                                log.error(Utl.getStackTraceString(e));
-                                throw new ErrorWhileGen("ОШИБКА при распределении объемов");
-                            }
-                        }
-                    }
-                    log.info("Распределение объемов по дому houseId={} выполнено", reqConf.getHouse().getId());
+                if (reqConf.isMultiThreads()) {
+                    // вызвать в новой транзакции, многопоточно
+                    distVolMng.distVolByVvodTrans(reqConf, reqConf.getVvod().getId());
                 } else {
-                    // распределить все вводы
-                    for (Vvod vvod : vvodDAO.findAll(new Sort(Sort.Direction.ASC, "id"))) {
-                        //log.info("Удалить это сообщение vvodId={}", vvod.getId());
-                        if (vvod.getUsl() != null && vvod.getUsl().isMain()) {
-                            if (!config.getLock().isStopped(stopMark)) {
-                                try {
-                                    distVolMng.distVolByVvodTrans(reqConf, vvod.getId());
-                                } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
-                                    log.error(Utl.getStackTraceString(e));
-                                    throw new ErrorWhileGen("ОШИБКА при распределении объемов");
-                                }
-                            }
-                        }
-                    }
-                    log.info("Распределение объемов по всем вводам выполнено");
+                    // вызвать в той же транзакции, однопоточно, для Unit - тестов
+                    distVolMng.distVolByVvodSameTrans(reqConf, reqConf.getVvod().getId());
                 }
-            } finally {
-                // снять маркер процесса
-                config.getLock().unlockProc(reqConf.getRqn(), stopMark);
+                log.info("Распределение объемов по вводу vvodId={} выполнено", reqConf.getVvod().getId());
+            } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
+                log.error(Utl.getStackTraceString(e));
+                throw new ErrorWhileGen("ОШИБКА при распределении объемов");
+            }
+        } else if (reqConf.getUk() != null) {
+            // выставить маркер продолжительного процесса, если уже не выставлен
+            if (config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
+                for (Integer vvodId : vvodDAO.findVvodByUk(reqConf.getUk().getReu())
+                        .stream().map(BigDecimal::intValue).collect(Collectors.toList())) {
+                    if (!config.getLock().isStopped(stopMark)) {
+                        Vvod vvod = em.find(Vvod.class, vvodId);
+                        distVolCommon(reqConf, vvod);
+                    }
+                }
+            }
+            log.info("Распределение объемов по УК reuId={} выполнено", reqConf.getUk().getReu());
+        } else if (reqConf.getHouse() != null) {
+            for (Vvod vvod : vvodDAO.findVvodByHouse(reqConf.getHouse().getId())) {
+                distVolCommon(reqConf, vvod);
+            }
+            log.info("Распределение объемов по дому houseId={} выполнено", reqConf.getHouse().getId());
+        } else {
+            // выставить маркер продолжительного процесса, если уже не выставлен
+            if (config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
+                // распределить все вводы
+                for (Vvod vvod : vvodDAO.findAll(new Sort(Sort.Direction.ASC, "id"))) {
+                    if (!config.getLock().isStopped(stopMark)) {
+                        distVolCommon(reqConf, vvod);
+                    }
+                }
+            }
+            log.info("Распределение объемов по всем вводам выполнено");
+        }
+    }
+
+    /**
+     * Распределить объемы
+     *
+     * @param reqConf - конфиг запроса
+     * @param vvod    - ввод
+     */
+
+    private void distVolCommon(RequestConfigDirect reqConf, Vvod vvod) throws ErrorWhileGen {
+        if (vvod.getUsl() != null && vvod.getUsl().isMain()) {
+            try {
+                distVolMng.distVolByVvodTrans(reqConf, vvod.getId());
+            } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
+                log.error(Utl.getStackTraceString(e));
+                throw new ErrorWhileGen("ОШИБКА при распределении объемов");
             }
         }
     }
@@ -165,7 +162,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     /**
      * Выполнение процесса формирования начисления, задолженности, по помещению, по дому, по вводу
      *
-     * @param reqConf   - конфиг запроса
+     * @param reqConf - конфиг запроса
      * @throws ErrorWhileGen - ошибка обработки
      */
     @Override
@@ -191,7 +188,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         try {
             if (reqConf.isMultiThreads()) {
                 // вызвать в новой транзакции, многопоточно
-                int CNT_THREADS = 15;
+                int CNT_THREADS = 5;
                 threadMng.invokeThreads(reverse, CNT_THREADS, isCheckStop, reqConf.getRqn(), stopMark);
             } else {
                 // вызвать в той же транзакции, однопоточно, для Unit - тестов
@@ -202,7 +199,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             throw new ErrorWhileGen("ОШИБКА во время расчета!");
         } finally {
             //if (reqConf.tpSel == 0) {
-                // снять маркер процесса
+            // снять маркер процесса
             //    config.getLock().unlockProc(reqConf.getRqn(), stopMark);
             //}
         }
@@ -217,7 +214,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     /**
      * Отдельный поток для расчета длительных процессов
      *
-     * @param reqConf   - конфиг запроса
+     * @param reqConf - конфиг запроса
      */
     @Async
     @Override
@@ -228,14 +225,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     public Future<CommonResult> genProcess(RequestConfigDirect reqConf) throws WrongParam, ErrorWhileChrg {
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО потока {}", reqConf.getTpName());
-        //try {
-            // заблокировать объект Ko для расчета note должно выполняться в GenGhrgProcessMngImpl!!!
-/*            if (!config.aquireLock(reqConf.getRqn(), klskId)) {
-                throw new RuntimeException("ОШИБКА БЛОКИРОВКИ klskId=" + klskId);
-            }
-            log.info("******* klskId={} заблокирован для расчета", klskId);*/
-
-            selectInvokeProcess(reqConf);
+        selectInvokeProcess(reqConf);
         /*} catch (WrongParam | ErrorWhileChrg e) {
             log.error(Utl.getStackTraceString(e));
             throw new ErrorWhileChrg("ОШИБКА во время расчета!");
@@ -255,7 +245,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     /**
      * Выбрать и вызвать поток
      *
-     * @param reqConf   - конфиг запроса
+     * @param reqConf - конфиг запроса
      */
     private void selectInvokeProcess(RequestConfigDirect reqConf) throws WrongParam, ErrorWhileChrg {
         switch (reqConf.getTp()) {
@@ -265,8 +255,10 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                 // перебрать все помещения для расчета
                 while (true) {
                     Long klskId = reqConf.getNextItem();
-                    if (klskId!=null) {
-                        genChrgProcessMng.genChrg(reqConf, klskId);
+                    if (klskId != null) {
+                        if (!config.getLock().isStopped(stopMark)) {
+                            genChrgProcessMng.genChrg(reqConf, klskId);
+                        }
                     } else {
                         break;
                     }
@@ -282,7 +274,6 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                 throw new WrongParam("Некорректный параметр reqConf.tp=" + reqConf.getTp());
         }
     }
-
 
 
 }

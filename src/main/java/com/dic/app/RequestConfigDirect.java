@@ -125,20 +125,26 @@ public class RequestConfigDirect implements Cloneable {
         } else if (uk != null) {
             // по УК
             setTpSel(4); // почему 0 как и по всему фонду???
-            lstItems = kartDao.findAllByUk(uk.getReu()).stream().map(BigDecimal::longValue).collect(Collectors.toList());
+            lstItems = kartDao.findAllKlskIdByReuId(uk.getReu())
+                    .stream().map(BigDecimal::longValue).collect(Collectors.toList());
         } else if (house != null) {
             // по дому
-            setTpSel(2);
-            lstItems = kartMng.getKoByHouse(house).stream().map(Ko::getId).collect(Collectors.toList());
+            setTpSel(3);
+            //lstItems = kartMng.getKoByHouse(house).stream().map(Ko::getId).collect(Collectors.toList());
+            lstItems = kartDao.findAllKlskIdByHouseId(vvod.getId())
+                    .stream().map(BigDecimal::longValue).collect(Collectors.toList());
         } else if (vvod != null) {
             // по вводу
-            setTpSel(3);
-            lstItems = kartMng.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
+            setTpSel(2);
+            //lstItems = kartMng.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
+            lstItems = kartDao.findAllKlskIdByVvodId(vvod.getId())
+                    .stream().map(BigDecimal::longValue).collect(Collectors.toList());
         } else {
-            setTpSel(0);
+            setTpSel(5);
             // по всему фонду
             // конвертировать из List<BD> в List<Long> (native JPA представляет k_lsk_id только в BD и происходит type Erasure)
-            lstItems = kartDao.findAllKlskId().stream().map(BigDecimal::longValue).collect(Collectors.toList());
+            lstItems = kartDao.findAllKlskId()
+                    .stream().map(BigDecimal::longValue).collect(Collectors.toList());
         }
     }
 

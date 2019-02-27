@@ -1,6 +1,7 @@
 package com.dic.app.mm.impl;
 
 import com.dic.app.RequestConfigDirect;
+import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.GenChrgProcessMng;
 import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.MeterDAO;
@@ -11,6 +12,7 @@ import com.dic.bill.mm.*;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrg;
+import com.ric.cmn.excp.ErrorWhileLock;
 import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,6 +52,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
     @Autowired
     private UslDAO uslDao;
     @Autowired
+    private ConfigApp config;
+    @Autowired
     private SprParamMng sprParamMng;
     @PersistenceContext
     private EntityManager em;
@@ -61,8 +65,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * так как теоретически может быть одинаковая услуга на разных лиц.счетах, но на одной помещению!
      * ОПИСАНИЕ: https://docs.google.com/document/d/1mtK2KdMX4rGiF2cUeQFVD4HBcZ_F0Z8ucp1VNK8epx0/edit
      *
-     * @param reqConf   - конфиг запроса
-     * @param klskId    - klskId помещения
+     * @param reqConf - конфиг запроса
+     * @param klskId  - klskId помещения
      */
     @Override
     @Transactional(
@@ -70,100 +74,107 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             isolation = Isolation.READ_COMMITTED, // читать только закомиченные данные, не ставить другое, не даст запустить поток!
             rollbackFor = Exception.class) //
     public void genChrg(RequestConfigDirect reqConf, long klskId) throws WrongParam, ErrorWhileChrg {
-        CalcStore calcStore = reqConf.getCalcStore();
-        Ko ko = em.find(Ko.class, klskId); //note Разобраться что оставить!
-        //Ko ko = em.getReference(Ko.class, klskId);
-
-        // создать локальное хранилище объемов
-        ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
-        // получить основной лиц счет по связи klsk помещения
-        Kart kartMainByKlsk = kartMng.getKartMain(ko);
-        log.trace("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - начало    ******",
-                reqConf.getTpName(), ko.getId(), kartMainByKlsk != null ? kartMainByKlsk.getHouse().getId() : -11111111,
-                kartMainByKlsk != null ? kartMainByKlsk.getLsk() : -11111111);
-        // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
-        int parVarCntKpr =
-                Utl.nvl(sprParamMng.getN1("VAR_CNT_KPR"), 0D).intValue();
-        // параметр учета проживающих для капремонта
-        int parCapCalcKprTp =
-                Utl.nvl(sprParamMng.getN1("CAP_CALC_KPR_TP"), 0D).intValue();
-
-        //ChrgCount chrgCount = new ChrgCount();
-        // выбранные услуги для формирования
-        List<Usl> lstSelUsl = new ArrayList<>();
-        if (reqConf.getTp() == 0 && reqConf.getUsl() != null) {
-            // начисление по выбранной услуге
-            lstSelUsl.add(reqConf.getUsl());
-        } else if (reqConf.getTp() == 2) {
-            // распределение по вводу, добавить услуги для ограничения формирования только по ним
-            lstSelUsl.add(reqConf.getVvod().getUsl());
+        // заблокировать объект Ko для расчета
+        if (!config.getLock().aquireLockId(reqConf.getRqn(), 1, klskId, 60)) {
+            throw new ErrorWhileChrg("ОШИБКА БЛОКИРОВКИ klskId=" + klskId);
         }
+        try {
+            log.info("******* klskId={} заблокирован для расчета", klskId);
 
-        // все действующие счетчики объекта и их объемы
-        List<SumMeterVol> lstMeterVol = meterDao.findMeterVolByKlsk(ko.getId(),
-                calcStore.getCurDt1(), calcStore.getCurDt2());
+            CalcStore calcStore = reqConf.getCalcStore();
+            //Ko ko = em.find(Ko.class, klskId); //note Разобраться что оставить!
+            Ko ko = em.getReference(Ko.class, klskId);
 
-        // получить объемы по счетчикам в пропорции на 1 день их работы
-        List<UslMeterDateVol> lstDayMeterVol = meterMng.getPartDayMeterVol(lstMeterVol,
-                calcStore);
+            // создать локальное хранилище объемов
+            ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
+            // получить основной лиц счет по связи klsk помещения
+            Kart kartMainByKlsk = kartMng.getKartMain(ko);
+            log.trace("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - начало    ******",
+                    reqConf.getTpName(), ko.getId(), kartMainByKlsk != null ? kartMainByKlsk.getHouse().getId() : -11111111,
+                    kartMainByKlsk != null ? kartMainByKlsk.getLsk() : -11111111);
+            // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
+            int parVarCntKpr =
+                    Utl.nvl(sprParamMng.getN1("VAR_CNT_KPR"), 0D).intValue();
+            // параметр учета проживающих для капремонта
+            int parCapCalcKprTp =
+                    Utl.nvl(sprParamMng.getN1("CAP_CALC_KPR_TP"), 0D).intValue();
 
-        Calendar c = Calendar.getInstance();
+            //ChrgCount chrgCount = new ChrgCount();
+            // выбранные услуги для формирования
+            List<Usl> lstSelUsl = new ArrayList<>();
+            if (reqConf.getTp() == 0 && reqConf.getUsl() != null) {
+                // начисление по выбранной услуге
+                lstSelUsl.add(reqConf.getUsl());
+            } else if (reqConf.getTp() == 2) {
+                // распределение по вводу, добавить услуги для ограничения формирования только по ним
+                lstSelUsl.add(reqConf.getVvod().getUsl());
+            }
 
-        // получить действующие, отсортированные услуги по помещению (по всем счетам)
-        // перенести данный метод внутрь genVolPart, после того как будет реализованна архитектурная возможность
-        // отключать услугу в течении месяца
-        List<Nabor> lstNabor = naborMng.getValidNabor(ko, null);
+            // все действующие счетчики объекта и их объемы
+            List<SumMeterVol> lstMeterVol = meterDao.findMeterVolByKlsk(ko.getId(),
+                    calcStore.getCurDt1(), calcStore.getCurDt2());
 
-        // РАСЧЕТ по блокам:
+            // получить объемы по счетчикам в пропорции на 1 день их работы
+            List<UslMeterDateVol> lstDayMeterVol = meterMng.getPartDayMeterVol(lstMeterVol,
+                    calcStore);
 
-        // 1. Основные услуги
-        // цикл по дням месяца
-        int part = 1;
-        log.trace("Расчет объемов услуг, до учёта экономии ОДН");
-        for (c.setTime(calcStore.getCurDt1()); !c.getTime()
-                .after(calcStore.getCurDt2()); c.add(Calendar.DATE, 1)) {
-            genVolPart(chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
-                    parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part, lstNabor);
-        }
+            Calendar c = Calendar.getInstance();
 
-        // кроме распределения объемов (там нечего еще считать, нет экономии ОДН
-        if (reqConf.getTp() != 2) {
-            // 2. распределить экономию ОДН по услуге, пропорционально объемам
-            log.trace("Распределение экономии ОДН");
-            distODNeconomy(chrgCountAmountLocal, ko, lstSelUsl);
+            // получить действующие, отсортированные услуги по помещению (по всем счетам)
+            // перенести данный метод внутрь genVolPart, после того как будет реализованна архитектурная возможность
+            // отключать услугу в течении месяца
+            List<Nabor> lstNabor = naborMng.getValidNabor(ko, null);
 
-            // 3. Зависимые услуги, которые необходимо рассчитать после учета экономии ОДН в основных расчетах
-            // цикл по дням месяца (например calcTp=47 - Тепл.энергия для нагрева ХВС или calcTp=19 - Водоотведение)
-            part = 2;
-            log.trace("Расчет объемов услуг, после учёта экономии ОДН");
+            // РАСЧЕТ по блокам:
+
+            // 1. Основные услуги
+            // цикл по дням месяца
+            int part = 1;
+            log.trace("Расчет объемов услуг, до учёта экономии ОДН");
             for (c.setTime(calcStore.getCurDt1()); !c.getTime()
                     .after(calcStore.getCurDt2()); c.add(Calendar.DATE, 1)) {
                 genVolPart(chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
                         parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part, lstNabor);
             }
-        }
 
-        // 4. Округлить объемы
-        chrgCountAmountLocal.roundVol();
+            // кроме распределения объемов (там нечего еще считать, нет экономии ОДН
+            if (reqConf.getTp() != 2) {
+                // 2. распределить экономию ОДН по услуге, пропорционально объемам
+                log.trace("Распределение экономии ОДН");
+                distODNeconomy(chrgCountAmountLocal, ko, lstSelUsl);
 
-        if (reqConf.getTp() == 2) {
-            // 5. Добавить в объемы по вводу
-            reqConf.getChrgCountAmount().append(chrgCountAmountLocal);
-        }
+                // 3. Зависимые услуги, которые необходимо рассчитать после учета экономии ОДН в основных расчетах
+                // цикл по дням месяца (например calcTp=47 - Тепл.энергия для нагрева ХВС или calcTp=19 - Водоотведение)
+                part = 2;
+                log.trace("Расчет объемов услуг, после учёта экономии ОДН");
+                for (c.setTime(calcStore.getCurDt1()); !c.getTime()
+                        .after(calcStore.getCurDt2()); c.add(Calendar.DATE, 1)) {
+                    genVolPart(chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
+                            parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part, lstNabor);
+                }
+            }
 
-        //chrgCountAmountLocal.printVolAmnt(null, "После округления");
+            // 4. Округлить объемы
+            chrgCountAmountLocal.roundVol();
 
-        if (reqConf.getTp() != 2) {
-            // 6. Сгруппировать строки начислений для записи в C_CHARGE
-            chrgCountAmountLocal.groupUslVolChrg();
+            if (reqConf.getTp() == 2) {
+                // 5. Добавить в объемы по вводу
+                reqConf.getChrgCountAmount().append(chrgCountAmountLocal);
+            }
 
-            // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE, округлить для ГИС ЖКХ
-            chrgCountAmountLocal.saveChargeAndRound(ko, lstSelUsl);
-        }
+            //chrgCountAmountLocal.printVolAmnt(null, "После округления");
 
-        log.trace("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - окончание   ******",
-                reqConf.getTpName(), ko.getId(), kartMainByKlsk != null ? kartMainByKlsk.getHouse().getId() : -11111111,
-                kartMainByKlsk != null ? kartMainByKlsk.getLsk() : -11111111);
+            if (reqConf.getTp() != 2) {
+                // 6. Сгруппировать строки начислений для записи в C_CHARGE
+                chrgCountAmountLocal.groupUslVolChrg();
+
+                // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE, округлить для ГИС ЖКХ
+                chrgCountAmountLocal.saveChargeAndRound(ko, lstSelUsl);
+            }
+
+            log.trace("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - окончание   ******",
+                    reqConf.getTpName(), ko.getId(), kartMainByKlsk != null ? kartMainByKlsk.getHouse().getId() : -11111111,
+                    kartMainByKlsk != null ? kartMainByKlsk.getLsk() : -11111111);
 
 /*
         log.info("ИТОГО:");
@@ -194,7 +205,11 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         }
         log.info("Итоговый объем:={}", amntVol);
 */
-
+        } finally {
+            // разблокировать помещение
+            config.getLock().unlockId(reqConf.getRqn(), 1, klskId);
+            log.info("******* klskId={} разблокирован после расчета", klskId);
+        }
     }
 
     /**
@@ -564,7 +579,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             // алгоритм взят из C_KART, строка 786
             if (parVarCntKpr == 0 &&
                     (reqConf.getGenDt().getTime() > Utl.getDateFromStr("01.02.2019").getTime() // после 01.02.19 - не учитывать тип счетов
-                    || Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_RSO"))
+                            || Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_RSO"))
                     && countPers.kprNorm == 0
                     && countPers.kprOt == 0 && !kartMain.getStatus().getCd().equals("MUN")) {
                 // вариант Кис.

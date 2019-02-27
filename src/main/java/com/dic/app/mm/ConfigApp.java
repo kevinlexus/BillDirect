@@ -20,8 +20,6 @@ public interface ConfigApp {
 
 	Lock getLock();
 
-	boolean aquireLock(int rqn, long klskId);
-
 	int incNextReqNum();
 
 	void setProgress(Integer progress);

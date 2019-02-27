@@ -67,8 +67,8 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 	@Override
 	public Executor getAsyncExecutor() {
 		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(20);
-		executor.setMaxPoolSize(25);
+		executor.setCorePoolSize(5);
+		executor.setMaxPoolSize(7);
 		executor.setQueueCapacity(50);
 		executor.setThreadNamePrefix("BillDirectExecutor-");
 		executor.initialize();

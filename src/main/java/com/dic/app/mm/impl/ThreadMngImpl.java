@@ -105,7 +105,6 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
                     } catch (Exception e) {
                         log.error(Utl.getStackTraceString(e));
                         log.error("ОШИБКА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА, ВЫПОЛНЕНИЕ ОСТАНОВКИ ПРОЧИХ ПОТОКОВ!");
-                        config.getLock().stopProc(rqn, stopMark);
                     }
                     // очистить переменную потока
                     frl.set(i, null);
@@ -150,7 +149,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
         List<Future<CommonResult>> frl = new ArrayList<>(cntThreads);
         for (int i = 0; i < cntThreads; i++) {
             // создать новый поток, передать информацию о % выполнения
-            log.info("********* Создан новый поток!");
+            //log.info("********* Создан новый поток!");
             frl.add(reverse.lambdaFunction(null, -11111));
         }
         // проверить окончание всех потоков
@@ -163,8 +162,8 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
                     isStop = false;
                 }
             }
-            Thread.sleep(1000);
-            log.info("$$$$$$$$$$$ Ожидание окончания потоков");
+            //Thread.sleep(100);
+            //log.info("$$$$$$$$$$$ Ожидание окончания потоков");
         }
 
         for (Future<CommonResult> fut : frl) {
@@ -175,7 +174,6 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
             } catch (Exception e) {
                 log.error(Utl.getStackTraceString(e));
                 log.error("ОШИБКА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА, ВЫПОЛНЕНИЕ ОСТАНОВКИ ПРОЧИХ ПОТОКОВ!");
-                config.getLock().stopProc(rqn, stopMark);
             }
         }
 
