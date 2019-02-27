@@ -75,69 +75,70 @@ public class WebController implements CommonConstants {
     ) {
         log.info("GOT /gen with: tp={}, debugLvl={}, genDt={}, reuId={}, houseId={}, vvodId={}, klskId={}, uslId={}, stop={}",
                 tp, debugLvl, genDtStr, reuId, houseId, vvodId, klskId, uslId, stop);
-
-        // проверка типа формирования
-        if (!Utl.in(tp, 0, 1, 2)) {
-            return "ERROR! Некорректный тип расчета: tp=" + tp;
-        }
-
-        String msg = null;
-        // конфиг запроса
-        House house = null;
-        Vvod vvod = null;
-        Ko ko = null;
-        Org uk = null;
-        if (reuId != null) {
-            uk = orgDAO.getByReu(reuId);
-            msg = "УК reuId=" + reuId;
-        } else if (houseId != 0) {
-            house = em.find(House.class, houseId);
-            msg = "дому houseId=" + houseId;
-        } else if (vvodId != 0) {
-            vvod = em.find(Vvod.class, vvodId);
-            msg = "вводу vvodId=" + vvodId;
-        } else if (klskId != 0) {
-            ko = em.find(Ko.class, klskId);
-            msg = "помещению klskId=" + klskId;
-        } else {
-            if (Utl.in(tp, 0, 1)) {
-                msg = "всем помещениям";
-            } else if (tp == 2) {
-                msg = "всем вводам";
-            }
-        }
-        Usl usl = null;
-        if (uslId != null) {
-            assert msg != null;
-            msg = msg.concat(", по услуге uslId=" + uslId);
-            usl = em.find(Usl.class, uslId);
-        }
-        Date genDt = genDtStr != null ? Utl.getDateFromStr(genDtStr) : null;
-        // построить запрос
-        RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
-                .withTp(tp)
-                .withGenDt(genDt)
-                .withUk(uk)
-                .withHouse(house)
-                .withVvod(vvod)
-                .withKo(ko)
-                .withUsl(usl)
-                .withCurDt1(config.getCurDt1())
-                .withCurDt2(config.getCurDt2())
-                .withDebugLvl(debugLvl)
-                .withRqn(config.incNextReqNum())
-                .withIsMultiThreads(true)
-                .build();
-        log.info("");
-        log.info("Задано: {} по {}", reqConf.getTpName(), msg);
-        log.info("");
-        StopWatch sw = new org.springframework.util.StopWatch();
-        sw.start("TIMING: " + reqConf.getTpName());
         String retStatus = "ERROR";
         if (stop == 1) {
             // Остановка всех процессов (отмена формирования например)
-            config.getLock().stopAllProc(reqConf.getRqn());
+            config.getLock().stopAllProc(-1);
+            retStatus = "OK";
         } else {
+            // проверка типа формирования
+            if (!Utl.in(tp, 0, 1, 2)) {
+                return "ERROR! Некорректный тип расчета: tp=" + tp;
+            }
+
+            String msg = null;
+            // конфиг запроса
+            House house = null;
+            Vvod vvod = null;
+            Ko ko = null;
+            Org uk = null;
+            if (reuId != null) {
+                uk = orgDAO.getByReu(reuId);
+                msg = "УК reuId=" + reuId;
+            } else if (houseId != 0) {
+                house = em.find(House.class, houseId);
+                msg = "дому houseId=" + houseId;
+            } else if (vvodId != 0) {
+                vvod = em.find(Vvod.class, vvodId);
+                msg = "вводу vvodId=" + vvodId;
+            } else if (klskId != 0) {
+                ko = em.find(Ko.class, klskId);
+                msg = "помещению klskId=" + klskId;
+            } else {
+                if (Utl.in(tp, 0, 1)) {
+                    msg = "всем помещениям";
+                } else if (tp == 2) {
+                    msg = "всем вводам";
+                }
+            }
+            Usl usl = null;
+            if (uslId != null) {
+                assert msg != null;
+                msg = msg.concat(", по услуге uslId=" + uslId);
+                usl = em.find(Usl.class, uslId);
+            }
+            Date genDt = genDtStr != null ? Utl.getDateFromStr(genDtStr) : null;
+            // построить запрос
+            RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
+                    .withTp(tp)
+                    .withGenDt(genDt)
+                    .withUk(uk)
+                    .withHouse(house)
+                    .withVvod(vvod)
+                    .withKo(ko)
+                    .withUsl(usl)
+                    .withCurDt1(config.getCurDt1())
+                    .withCurDt2(config.getCurDt2())
+                    .withDebugLvl(debugLvl)
+                    .withRqn(config.incNextReqNum())
+                    .withIsMultiThreads(true)
+                    .build();
+            StopWatch sw = new org.springframework.util.StopWatch();
+            sw.start("TIMING: " + reqConf.getTpName());
+
+            log.info("");
+            log.info("Задано: {} по {}", reqConf.getTpName(), msg);
+            log.info("");
             // проверить переданные параметры
             retStatus = reqConf.checkArguments();
             if (retStatus == null) {
@@ -158,12 +159,12 @@ public class WebController implements CommonConstants {
                     config.getLock().unlockProc(reqConf.getRqn(), stopMark);
                 }
             }
+            sw.stop();
+            System.out.println(sw.prettyPrint());
+            log.info("");
+            log.info("Выполнено: {} по {}", reqConf.getTpName(), msg);
         }
-        sw.stop();
-        System.out.println(sw.prettyPrint());
-        log.info("");
-        log.info("Выполнено: {} по {}", reqConf.getTpName(), msg);
-        log.info("Статус: retStatus = {}");
+        log.info("Статус: retStatus = {}", retStatus);
         return retStatus;
     }
 
