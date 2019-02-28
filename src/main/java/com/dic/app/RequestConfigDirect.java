@@ -60,6 +60,8 @@ public class RequestConfigDirect implements Cloneable {
     Ko ko = null;
     // выбранный тип объекта формирования
     private int tpSel;
+    // блокировать для выполнения длительного процесса?
+    private boolean isLockForLongLastingProcess = false;
 
     // услуга
     Usl usl = null;
@@ -116,30 +118,34 @@ public class RequestConfigDirect implements Cloneable {
      */
     public void prepareKlskId() {
         KartDAO kartDao = SpringContext.getBean(KartDAO.class);
-        KartMng kartMng = SpringContext.getBean(KartMng.class);
         if (ko != null) {
             // по помещению
+            isLockForLongLastingProcess = false;
             setTpSel(1);
             lstItems = new ArrayList<>(1);
             lstItems.add(ko.getId());
         } else if (uk != null) {
             // по УК
+            isLockForLongLastingProcess = true;
             setTpSel(4); // почему 0 как и по всему фонду???
             lstItems = kartDao.findAllKlskIdByReuId(uk.getReu())
                     .stream().map(BigDecimal::longValue).collect(Collectors.toList());
         } else if (house != null) {
             // по дому
+            isLockForLongLastingProcess = false;
             setTpSel(3);
             //lstItems = kartMng.getKoByHouse(house).stream().map(Ko::getId).collect(Collectors.toList());
-            lstItems = kartDao.findAllKlskIdByHouseId(vvod.getId())
+            lstItems = kartDao.findAllKlskIdByHouseId(house.getId())
                     .stream().map(BigDecimal::longValue).collect(Collectors.toList());
         } else if (vvod != null) {
             // по вводу
+            isLockForLongLastingProcess = false;
             setTpSel(2);
             //lstItems = kartMng.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
             lstItems = kartDao.findAllKlskIdByVvodId(vvod.getId())
                     .stream().map(BigDecimal::longValue).collect(Collectors.toList());
         } else {
+            isLockForLongLastingProcess = true;
             setTpSel(5);
             // по всему фонду
             // конвертировать из List<BD> в List<Long> (native JPA представляет k_lsk_id только в BD и происходит type Erasure)

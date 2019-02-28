@@ -65,7 +65,7 @@ public class WebController implements CommonConstants {
     public String gen(
             @RequestParam(value = "tp", defaultValue = "0") int tp,
             @RequestParam(value = "houseId", defaultValue = "0", required = false) int houseId,
-            @RequestParam(value = "vvodId", defaultValue = "0", required = false) int vvodId,
+            @RequestParam(value = "vvodId", defaultValue = "0", required = false) long vvodId,
             @RequestParam(value = "klskId", defaultValue = "0", required = false) long klskId,
             @RequestParam(value = "debugLvl", defaultValue = "0") int debugLvl,
             @RequestParam(value = "uslId", required = false) String uslId,
@@ -94,15 +94,31 @@ public class WebController implements CommonConstants {
             Org uk = null;
             if (reuId != null) {
                 uk = orgDAO.getByReu(reuId);
+                if (uk==null) {
+                    retStatus = "ERROR! Задан некорректный reuId=" + reuId;
+                    return retStatus;
+                }
                 msg = "УК reuId=" + reuId;
             } else if (houseId != 0) {
                 house = em.find(House.class, houseId);
+                if (house==null) {
+                    retStatus = "ERROR! Задан некорректный houseId=" + houseId;
+                    return retStatus;
+                }
                 msg = "дому houseId=" + houseId;
             } else if (vvodId != 0) {
                 vvod = em.find(Vvod.class, vvodId);
+                if (vvod==null) {
+                    retStatus = "ERROR! Задан некорректный vvodId=" + vvodId;
+                    return retStatus;
+                }
                 msg = "вводу vvodId=" + vvodId;
             } else if (klskId != 0) {
                 ko = em.find(Ko.class, klskId);
+                if (ko==null) {
+                    retStatus = "ERROR! Задан некорректный klskId=" + klskId;
+                    return retStatus;
+                }
                 msg = "помещению klskId=" + klskId;
             } else {
                 if (Utl.in(tp, 0, 1)) {
@@ -114,8 +130,12 @@ public class WebController implements CommonConstants {
             Usl usl = null;
             if (uslId != null) {
                 assert msg != null;
-                msg = msg.concat(", по услуге uslId=" + uslId);
                 usl = em.find(Usl.class, uslId);
+                if (usl==null) {
+                    retStatus = "ERROR! Задан некорректный uslId=" + uslId;
+                    return retStatus;
+                }
+                msg = msg.concat(", по услуге uslId=" + uslId);
             }
             Date genDt = genDtStr != null ? Utl.getDateFromStr(genDtStr) : null;
             // построить запрос
@@ -133,6 +153,7 @@ public class WebController implements CommonConstants {
                     .withRqn(config.incNextReqNum())
                     .withIsMultiThreads(true)
                     .build();
+            reqConf.prepareKlskId();
             StopWatch sw = new org.springframework.util.StopWatch();
             sw.start("TIMING: " + reqConf.getTpName());
 
@@ -146,7 +167,7 @@ public class WebController implements CommonConstants {
                     if (Utl.in(reqConf.getTp(), 0, 1)) {
                         // расчет начисления, задолженности и пени
                         reqConf.prepareChrgCountAmount();
-                        reqConf.prepareKlskId();
+                        log.info("Будет обработано {} объектов", reqConf.getLstItems().size());
                         processMng.genProcessAll(reqConf);
                     } else if (reqConf.getTp() == 2) {
                         // распределение объемов
@@ -160,7 +181,7 @@ public class WebController implements CommonConstants {
                 }
             }
             sw.stop();
-            System.out.println(sw.prettyPrint());
+            log.info(sw.prettyPrint());
             log.info("");
             log.info("Выполнено: {} по {}", reqConf.getTpName(), msg);
         }

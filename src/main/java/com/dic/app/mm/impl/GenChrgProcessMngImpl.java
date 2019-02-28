@@ -3,7 +3,6 @@ package com.dic.app.mm.impl;
 import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.GenChrgProcessMng;
-import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.MeterDAO;
 import com.dic.bill.dao.StatesPrDAO;
 import com.dic.bill.dao.UslDAO;
@@ -12,7 +11,6 @@ import com.dic.bill.mm.*;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrg;
-import com.ric.cmn.excp.ErrorWhileLock;
 import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,7 +77,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             throw new ErrorWhileChrg("ОШИБКА БЛОКИРОВКИ klskId=" + klskId);
         }
         try {
-            log.info("******* klskId={} заблокирован для расчета", klskId);
+            //log.info("******* klskId={} заблокирован для расчета", klskId);
 
             CalcStore calcStore = reqConf.getCalcStore();
             //Ko ko = em.find(Ko.class, klskId); //note Разобраться что оставить!
@@ -113,10 +111,18 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             // все действующие счетчики объекта и их объемы
             List<SumMeterVol> lstMeterVol = meterDao.findMeterVolByKlsk(ko.getId(),
                     calcStore.getCurDt1(), calcStore.getCurDt2());
-
+            System.out.println("Счетчики:");
+            for (SumMeterVol t : lstMeterVol) {
+                log.trace("t.getMeterId={}, t.getUslId={}, t.getDtTo={}, t.getDtFrom={}, t.getVol={}",
+                        t.getMeterId(), t.getUslId(), t.getDtTo(), t.getDtFrom(), t.getVol());
+            }
             // получить объемы по счетчикам в пропорции на 1 день их работы
             List<UslMeterDateVol> lstDayMeterVol = meterMng.getPartDayMeterVol(lstMeterVol,
                     calcStore);
+
+            for (UslMeterDateVol t : lstDayMeterVol) {
+                log.trace("t.usl={}, t.dt={}, t.vol={}", t.usl.getId(), t.dt, t.vol);
+            }
 
             Calendar c = Calendar.getInstance();
 
@@ -162,7 +168,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 reqConf.getChrgCountAmount().append(chrgCountAmountLocal);
             }
 
-            //chrgCountAmountLocal.printVolAmnt(null, "После округления");
+            chrgCountAmountLocal.printVolAmnt(null, "После округления");
 
             if (reqConf.getTp() != 2) {
                 // 6. Сгруппировать строки начислений для записи в C_CHARGE
@@ -208,7 +214,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         } finally {
             // разблокировать помещение
             config.getLock().unlockId(reqConf.getRqn(), 1, klskId);
-            log.info("******* klskId={} разблокирован после расчета", klskId);
+            //log.info("******* klskId={} разблокирован после расчета", klskId);
         }
     }
 
@@ -263,8 +269,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 final BigDecimal naborVol = Utl.nvl(nabor.getVol(), BigDecimal.ZERO);
                 final BigDecimal naborVolAdd = Utl.nvl(nabor.getVolAdd(), BigDecimal.ZERO);
                 // услуга с которой получить объем (иногда выполняется перенаправление, например для fkCalcTp=31)
-                final Usl factUslVol = nabor.getUsl().getFactUslVol() != null ?
-                        nabor.getUsl().getFactUslVol() : nabor.getUsl();
+                final Usl factUslVol = nabor.getUsl().getMeterUslVol() != null ?
+                        nabor.getUsl().getMeterUslVol() : nabor.getUsl();
                 // ввод
                 final Vvod vvod = nabor.getVvod();
 
@@ -327,6 +333,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // Х.В., Г.В., без уровня соцнормы/свыше, электроэнергия
                     // получить объем по нормативу в доле на 1 день
                     // узнать, работал ли хоть один счетчик в данном дне
+                    log.info("factUslVol.getId()={}", factUslVol.getId());
                     isMeterExist = meterMng.isExistAnyMeter(lstMeterVol, factUslVol.getId(), curDt);
                     // получить соцнорму
                     socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
@@ -339,7 +346,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         }
                         // получить объем по счетчику в пропорции на 1 день его работы
                         UslMeterDateVol partVolMeter = lstDayMeterVol.stream()
-                                .filter(t -> t.usl.equals(nabor.getUsl()) && t.dt.equals(curDt))
+                                .filter(t -> t.usl.equals(nabor.getUsl().getMeterUslVol()) && t.dt.equals(curDt))
                                 .findFirst().orElse(null);
                         if (partVolMeter != null) {
                             tempVol = partVolMeter.vol;

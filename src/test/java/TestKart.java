@@ -243,7 +243,7 @@ public class TestKart {
         // распечатать C_CHARGE
         reqConf.getChrgCountAmount().printChrg(em.find(Kart.class, "ОСН_0001"));
         reqConf.getChrgCountAmount().printChrg(em.find(Kart.class, "РСО_0001"));
-        System.out.println(sw.prettyPrint());
+        log.info(sw.prettyPrint());
         log.info("Test genChrgProcessMngGenChrgHouse End!");
     }
 

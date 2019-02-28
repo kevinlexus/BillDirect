@@ -41,9 +41,11 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 
 	static ApplicationContext ctx = null;
 
+/*
 	@Qualifier("dataSource")
 	@Autowired
 	DataSource ds;
+*/
 
 	@Override
 	public void setApplicationContext(ApplicationContext context) throws BeansException {

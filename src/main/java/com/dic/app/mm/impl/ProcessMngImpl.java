@@ -6,12 +6,7 @@ import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dao.PenDtDAO;
 import com.dic.bill.dao.PenRefDAO;
 import com.dic.bill.dao.VvodDAO;
-import com.dic.bill.dto.CalcStore;
-import com.dic.bill.dto.ChrgCountAmount;
 import com.dic.bill.mm.KartMng;
-import com.dic.bill.model.scott.House;
-import com.dic.bill.model.scott.Ko;
-import com.dic.bill.model.scott.Org;
 import com.dic.bill.model.scott.Vvod;
 import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
@@ -34,7 +29,6 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -94,50 +88,57 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         if (reqConf.getTp() != 2) {
             throw new ErrorWhileGen("ОШИБКА! Задан некорректный тип выполнения");
         }
-        // установить маркер процесса, вернуться, если уже выполняется
-        if (reqConf.getVvod() != null) {
-            // распределить конкретный ввод
-            try {
-                if (reqConf.isMultiThreads()) {
-                    // вызвать в новой транзакции, многопоточно
-                    distVolMng.distVolByVvodTrans(reqConf, reqConf.getVvod().getId());
-                } else {
-                    // вызвать в той же транзакции, однопоточно, для Unit - тестов
-                    distVolMng.distVolByVvodSameTrans(reqConf, reqConf.getVvod().getId());
+        // заблокировать, если нужно для долго длящегося процесса
+        if (reqConf.isLockForLongLastingProcess()) {
+            config.getLock().setLockProc(reqConf.getRqn(), stopMark);
+        }
+        try {
+            if (reqConf.getVvod() != null) {
+                // распределить конкретный ввод
+                try {
+                    if (reqConf.isMultiThreads()) {
+                        // вызвать в новой транзакции, многопоточно
+                        distVolMng.distVolByVvodTrans(reqConf, reqConf.getVvod().getId());
+                    } else {
+                        // вызвать в той же транзакции, однопоточно, для Unit - тестов
+                        distVolMng.distVolByVvodSameTrans(reqConf, reqConf.getVvod().getId());
+                    }
+                    log.info("Распределение объемов по вводу vvodId={} выполнено", reqConf.getVvod().getId());
+                } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
+                    log.error(Utl.getStackTraceString(e));
+                    throw new ErrorWhileGen("ОШИБКА при распределении объемов");
                 }
-                log.info("Распределение объемов по вводу vvodId={} выполнено", reqConf.getVvod().getId());
-            } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
-                log.error(Utl.getStackTraceString(e));
-                throw new ErrorWhileGen("ОШИБКА при распределении объемов");
-            }
-        } else if (reqConf.getUk() != null) {
-            // выставить маркер продолжительного процесса, если уже не выставлен
-            if (config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
-                for (Integer vvodId : vvodDAO.findVvodByUk(reqConf.getUk().getReu())
-                        .stream().map(BigDecimal::intValue).collect(Collectors.toList())) {
+            } else if (reqConf.getUk() != null) {
+                for (Long vvodId : vvodDAO.findVvodByUk(reqConf.getUk().getReu())
+                        .stream().map(BigDecimal::longValue).collect(Collectors.toList())) {
                     if (!config.getLock().isStopped(stopMark)) {
                         Vvod vvod = em.find(Vvod.class, vvodId);
                         distVolCommon(reqConf, vvod);
+                    } else {
+                        log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
+                        break;
                     }
                 }
-            }
-            log.info("Распределение объемов по УК reuId={} выполнено", reqConf.getUk().getReu());
-        } else if (reqConf.getHouse() != null) {
-            for (Vvod vvod : vvodDAO.findVvodByHouse(reqConf.getHouse().getId())) {
-                distVolCommon(reqConf, vvod);
-            }
-            log.info("Распределение объемов по дому houseId={} выполнено", reqConf.getHouse().getId());
-        } else {
-            // выставить маркер продолжительного процесса, если уже не выставлен
-            if (config.getLock().setLockProc(reqConf.getRqn(), stopMark)) {
+                log.info("Распределение объемов по УК reuId={} выполнено", reqConf.getUk().getReu());
+            } else if (reqConf.getHouse() != null) {
+                for (Vvod vvod : vvodDAO.findVvodByHouse(reqConf.getHouse().getId())) {
+                    distVolCommon(reqConf, vvod);
+                }
+                log.info("Распределение объемов по дому houseId={} выполнено", reqConf.getHouse().getId());
+            } else {
                 // распределить все вводы
                 for (Vvod vvod : vvodDAO.findAll(new Sort(Sort.Direction.ASC, "id"))) {
                     if (!config.getLock().isStopped(stopMark)) {
                         distVolCommon(reqConf, vvod);
                     }
                 }
+                log.info("Распределение объемов по всем вводам выполнено");
             }
-            log.info("Распределение объемов по всем вводам выполнено");
+        } finally {
+            // разблокировать долго длящийся процесс
+            if (reqConf.isLockForLongLastingProcess()) {
+                config.getLock().unlockProc(reqConf.getRqn(), stopMark);
+            }
         }
     }
 
@@ -253,14 +254,28 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             case 2: {
                 // Начисление и расчет объемов
                 // перебрать все помещения для расчета
-                while (true) {
-                    Long klskId = reqConf.getNextItem();
-                    if (klskId != null) {
-                        if (!config.getLock().isStopped(stopMark)) {
+                // заблокировать, если нужно для долго длящегося процесса
+                if (reqConf.isLockForLongLastingProcess()) {
+                    config.getLock().setLockProc(reqConf.getRqn(), stopMark);
+                }
+                try {
+                    while (true) {
+                        Long klskId = reqConf.getNextItem();
+                        if (klskId != null) {
+                            if (reqConf.isLockForLongLastingProcess() && config.getLock().isStopped(stopMark)) {
+                                log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
+                                break;
+                            }
                             genChrgProcessMng.genChrg(reqConf, klskId);
+                        } else {
+                            // перебраны все klskId, выход
+                            break;
                         }
-                    } else {
-                        break;
+                    }
+                } finally {
+                    // разблокировать долго длящийся процесс
+                    if (reqConf.isLockForLongLastingProcess()) {
+                        config.getLock().unlockProc(reqConf.getRqn(), stopMark);
                     }
                 }
                 break;

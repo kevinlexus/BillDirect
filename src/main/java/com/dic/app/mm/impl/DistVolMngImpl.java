@@ -465,11 +465,14 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                         if (nabor.getUsl().equals(usl)) {
                                             BigDecimal volDistKart;
                                             if (iter.hasNext()) {
-                                                volDistKart = diff.multiply(t.area.divide(amnt.areaAmnt, 5, RoundingMode.HALF_UP))
+                                                volDistKart = diff.multiply(t.area.divide(amnt.areaAmnt, 5,
+                                                        RoundingMode.HALF_UP))
                                                         .setScale(5, RoundingMode.HALF_UP);
                                             } else {
                                                 // остаток объема, в т.ч. округление
                                                 volDistKart = diffDist;
+                                                log.trace("Объем, в т.ч. округление упало на lsk={}",
+                                                        nabor.getKart().getLsk());
                                             }
                                             if (usl.getFkCalcTp().equals(14)) {
                                                 nabor.setVol(volDistKart);
