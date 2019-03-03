@@ -181,7 +181,7 @@ public class WebController implements CommonConstants {
                 }
             }
             sw.stop();
-            log.info(sw.prettyPrint());
+            System.out.println(sw.prettyPrint());
             log.info("");
             log.info("Выполнено: {} по {}", reqConf.getTpName(), msg);
         }

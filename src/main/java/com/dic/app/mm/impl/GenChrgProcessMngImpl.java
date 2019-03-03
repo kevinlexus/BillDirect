@@ -333,7 +333,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // Х.В., Г.В., без уровня соцнормы/свыше, электроэнергия
                     // получить объем по нормативу в доле на 1 день
                     // узнать, работал ли хоть один счетчик в данном дне
-                    log.info("factUslVol.getId()={}", factUslVol.getId());
+                    //log.info("factUslVol.getId()={}", factUslVol.getId());
                     isMeterExist = meterMng.isExistAnyMeter(lstMeterVol, factUslVol.getId(), curDt);
                     // получить соцнорму
                     socStandart = kartPrMng.getSocStdtVol(nabor, countPers);

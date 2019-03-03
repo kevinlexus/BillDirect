@@ -11,6 +11,7 @@ import javax.sql.DataSource;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -36,6 +37,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @EnableJpaRepositories(basePackages="com.dic.bill.dao")
 @EnableCaching
 @EnableAsync
+@EntityScan(basePackages = {"com.dic.bill"})
 @ImportResource("file:.\\config\\spring.xml")
 public class Config  implements ApplicationContextAware, AsyncConfigurer {
 
