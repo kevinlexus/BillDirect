@@ -68,7 +68,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      */
     @Override
     @Transactional(
-            propagation = Propagation.REQUIRED,
+            propagation = Propagation.REQUIRES_NEW,
             isolation = Isolation.READ_COMMITTED, // читать только закомиченные данные, не ставить другое, не даст запустить поток!
             rollbackFor = Exception.class) //
     public void genChrg(RequestConfigDirect reqConf, long klskId) throws WrongParam, ErrorWhileChrg {
@@ -87,7 +87,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
             // получить основной лиц счет по связи klsk помещения
             Kart kartMainByKlsk = kartMng.getKartMain(ko);
-            log.trace("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - начало    ******",
+            log.info("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - начало    ******",
                     reqConf.getTpName(), ko.getId(), kartMainByKlsk != null ? kartMainByKlsk.getHouse().getId() : -11111111,
                     kartMainByKlsk != null ? kartMainByKlsk.getLsk() : -11111111);
             // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
@@ -111,11 +111,11 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             // все действующие счетчики объекта и их объемы
             List<SumMeterVol> lstMeterVol = meterDao.findMeterVolByKlsk(ko.getId(),
                     calcStore.getCurDt1(), calcStore.getCurDt2());
-            System.out.println("Счетчики:");
+            /*System.out.println("Счетчики:");
             for (SumMeterVol t : lstMeterVol) {
                 log.trace("t.getMeterId={}, t.getUslId={}, t.getDtTo={}, t.getDtFrom={}, t.getVol={}",
                         t.getMeterId(), t.getUslId(), t.getDtTo(), t.getDtFrom(), t.getVol());
-            }
+            }*/
             // получить объемы по счетчикам в пропорции на 1 день их работы
             List<UslMeterDateVol> lstDayMeterVol = meterMng.getPartDayMeterVol(lstMeterVol,
                     calcStore);
@@ -178,7 +178,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 chrgCountAmountLocal.saveChargeAndRound(ko, lstSelUsl);
             }
 
-            log.trace("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - окончание   ******",
+            log.info("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - окончание   ******",
                     reqConf.getTpName(), ko.getId(), kartMainByKlsk != null ? kartMainByKlsk.getHouse().getId() : -11111111,
                     kartMainByKlsk != null ? kartMainByKlsk.getLsk() : -11111111);
 

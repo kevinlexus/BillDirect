@@ -189,7 +189,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         try {
             if (reqConf.isMultiThreads()) {
                 // вызвать в новой транзакции, многопоточно
-                int CNT_THREADS = 5;
+                int CNT_THREADS = 10;
                 threadMng.invokeThreads(reverse, CNT_THREADS, isCheckStop, reqConf.getRqn(), stopMark);
             } else {
                 // вызвать в той же транзакции, однопоточно, для Unit - тестов
