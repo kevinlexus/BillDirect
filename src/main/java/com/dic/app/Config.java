@@ -60,7 +60,7 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 		SimpleCacheManager cacheManager = new SimpleCacheManager();
 		cacheManager.setCaches(Arrays.asList(
 				new ConcurrentMapCache("NaborMng.getCached"),
-				new ConcurrentMapCache("NaborMng.getDetailUslPrice"),
+				new ConcurrentMapCache("PriceMng.multiplyPrice"),
 				new ConcurrentMapCache("ReferenceMng.getUslOrgRedirect")));
 		return cacheManager;
 	}
@@ -71,8 +71,8 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 	@Override
 	public Executor getAsyncExecutor() {
 		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(5);
-		executor.setMaxPoolSize(7);
+		executor.setCorePoolSize(20);
+		executor.setMaxPoolSize(25);
 		executor.setQueueCapacity(50);
 		executor.setThreadNamePrefix("BillDirectExecutor-");
 		executor.initialize();

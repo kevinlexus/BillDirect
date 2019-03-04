@@ -319,10 +319,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         || fkCalcTp.equals(7) && nabor.getKart().getStatus().getId().equals(1) // Найм (только по муниципальным помещениям) расчет на м2
                         // fixme: по Найму скорее всего ошибка, так как надо смотреть в kartMain - исправить, когда перейдём на новую версию начисления
                         || (fkCalcTp.equals(24) || fkCalcTp.equals(32) // Прочие услуги, расчитываемые как расценка * норматив * общ.площадь
-                        && !kartMain.getStatus().getId().equals(1))// или 32 услуга, только не по муниципальному фонду
+                        && !nabor.getKart().getStatus().getId().equals(1))// или 32 услуга, только не по муниципальному фонду
                         || fkCalcTp.equals(36)// Вывоз жидких нечистот и т.п. услуги
                         || fkCalcTp.equals(37) && !countPers.isSingleOwnerOlder70// Капремонт и если не одинокие пенсионеры старше 70, кроме муницип.помещений
-                        && !kartMain.getStatus().getId().equals(1)
+                        && !nabor.getKart().getStatus().getId().equals(1)
                         ) {
                     if (Utl.in(fkCalcTp, 25)) {
                         // Текущее содержание - получить соц.норму

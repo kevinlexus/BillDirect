@@ -189,7 +189,10 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         try {
             if (reqConf.isMultiThreads()) {
                 // вызвать в новой транзакции, многопоточно
-                int CNT_THREADS = 10;
+                // note Здесь потоки не назначаются, только вызов.
+                // note Настраивать это значение совместно с Config.java.getAsyncExecutor()
+                // note А так же application.properties spring.datasource.hikari.maximumPoolSize
+                int CNT_THREADS = 15;
                 threadMng.invokeThreads(reverse, CNT_THREADS, isCheckStop, reqConf.getRqn(), stopMark);
             } else {
                 // вызвать в той же транзакции, однопоточно, для Unit - тестов
