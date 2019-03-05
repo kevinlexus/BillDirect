@@ -1,11 +1,9 @@
 package com.dic.app.mm;
 
 import com.dic.app.RequestConfigDirect;
-import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.OrgDAO;
 import com.dic.bill.dao.PrepErrDAO;
 import com.dic.bill.dao.SprGenItmDAO;
-import com.dic.bill.dto.CalcStore;
 import com.dic.bill.mm.NaborMng;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.CommonConstants;
@@ -153,7 +151,7 @@ public class WebController implements CommonConstants {
                     .withRqn(config.incNextReqNum())
                     .withIsMultiThreads(true)
                     .build();
-            reqConf.prepareKlskId();
+            reqConf.prepareId();
             StopWatch sw = new org.springframework.util.StopWatch();
             sw.start("TIMING: " + reqConf.getTpName());
 
@@ -164,14 +162,16 @@ public class WebController implements CommonConstants {
             retStatus = reqConf.checkArguments();
             if (retStatus == null) {
                 try {
-                    if (Utl.in(reqConf.getTp(), 0, 1)) {
-                        // расчет начисления, задолженности и пени
+                    if (Utl.in(reqConf.getTp(), 0, 1, 2)) {
+                        // расчет начисления, распределение объемов, расчет задолженности и пени
                         reqConf.prepareChrgCountAmount();
                         log.info("Будет обработано {} объектов", reqConf.getLstItems().size());
                         processMng.genProcessAll(reqConf);
+/*
                     } else if (reqConf.getTp() == 2) {
                         // распределение объемов
                         processMng.distVolAll(reqConf);
+*/
                     }
                     retStatus = "OK";
                 } catch (ErrorWhileGen e) {

@@ -5,14 +5,17 @@ import com.dic.bill.SpringContext;
 import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dao.PenDtDAO;
 import com.dic.bill.dao.PenRefDAO;
+import com.dic.bill.dao.VvodDAO;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.ChrgCountAmount;
 import com.dic.bill.mm.KartMng;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
+import com.ric.cmn.excp.*;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -35,7 +38,7 @@ public class RequestConfigDirect implements Cloneable {
 
     // Id запроса
     int rqn;
-    // тип выполнения 0-начисление, 1-задолженность и пеня, 2 - распределение объемов по вводу
+    // тип выполнения 0-начисление, 3-начисление для распределения по вводу, 1-задолженность и пеня, 2 - распределение объемов по вводу
     int tp = 0;
     // уровень отладки
     int debugLvl = 0;
@@ -88,6 +91,8 @@ public class RequestConfigDirect implements Cloneable {
                 return "Задолженность и пеня";
             case 2:
                 return "Распределение объемов";
+            case 3:
+                return "Начисление для распределения объемов";
         }
         return null;
     }
@@ -114,43 +119,67 @@ public class RequestConfigDirect implements Cloneable {
 
 
     /**
-     * Подготовка списка помещений, - klskId для расчета
+     * Подготовка списка Id (помещений, вводов)
      */
-    public void prepareKlskId() {
-        KartDAO kartDao = SpringContext.getBean(KartDAO.class);
-        if (ko != null) {
-            // по помещению
-            isLockForLongLastingProcess = false;
-            setTpSel(1);
-            lstItems = new ArrayList<>(1);
-            lstItems.add(ko.getId());
-        } else if (uk != null) {
-            // по УК
-            isLockForLongLastingProcess = true;
-            setTpSel(4); // почему 0 как и по всему фонду???
-            lstItems = kartDao.findAllKlskIdByReuId(uk.getReu())
-                    .stream().map(BigDecimal::longValue).collect(Collectors.toList());
-        } else if (house != null) {
-            // по дому
-            isLockForLongLastingProcess = false;
-            setTpSel(3);
-            //lstItems = kartMng.getKoByHouse(house).stream().map(Ko::getId).collect(Collectors.toList());
-            lstItems = kartDao.findAllKlskIdByHouseId(house.getId())
-                    .stream().map(BigDecimal::longValue).collect(Collectors.toList());
-        } else if (vvod != null) {
-            // по вводу
-            isLockForLongLastingProcess = false;
-            setTpSel(2);
-            //lstItems = kartMng.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
-            lstItems = kartDao.findAllKlskIdByVvodId(vvod.getId())
-                    .stream().map(BigDecimal::longValue).collect(Collectors.toList());
-        } else {
-            isLockForLongLastingProcess = true;
-            setTpSel(5);
-            // по всему фонду
-            // конвертировать из List<BD> в List<Long> (native JPA представляет k_lsk_id только в BD и происходит type Erasure)
-            lstItems = kartDao.findAllKlskId()
-                    .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+    public void prepareId() {
+        if (Utl.in(tp, 0,3)) {
+            // начисление, начисление для распределения объемов
+            KartDAO kartDao = SpringContext.getBean(KartDAO.class);
+            if (ko != null) {
+                // по помещению
+                isLockForLongLastingProcess = false;
+                setTpSel(1);
+                lstItems = new ArrayList<>(1);
+                lstItems.add(ko.getId());
+            } else if (uk != null) {
+                // по УК
+                isLockForLongLastingProcess = true;
+                setTpSel(4); // почему 0 как и по всему фонду???
+                lstItems = kartDao.findAllKlskIdByReuId(uk.getReu())
+                        .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+            } else if (house != null) {
+                // по дому
+                isLockForLongLastingProcess = false;
+                setTpSel(3);
+                //lstItems = kartMng.getKoByHouse(house).stream().map(Ko::getId).collect(Collectors.toList());
+                lstItems = kartDao.findAllKlskIdByHouseId(house.getId())
+                        .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+            } else if (vvod != null) {
+                // по вводу
+                isLockForLongLastingProcess = false;
+                setTpSel(2);
+                //lstItems = kartMng.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
+                lstItems = kartDao.findAllKlskIdByVvodId(vvod.getId())
+                        .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+            } else {
+                isLockForLongLastingProcess = true;
+                setTpSel(5);
+                // по всему фонду
+                // конвертировать из List<BD> в List<Long> (native JPA представляет k_lsk_id только в BD и происходит type Erasure)
+                lstItems = kartDao.findAllKlskId()
+                        .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+            }
+        } else if (tp == 2) {
+            // распределение вводов
+            VvodDAO vvodDAO = SpringContext.getBean(VvodDAO.class);
+            if (vvod != null) {
+                // распределить конкретный ввод
+                lstItems = new ArrayList<>(1);
+                lstItems.add(vvod.getId());
+            } else if (uk != null) {
+                // по УК
+                lstItems = vvodDAO.findVvodByUk(uk.getReu())
+                        .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+            } else if (house != null) {
+                // по дому
+                lstItems = vvodDAO.findVvodByHouse(house.getId())
+                        .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+            } else {
+                // все вводы
+                isLockForLongLastingProcess = true;
+                lstItems = vvodDAO.findVvodAll()
+                        .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+            }
         }
     }
 
@@ -210,7 +239,7 @@ public class RequestConfigDirect implements Cloneable {
     public static final class RequestConfigDirectBuilder {
         // Id запроса
         int rqn;
-        // тип выполнения 0-начисление, 1-задолженность и пеня, 2 - распределение объемов по вводу
+        // тип выполнения 0-начисление, 3-начисление для распределения по вводу, 1-задолженность и пеня, 2 - распределение объемов по вводу
         int tp = 0;
         // уровень отладки
         int debugLvl = 0;

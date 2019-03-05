@@ -150,7 +150,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                 reqConf2.setHouse(null);
                 reqConf2.setKo(null);
                 reqConf2.setVvod(vvod);
-                reqConf2.prepareKlskId();
+                reqConf2.setTp(3); // начисление для распределения по вводу
+                reqConf2.prepareId();
                 reqConf2.prepareChrgCountAmount();
 
                 // СБОР ИНФОРМАЦИИ, для расчета ОДН, подсчета итогов
@@ -464,16 +465,16 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                     for (Nabor nabor : kart.getNabor()) {
                                         if (nabor.getUsl().equals(usl)) {
                                             BigDecimal volDistKart;
-                                            if (iter.hasNext()) {
-                                                volDistKart = diff.multiply(t.area.divide(amnt.areaAmnt, 5,
+                                            //if (iter.hasNext()) {
+                                                volDistKart = diff.multiply(t.area.divide(amnt.areaAmnt, 20,
                                                         RoundingMode.HALF_UP))
                                                         .setScale(5, RoundingMode.HALF_UP);
-                                            } else {
+                                            /*} else { убрал - округление не даёт выйти на результаты Кис. ред. 05.03.19
                                                 // остаток объема, в т.ч. округление
                                                 volDistKart = diffDist;
                                                 log.trace("Объем, в т.ч. округление упало на lsk={}",
                                                         nabor.getKart().getLsk());
-                                            }
+                                            }*/
                                             if (usl.getFkCalcTp().equals(14)) {
                                                 nabor.setVol(volDistKart);
                                             } else {

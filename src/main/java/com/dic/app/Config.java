@@ -71,10 +71,14 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 	@Override
 	public Executor getAsyncExecutor() {
 		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(20);
-		executor.setMaxPoolSize(25);
-		executor.setQueueCapacity(50);
+		executor.setCorePoolSize(15);
+		executor.setMaxPoolSize(20);
+		executor.setQueueCapacity(100);
 		executor.setThreadNamePrefix("BillDirectExecutor-");
+
+		// обработчик, если места нет в пуле для потока - с просьбой подождать места
+		// https://stackoverflow.com/questions/49290054/taskrejectedexception-in-threadpooltaskexecutor
+		executor.setRejectedExecutionHandler(new RejectedExecutionHandlerImpl());
 		executor.initialize();
 		return executor;
 	}

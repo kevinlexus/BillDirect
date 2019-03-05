@@ -103,8 +103,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             if (reqConf.getTp() == 0 && reqConf.getUsl() != null) {
                 // начисление по выбранной услуге
                 lstSelUsl.add(reqConf.getUsl());
-            } else if (reqConf.getTp() == 2) {
-                // распределение по вводу, добавить услуги для ограничения формирования только по ним
+            } else if (reqConf.getTp() == 3) {
+                // начисление для распределения по вводу, добавить услуги для ограничения формирования только по ним
                 lstSelUsl.add(reqConf.getVvod().getUsl());
             }
 
@@ -144,7 +144,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             }
 
             // кроме распределения объемов (там нечего еще считать, нет экономии ОДН
-            if (reqConf.getTp() != 2) {
+            if (reqConf.getTp() != 3) {
                 // 2. распределить экономию ОДН по услуге, пропорционально объемам
                 log.trace("Распределение экономии ОДН");
                 distODNeconomy(chrgCountAmountLocal, ko, lstSelUsl);
@@ -163,14 +163,14 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             // 4. Округлить объемы
             chrgCountAmountLocal.roundVol();
 
-            if (reqConf.getTp() == 2) {
+            if (reqConf.getTp() == 3) {
                 // 5. Добавить в объемы по вводу
                 reqConf.getChrgCountAmount().append(chrgCountAmountLocal);
             }
 
             chrgCountAmountLocal.printVolAmnt(null, "После округления");
 
-            if (reqConf.getTp() != 2) {
+            if (reqConf.getTp() != 3) {
                 // 6. Сгруппировать строки начислений для записи в C_CHARGE
                 chrgCountAmountLocal.groupUslVolChrg();
 

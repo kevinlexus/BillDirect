@@ -3,9 +3,7 @@ import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.GenChrgProcessMng;
 import com.dic.app.mm.ProcessMng;
-import com.dic.bill.RequestConfig;
 import com.dic.bill.dao.KartDAO;
-import com.dic.bill.dto.CalcStore;
 import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.NaborMng;
 import com.dic.bill.mm.TestDataBuilder;
@@ -210,7 +208,7 @@ public class TestKart {
         // ВЫЗОВ распределения объемов
         for (Vvod vvod : house.getVvod()) {
             reqConf.setVvod(vvod);
-            processMng.distVolAll(reqConf);
+            //processMng.distVolAll(reqConf); // note отключил... доработать??
         }
         sw.stop();
 
@@ -218,7 +216,7 @@ public class TestKart {
         reqConf.setHouse(house);
         reqConf.setTp(0);
         reqConf.prepareChrgCountAmount();
-        reqConf.prepareKlskId();
+        reqConf.prepareId();
         sw.start("TIMING:Начисление");
         // вызов начисления
         processMng.genProcessAll(reqConf);

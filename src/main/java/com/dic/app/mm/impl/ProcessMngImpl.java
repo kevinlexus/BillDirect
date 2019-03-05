@@ -81,6 +81,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
      *
      * @param reqConf - параметры запроса
      */
+/*
     @Override
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public void distVolAll(RequestConfigDirect reqConf)
@@ -141,6 +142,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             }
         }
     }
+*/
 
     /**
      * Распределить объемы
@@ -198,9 +200,12 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                 // вызвать в той же транзакции, однопоточно, для Unit - тестов
                 selectInvokeProcess(reqConf);
             }
-        } catch (InterruptedException | ExecutionException | WrongParam | ErrorWhileChrg e) {
+/*
+        } catch (InterruptedException | ExecutionException | WrongParam | ErrorWhileChrg
+                | WrongGetMethod | ErrorWhileChrgPen | ErrorWhileDist e) {
             log.error(Utl.getStackTraceString(e));
             throw new ErrorWhileGen("ОШИБКА во время расчета!");
+*/
         } finally {
             //if (reqConf.tpSel == 0) {
             // снять маркер процесса
@@ -223,21 +228,15 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     @Async
     @Override
     @Transactional(
-            propagation = Propagation.REQUIRES_NEW, // новая транзакция, Не ставить Propagation.MANADATORY! - не даёт запустить поток!
-            isolation = Isolation.READ_COMMITTED, // читать только закомиченные данные, не ставить другое, не даст запустить поток!
-            rollbackFor = Exception.class) //
-    public Future<CommonResult> genProcess(RequestConfigDirect reqConf) throws WrongParam, ErrorWhileChrg {
+            propagation = Propagation.REQUIRES_NEW,
+            isolation = Isolation.READ_COMMITTED,
+            rollbackFor = Exception.class)
+    public Future<CommonResult> genProcess(RequestConfigDirect reqConf) throws ErrorWhileGen {
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО потока {}", reqConf.getTpName());
+
         selectInvokeProcess(reqConf);
-        /*} catch (WrongParam | ErrorWhileChrg e) {
-            log.error(Utl.getStackTraceString(e));
-            throw new ErrorWhileChrg("ОШИБКА во время расчета!");
-        } finally {
-            // разблокировать лицевой счет
-            config.getLock().unlockLsk(reqConf.getRqn(), klskId);
-            log.info("******* klskId={} разблокирован после расчета", klskId);
-        }*/
+
         CommonResult res = new CommonResult(-111111, 0);
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
@@ -251,11 +250,11 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
      *
      * @param reqConf - конфиг запроса
      */
-    private void selectInvokeProcess(RequestConfigDirect reqConf) throws WrongParam, ErrorWhileChrg {
+    private void selectInvokeProcess(RequestConfigDirect reqConf) throws ErrorWhileGen {
         switch (reqConf.getTp()) {
             case 0:
-            case 2: {
-                // Начисление и расчет объемов
+            case 2:
+            case 3: {
                 // перебрать все помещения для расчета
                 // заблокировать, если нужно для долго длящегося процесса
                 if (reqConf.isLockForLongLastingProcess()) {
@@ -263,18 +262,27 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                 }
                 try {
                     while (true) {
-                        Long klskId = reqConf.getNextItem();
-                        if (klskId != null) {
+                        Long id = reqConf.getNextItem();
+                        if (id != null) {
                             if (reqConf.isLockForLongLastingProcess() && config.getLock().isStopped(stopMark)) {
                                 log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
                                 break;
                             }
-                            genChrgProcessMng.genChrg(reqConf, klskId);
+                            if (Utl.in(reqConf.getTp(),0,3)) {
+                                // Начисление и начисление для распределения объемов
+                                genChrgProcessMng.genChrg(reqConf, id);
+                            } else if (reqConf.getTp() == 2) {
+                                // Распределение объемов
+                                distVolMng.distVolByVvodTrans(reqConf, id);
+                            }
                         } else {
-                            // перебраны все klskId, выход
+                            // перебраны все id, выход
                             break;
                         }
                     }
+                } catch (Exception e) {
+                    log.error(Utl.getStackTraceString(e));
+                    throw new ErrorWhileGen("ОШИБКА! Произошла ошибка в потоке "+reqConf.getTpName());
                 } finally {
                     // разблокировать долго длящийся процесс
                     if (reqConf.isLockForLongLastingProcess()) {
@@ -289,7 +297,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                 break;
             }
             default:
-                throw new WrongParam("Некорректный параметр reqConf.tp=" + reqConf.getTp());
+                throw new ErrorWhileGen("Некорректный параметр reqConf.tp=" + reqConf.getTp());
         }
     }
 
