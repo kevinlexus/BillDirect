@@ -275,11 +275,13 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                         if (Utl.in(usl.getFkCalcTp(), 3, 17, 4, 18, 31, 38, 40)) {
                             if (Utl.in(distTp, 1, 3)) {
                                 BigDecimal volAmntWithODN = (amnt.volAmnt.add(limitODN.amntVolODN)).setScale(3, BigDecimal.ROUND_HALF_UP);
-                                log.info("*** органичение ОДН по вводу ={}", limitODN.amntVolODN);
-                                if (kub.compareTo(volAmntWithODN) > 0) {
-                                    // установить предельно допустимый объем по дому
-                                    kub = volAmntWithODN;
-                                    log.info("*** установлен новый объем для распределения по вводу ={}", volAmntWithODN);
+                                if (!isWithoutLimit) {
+                                    log.info("*** органичение ОДН по вводу ={}", limitODN.amntVolODN);
+                                    if (kub.compareTo(volAmntWithODN) > 0) {
+                                        // установить предельно допустимый объем по дому
+                                        kub = volAmntWithODN;
+                                        log.info("*** установлен новый объем для распределения по вводу ={}", volAmntWithODN);
+                                    }
                                 }
 
                                 BigDecimal diff = kub.subtract(amnt.volAmnt);
