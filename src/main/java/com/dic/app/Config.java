@@ -60,6 +60,7 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 		SimpleCacheManager cacheManager = new SimpleCacheManager();
 		cacheManager.setCaches(Arrays.asList(
 				new ConcurrentMapCache("NaborMng.getCached"),
+				new ConcurrentMapCache("KartMng.getKartMain"),
 				new ConcurrentMapCache("PriceMng.multiplyPrice"),
 				new ConcurrentMapCache("ReferenceMng.getUslOrgRedirect")));
 		return cacheManager;

@@ -85,11 +85,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
             // создать локальное хранилище объемов
             ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
-            // получить основной лиц счет по связи klsk помещения
-            Kart kartMainByKlsk = kartMng.getKartMain(ko);
-            log.info("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - начало    ******",
-                    reqConf.getTpName(), ko.getId(), kartMainByKlsk != null ? kartMainByKlsk.getHouse().getId() : -11111111,
-                    kartMainByKlsk != null ? kartMainByKlsk.getLsk() : -11111111);
+            log.info("****** {} помещения klskId={}, основной лиц.счет lsk={} - начало    ******",
+                    reqConf.getTpName(), ko.getId());
             // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
             int parVarCntKpr =
                     Utl.nvl(sprParamMng.getN1("VAR_CNT_KPR"), 0D).intValue();
@@ -139,7 +136,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             log.trace("Расчет объемов услуг, до учёта экономии ОДН");
             for (c.setTime(calcStore.getCurDt1()); !c.getTime()
                     .after(calcStore.getCurDt2()); c.add(Calendar.DATE, 1)) {
-                genVolPart(chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
+                genVolPart(chrgCountAmountLocal, reqConf, parVarCntKpr,
                         parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part, lstNabor);
             }
 
@@ -155,7 +152,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 log.trace("Расчет объемов услуг, после учёта экономии ОДН");
                 for (c.setTime(calcStore.getCurDt1()); !c.getTime()
                         .after(calcStore.getCurDt2()); c.add(Calendar.DATE, 1)) {
-                    genVolPart(chrgCountAmountLocal, reqConf, kartMainByKlsk, parVarCntKpr,
+                    genVolPart(chrgCountAmountLocal, reqConf, parVarCntKpr,
                             parCapCalcKprTp, ko, lstMeterVol, lstSelUsl, lstDayMeterVol, c.getTime(), part, lstNabor);
                 }
             }
@@ -178,9 +175,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 chrgCountAmountLocal.saveChargeAndRound(ko, lstSelUsl);
             }
 
-            log.info("****** {} помещения klskId={}, houseId={}, основной лиц.счет lsk={} - окончание   ******",
-                    reqConf.getTpName(), ko.getId(), kartMainByKlsk != null ? kartMainByKlsk.getHouse().getId() : -11111111,
-                    kartMainByKlsk != null ? kartMainByKlsk.getLsk() : -11111111);
+            log.info("****** {} помещения klskId={}, основной лиц.счет lsk={} - окончание   ******",
+                    reqConf.getTpName(), ko.getId());
 
 /*
         log.info("ИТОГО:");
@@ -223,7 +219,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      *
      * @param chrgCountAmountLocal - локальное хранилище объемов, по помещению
      * @param reqConf              - запрос
-     * @param kartMainByKlsk       - основной лиц.счет
      * @param parVarCntKpr         - параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
      * @param parCapCalcKprTp      - параметр учета проживающих для капремонта
      * @param ko                   - объект Ko помещения
@@ -237,7 +232,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * @throws WrongParam     - ошибочный параметр
      */
     private void genVolPart(ChrgCountAmountLocal chrgCountAmountLocal,
-                            RequestConfigDirect reqConf, Kart kartMainByKlsk, int parVarCntKpr,
+                            RequestConfigDirect reqConf, int parVarCntKpr,
                             int parCapCalcKprTp, Ko ko, List<SumMeterVol> lstMeterVol, List<Usl> lstSelUsl,
                             List<UslMeterDateVol> lstDayMeterVol, Date curDt, int part, List<Nabor> lstNabor) throws ErrorWhileChrg, WrongParam {
 
@@ -252,6 +247,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         Map<Usl, UslPriceVolKart> mapUslPriceVol = new HashMap<>(30);
 
         for (Nabor nabor : lstNabor) {
+            // получить основной лиц счет по связи klsk помещения
+            Kart kartMainByKlsk = kartMng.getKartMain(nabor.getKart());
             if (nabor.getUsl().isMain() && (lstSelUsl.size() == 0 || lstSelUsl.contains(nabor.getUsl()))
                     && (part == 1 && !Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19) ||
                     part == 2 && Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19)) // фильтр очередности расчета
