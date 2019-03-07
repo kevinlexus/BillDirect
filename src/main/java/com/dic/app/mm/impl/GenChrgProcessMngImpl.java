@@ -237,8 +237,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             List<UslMeterDateVol> lstDayMeterVol, Date curDt, int part, List<Nabor> lstNabor) throws ErrorWhileChrg, WrongParam {
 
         CalcStore calcStore = reqConf.getCalcStore();
-        boolean isExistsMeterColdWater = false;
-        boolean isExistsMeterHotWater = false;
+        //boolean isExistsMeterColdWater = false;
+        //boolean isExistsMeterHotWater = false;
         //BigDecimal volColdWater = BigDecimal.ZERO;
         //BigDecimal volHotWater = BigDecimal.ZERO;
 
@@ -298,8 +298,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 // получить цены по услуге по лицевому счету из набора услуг!
                 final DetailUslPrice detailUslPrice = naborMng.getDetailUslPrice(kartMain, nabor);
 
-                CountPers countPers;
-                countPers = getCountPersAmount(reqConf, parVarCntKpr, parCapCalcKprTp, curDt, nabor, kartMain);
+                CountPers countPers = getCountPersAmount(reqConf, parVarCntKpr, parCapCalcKprTp, curDt, nabor, kartMain);
 
                 SocStandart socStandart = null;
                 // получить наличие счетчика
@@ -331,16 +330,22 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // получить объем по нормативу в доле на 1 день
                     // узнать, работал ли хоть один счетчик в данном дне
                     //log.info("factUslVol.getId()={}", factUslVol.getId());
+/*
+                    for (SumMeterVol t : lstMeterVol) {
+                        log.info("$$$$$$ t.getVol()={}, t.getDtFrom()={}, t.getDtTo()={}, t.getUslId()={}, t.getMeterId()={}" +
+                                "", t.getVol(), t.getDtFrom(), t.getDtTo(), t.getUslId(), t.getMeterId());
+                    }
+*/
                     isMeterExist = meterMng.isExistAnyMeter(lstMeterVol, factUslVol.getId(), curDt);
                     // получить соцнорму
                     socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
                     if (isMeterExist) {
                         // для водоотведения
-                        if (fkCalcTp.equals(17)) {
+                       /* if (fkCalcTp.equals(17)) {
                             isExistsMeterColdWater = true;
                         } else if (fkCalcTp.equals(18)) {
                             isExistsMeterHotWater = true;
-                        }
+                        }*/
                         // получить объем по счетчику в пропорции на 1 день его работы
                         UslMeterDateVol partVolMeter = lstDayMeterVol.stream()
                                 .filter(t -> t.usl.equals(nabor.getUsl().getMeterUslVol()) && t.dt.equals(curDt))
@@ -372,15 +377,32 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // получить соцнорму
                     socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
 
+/*
                     if (isExistsMeterColdWater || isExistsMeterHotWater) {
                         isMeterExist = true;
                     }
+*/
+
+                    List<UslPriceVolKart> lstColdHotWater =
+                            chrgCountAmountLocal.getLstUslPriceVolKartDetailed().stream()
+                            .filter(t -> t.dt.equals(curDt)
+                                    && t.kart.getKoKw().equals(nabor.getKart().getKoKw())
+                                    && Utl.in(t.usl.getFkCalcTp(), 17, 18)).collect(Collectors.toList());
+                    // сложить предварительно рассчитанные объемы х.в.+г.в., найти признаки наличия счетчиков
+                    for (UslPriceVolKart uslPriceVolKart : lstColdHotWater) {
+                        dayVol = dayVol.add(uslPriceVolKart.vol);
+                        if (uslPriceVolKart.isMeter) {
+                            // если любой счетчик имеется, то показать его
+                            isMeterExist = true;
+                        }
+                    }
+
                     // сложить предварительно рассчитанные объемы х.в.+г.в.
-                    dayVol = chrgCountAmountLocal.getLstUslPriceVolKartDetailed().stream()
+                    /*dayVol = chrgCountAmountLocal.getLstUslPriceVolKartDetailed().stream()
                             .filter(t -> t.dt.equals(curDt)
                                     && t.kart.getKoKw().equals(nabor.getKart().getKoKw())
                                     && Utl.in(t.usl.getFkCalcTp(), 17, 18))
-                            .map(t -> t.vol).reduce(BigDecimal.ZERO, BigDecimal::add);
+                            .map(t -> t.vol).reduce(BigDecimal.ZERO, BigDecimal::add);*/
 /*
                     tempVol = volColdWater.add(volHotWater);
 */
@@ -501,7 +523,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         .withVolOverSoc(dayVolOverSoc)
                         .withArea(kartArea)
                         .withAreaOverSoc(areaOverSoc)
-                        .withKpr(countPers.kpr).withKprOt(countPers.kprOt).withKprWr(countPers.kprWr)
+                        .withKpr(countPers.kpr)
+                        .withKprOt(countPers.kprOt)
+                        .withKprWr(countPers.kprWr)
+                        .withKprMax(countPers.kprMax)
                         .withPartDayMonth(calcStore.getPartDayMonth())
                         .build();
 
