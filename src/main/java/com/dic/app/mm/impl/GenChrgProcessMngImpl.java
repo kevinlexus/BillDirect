@@ -303,9 +303,17 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 SocStandart socStandart = null;
                 // получить наличие счетчика
                 boolean isMeterExist = false;
+                // наличие счетчика х.в.
+                boolean isColdMeterExist = false;
+                // наличие счетчика г.в.
+                boolean isHotMeterExist = false;
                 BigDecimal tempVol = BigDecimal.ZERO;
                 // объемы
                 BigDecimal dayVol = BigDecimal.ZERO;
+                // объем по х.в. для водоотведения
+                BigDecimal dayColdWaterVol = BigDecimal.ZERO;
+                // объем по г.в. для водоотведения
+                BigDecimal dayHotWaterVol = BigDecimal.ZERO;
                 BigDecimal dayVolOverSoc = BigDecimal.ZERO;
 
                 // площади (взять с текущего лиц.счета)
@@ -385,29 +393,21 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
                     List<UslPriceVolKart> lstColdHotWater =
                             chrgCountAmountLocal.getLstUslPriceVolKartDetailed().stream()
-                            .filter(t -> t.dt.equals(curDt)
-                                    && t.kart.getKoKw().equals(nabor.getKart().getKoKw())
-                                    && Utl.in(t.usl.getFkCalcTp(), 17, 18)).collect(Collectors.toList());
+                                    .filter(t -> t.dt.equals(curDt)
+                                            && t.kart.getKoKw().equals(nabor.getKart().getKoKw())
+                                            && Utl.in(t.usl.getFkCalcTp(), 17, 18)).collect(Collectors.toList());
                     // сложить предварительно рассчитанные объемы х.в.+г.в., найти признаки наличия счетчиков
-                    for (UslPriceVolKart uslPriceVolKart : lstColdHotWater) {
-                        dayVol = dayVol.add(uslPriceVolKart.vol);
-                        if (uslPriceVolKart.isMeter) {
-                            // если любой счетчик имеется, то показать его
-                            isMeterExist = true;
+                    for (UslPriceVolKart t : lstColdHotWater) {
+                        if (t.usl.getFkCalcTp().equals(17)) {
+                            // х.в.
+                            dayColdWaterVol = dayVol.add(t.vol);
+                            isColdMeterExist = t.isMeter;
+                        } else {
+                            // г.в.
+                            dayHotWaterVol = dayHotWaterVol.add(t.vol);
+                            isHotMeterExist = t.isMeter;
                         }
                     }
-
-                    // сложить предварительно рассчитанные объемы х.в.+г.в.
-                    /*dayVol = chrgCountAmountLocal.getLstUslPriceVolKartDetailed().stream()
-                            .filter(t -> t.dt.equals(curDt)
-                                    && t.kart.getKoKw().equals(nabor.getKart().getKoKw())
-                                    && Utl.in(t.usl.getFkCalcTp(), 17, 18))
-                            .map(t -> t.vol).reduce(BigDecimal.ZERO, BigDecimal::add);*/
-/*
-                    tempVol = volColdWater.add(volHotWater);
-*/
-                    // помещение с проживающими
-                    //dayVol = tempVol;
                 } else if (Utl.in(fkCalcTp, 14)) {
                     // Отопление гкал. без уровня соцнормы/свыше
                     if (Utl.nvl(kartMain.getPot(), BigDecimal.ZERO).compareTo(BigDecimal.ZERO) != 0) {
@@ -504,31 +504,37 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 */
                 }
 
-                // сгруппировать, если есть объемы
-                UslPriceVolKart uslPriceVolKart = UslPriceVolKart.UslPriceVolBuilder.anUslPriceVol()
-                        .withDt(curDt)
-                        .withKart(nabor.getKart()) // группировать по лиц.счету из nabor!
-                        .withUsl(nabor.getUsl())
-                        .withUslOverSoc(detailUslPrice.uslOverSoc)
-                        .withUslEmpt(detailUslPrice.uslEmpt)
-                        .withOrg(nabor.getOrg())
-                        .withIsCounter(isLinkedExistMeter != null ? isLinkedExistMeter : isMeterExist)
-                        .withIsEmpty(isLinkedEmpty != null ? isLinkedEmpty : countPers.isEmpty)
-                        .withIsResidental(kartMain.isResidental())
-                        .withSocStdt(socStandart != null ? socStandart.norm : BigDecimal.ZERO)
-                        .withPrice(detailUslPrice.price)
-                        .withPriceOverSoc(detailUslPrice.priceOverSoc)
-                        .withPriceEmpty(detailUslPrice.priceEmpt)
-                        .withVol(dayVol)
-                        .withVolOverSoc(dayVolOverSoc)
-                        .withArea(kartArea)
-                        .withAreaOverSoc(areaOverSoc)
-                        .withKpr(countPers.kpr)
-                        .withKprOt(countPers.kprOt)
-                        .withKprWr(countPers.kprWr)
-                        .withKprMax(countPers.kprMax)
-                        .withPartDayMonth(calcStore.getPartDayMonth())
-                        .build();
+                UslPriceVolKart uslPriceVolKart = null;
+                if (nabor.getUsl().getFkCalcTp().equals(19)) {
+                    // водоотведение, добавить составляющие по х.в. и г.в.
+                    if (dayColdWaterVol.compareTo(BigDecimal.ZERO) != 0) {
+                        uslPriceVolKart = buildVol(curDt, calcStore, nabor, null, null,
+                                kartMain, detailUslPrice, countPers, socStandart, isColdMeterExist,
+                                dayColdWaterVol, dayVolOverSoc, kartArea, areaOverSoc);
+                        // сгруппировать по лиц.счету, услуге, для распределения по вводу
+                        chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
+                    }
+                    if (dayHotWaterVol.compareTo(BigDecimal.ZERO) != 0) {
+                        uslPriceVolKart = buildVol(curDt, calcStore, nabor, null, null,
+                                kartMain, detailUslPrice, countPers, socStandart, isHotMeterExist,
+                                dayHotWaterVol, dayVolOverSoc, kartArea, areaOverSoc);
+                        // сгруппировать по лиц.счету, услуге, для распределения по вводу
+                        chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
+                    }
+                } else {
+                    // прочие услуги
+                    uslPriceVolKart = buildVol(curDt, calcStore, nabor, isLinkedEmpty, isLinkedExistMeter,
+                            kartMain, detailUslPrice, countPers, socStandart, isMeterExist,
+                            dayVol, dayVolOverSoc, kartArea, areaOverSoc);
+                    if (Utl.in(nabor.getUsl().getFkCalcTp(), 17, 18)) {
+                        // по х.в., г.в.
+                        // сохранить расчитанный объем по расчетному дню, (используется для услуги Повыш коэфф.)
+                        mapUslPriceVol.put(nabor.getUsl(), uslPriceVolKart);
+                    }
+                    // сгруппировать по лиц.счету, услуге, для распределения по вводу
+                    chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
+                }
+
 
                 //                        log.info("******* RESID={}", uslPriceVolKart.isResidental);
 
@@ -554,11 +560,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                                 uslPriceVolKart.kprWr.setScale(4, BigDecimal.ROUND_HALF_UP));
                     }
 */
-                // сохранить рассчитанный объем по расчетному дню, (используется для услуги Повыш коэфф.)
-                mapUslPriceVol.put(nabor.getUsl(), uslPriceVolKart);
-
-                // сгруппировать по лиц.счету, услуге, для распределения по вводу
-                chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
 
 /*
                 if (lstSelUsl.size() == 0 && nabor.getUsl().getId().equals("015") || nabor.getUsl().getId().equals("099")) {
@@ -580,6 +581,53 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             }
         }
 
+    }
+
+    /**
+     * Построить объем для начисления
+     * @param curDt - дата расчета
+     * @param calcStore - хранилище объемов
+     * @param nabor - строка набора
+     * @param isLinkedEmpty -
+     * @param isLinkedExistMeter -
+     * @param kartMain - лиц.счет
+     * @param detailUslPrice - инф. о расценке
+     * @param countPers - инф. о кол.прожив.
+     * @param socStandart - соцнорма
+     * @param isMeterExist - наличие счетчика
+     * @param dayVol - объем
+     * @param dayVolOverSoc - объем свыше соц.нормы
+     * @param kartArea - площадь
+     * @param areaOverSoc - площадь свыше соц.нормы
+     */
+    private UslPriceVolKart buildVol(Date curDt, CalcStore calcStore, Nabor nabor, Boolean isLinkedEmpty,
+                                     Boolean isLinkedExistMeter, Kart kartMain, DetailUslPrice detailUslPrice,
+                                     CountPers countPers, SocStandart socStandart, boolean isMeterExist,
+                                     BigDecimal dayVol, BigDecimal dayVolOverSoc, BigDecimal kartArea, BigDecimal areaOverSoc) {
+        return UslPriceVolKart.UslPriceVolBuilder.anUslPriceVol()
+                .withDt(curDt)
+                .withKart(nabor.getKart()) // группировать по лиц.счету из nabor!
+                .withUsl(nabor.getUsl())
+                .withUslOverSoc(detailUslPrice.uslOverSoc)
+                .withUslEmpt(detailUslPrice.uslEmpt)
+                .withOrg(nabor.getOrg())
+                .withIsMeter(isLinkedExistMeter != null ? isLinkedExistMeter : isMeterExist)
+                .withIsEmpty(isLinkedEmpty != null ? isLinkedEmpty : countPers.isEmpty)
+                .withIsResidental(kartMain.isResidental())
+                .withSocStdt(socStandart != null ? socStandart.norm : BigDecimal.ZERO)
+                .withPrice(detailUslPrice.price)
+                .withPriceOverSoc(detailUslPrice.priceOverSoc)
+                .withPriceEmpty(detailUslPrice.priceEmpt)
+                .withVol(dayVol)
+                .withVolOverSoc(dayVolOverSoc)
+                .withArea(kartArea)
+                .withAreaOverSoc(areaOverSoc)
+                .withKpr(countPers.kpr)
+                .withKprOt(countPers.kprOt)
+                .withKprWr(countPers.kprWr)
+                .withKprMax(countPers.kprMax)
+                .withPartDayMonth(calcStore.getPartDayMonth())
+                .build();
     }
 
     /**
