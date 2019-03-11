@@ -718,7 +718,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         for (ChargePrep t : lstChargePrep) {
             // РАСПРЕДЕЛИТЬ весь объем экономии по элементам объема в лиц.счете (когда были проживающие)
             List<UslVolKart> lstUslVolKart = chrgCountAmountLocal.getLstUslVolKart().stream()
-                    .filter(d -> d.kart.equals(t.getKart()) && d.kpr.compareTo(BigDecimal.ZERO) != 0 && d.usl.equals(t.getUsl()))
+                    .filter(d -> d.kart.equals(t.getKart()) && d.kprNorm.compareTo(BigDecimal.ZERO) != 0 && d.usl.equals(t.getUsl()))
                     .collect(Collectors.toList());
 
             // распределить объем экономии по списку объемов лиц.счета
@@ -726,7 +726,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
             // РАСПРЕДЕЛИТЬ весь объем экономии по элементам объема во вводе (когда были проживающие)
             List<UslVolVvod> lstUslVolVvod = chrgCountAmountLocal.getLstUslVolVvod().stream()
-                    .filter(d -> d.kpr.compareTo(BigDecimal.ZERO) != 0 && d.usl.equals(t.getUsl()))
+                    .filter(d -> d.kprNorm.compareTo(BigDecimal.ZERO) != 0 && d.usl.equals(t.getUsl()))
                     .collect(Collectors.toList());
 
             // распределить объем экономии по списку объемов ввода
@@ -736,7 +736,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             // в т.ч. для услуги calcTp=47 (Тепл.энергия для нагрева ХВС (Кис.)) (когда были проживающие)
             // в т.ч. по услугам х.в. и г.в. (для водоотведения)
             List<UslPriceVolKart> lstUslPriceVolKart = chrgCountAmountLocal.getLstUslPriceVolKartDetailed().stream()
-                    .filter(d -> d.kart.equals(t.getKart()) && d.kpr.compareTo(BigDecimal.ZERO) != 0 && d.usl.equals(t.getUsl()))
+                    .filter(d -> d.kart.equals(t.getKart()) && d.kprNorm.compareTo(BigDecimal.ZERO) != 0 && d.usl.equals(t.getUsl()))
                     .collect(Collectors.toList());
 
             // распределить объем экономии по списку объемов лиц.счета, по датам
