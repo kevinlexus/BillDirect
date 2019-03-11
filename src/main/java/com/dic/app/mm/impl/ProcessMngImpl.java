@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import javax.persistence.PersistenceContextType;
 import java.math.BigDecimal;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -170,7 +171,8 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
      */
     @Override
     @CacheEvict(value = {"ReferenceMng.getUslOrgRedirect"}, allEntries = true)
-    @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
+    @Transactional(propagation = Propagation.REQUIRED,
+            rollbackFor = Exception.class)
     public void genProcessAll(RequestConfigDirect reqConf) throws ErrorWhileGen {
 
         long startTime = System.currentTimeMillis();
@@ -227,10 +229,8 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
      */
     @Async
     @Override
-    @Transactional(
-            propagation = Propagation.REQUIRES_NEW,
-            isolation = Isolation.READ_COMMITTED,
-            rollbackFor = Exception.class)
+    @Transactional/*(propagation = Propagation.REQUIRES_NEW,
+            rollbackFor = Exception.class)*/
     public Future<CommonResult> genProcess(RequestConfigDirect reqConf) throws ErrorWhileGen {
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО потока {}", reqConf.getTpName());

@@ -31,10 +31,12 @@ import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 @Configuration
 @ComponentScan({"com.dic.bill", "com.dic.app"}) // это нужно чтобы работали Unit-тесты! (по сути можно закомментить)
 @EnableJpaRepositories(basePackages="com.dic.bill.dao")
+@EnableTransactionManagement
 @EnableCaching
 @EnableAsync
 @EntityScan(basePackages = {"com.dic.bill"})

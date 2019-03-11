@@ -76,7 +76,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
      * @param vvodId  - Id ввода
      */
     @Transactional(
-            propagation = Propagation.MANDATORY, // та же транзакция
+            propagation = Propagation.REQUIRED,
             rollbackFor = Exception.class)
     @Override
     public void distVolByVvodSameTrans(RequestConfigDirect reqConf, Long vvodId)

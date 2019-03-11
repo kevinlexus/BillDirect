@@ -12,7 +12,10 @@ import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.concurrent.ConcurrentMapCache;
 import org.springframework.context.ApplicationContext;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StopWatch;
 import org.springframework.web.bind.annotation.*;
 
@@ -349,7 +352,9 @@ public class WebController implements CommonConstants {
      */
     @RequestMapping("/evictCacheNaborKartPrice")
     @ResponseBody
-    @CacheEvict(value = {"NaborMng.getDetailUslPrice"}, allEntries = true)
+    @CacheEvict(value = {//"KartMng.getKartMain", временно отключил
+            "PriceMng.multiplyPrice",
+            "ReferenceMng.getUslOrgRedirect"}, allEntries = true)
     public String evictCacheNaborKartPrice() {
         log.info("Кэш 'NaborMng.getDetailUslPrice' очищен!");
         return "OK";

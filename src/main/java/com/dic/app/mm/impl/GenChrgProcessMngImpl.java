@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import javax.persistence.PersistenceContextType;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -80,12 +81,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             //log.info("******* klskId={} заблокирован для расчета", klskId);
 
             CalcStore calcStore = reqConf.getCalcStore();
-            //Ko ko = em.find(Ko.class, klskId); //note Разобраться что оставить!
-            Ko ko = em.getReference(Ko.class, klskId);
+            Ko ko = em.find(Ko.class, klskId); //note Разобраться что оставить!
+            //Ko ko = em.getReference(Ko.class, klskId);
 
             // создать локальное хранилище объемов
             ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
-            log.info("****** {} помещения klskId={}, основной лиц.счет lsk={} - начало    ******",
+            log.trace("****** {} помещения klskId={}, основной лиц.счет lsk={} - начало    ******",
                     reqConf.getTpName(), ko.getId());
             // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
             int parVarCntKpr =
@@ -116,10 +117,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             // получить объемы по счетчикам в пропорции на 1 день их работы
             List<UslMeterDateVol> lstDayMeterVol = meterMng.getPartDayMeterVol(lstMeterVol,
                     calcStore);
-
-            for (UslMeterDateVol t : lstDayMeterVol) {
-                log.trace("t.usl={}, t.dt={}, t.vol={}", t.usl.getId(), t.dt, t.vol);
-            }
 
             Calendar c = Calendar.getInstance();
 
@@ -175,7 +172,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 chrgCountAmountLocal.saveChargeAndRound(ko, lstSelUsl);
             }
 
-            log.info("****** {} помещения klskId={}, основной лиц.счет lsk={} - окончание   ******",
+            log.trace("****** {} помещения klskId={}, основной лиц.счет lsk={} - окончание   ******",
                     reqConf.getTpName(), ko.getId());
 
 /*
@@ -298,6 +295,16 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 // получить цены по услуге по лицевому счету из набора услуг!
                 final DetailUslPrice detailUslPrice = naborMng.getDetailUslPrice(kartMain, nabor);
 
+/*
+                for (Kart kart : ko.getKart()) {
+                    for (KartPr kartPr : kart.getKartPr()) {
+                        kartPr.getStatePr().size();
+                        for (StatePr statePr : kartPr.getStatePr()) {
+                            log.info(statePr.getStatusPr().getTp().getCd());
+                        }
+                    }
+                }
+*/
                 CountPers countPers = getCountPersAmount(reqConf, parVarCntKpr, parCapCalcKprTp, curDt, nabor, kartMain);
 
                 SocStandart socStandart = null;
@@ -446,6 +453,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 } else if (Utl.in(fkCalcTp, 20, 21, 23)) {
                     // Х.В., Г.В., Эл.Эн. содерж.общ.им.МКД, Эл.эн.гараж
                     //area = kartArea;
+                    isMeterExist = true; // так принято в старом начислении
                     dayVol = naborVolAdd.multiply(calcStore.getPartDayMonth());
                 } else if (Utl.in(fkCalcTp, 34, 44)) {
                     // Повыш.коэфф
@@ -625,7 +633,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 .withKpr(countPers.kpr)
                 .withKprOt(countPers.kprOt)
                 .withKprWr(countPers.kprWr)
-                .withKprMax(countPers.kprMax)
+                .withKprNorm(countPers.kprNorm)
                 .withPartDayMonth(calcStore.getPartDayMonth())
                 .build();
     }
