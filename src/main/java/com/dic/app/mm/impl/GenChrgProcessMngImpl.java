@@ -245,7 +245,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         for (Nabor nabor : lstNabor) {
             // получить основной лиц счет по связи klsk помещения
             Kart kartMainByKlsk = em.getReference(Kart.class, kartMng.getKartMainLsk(nabor.getKart()));
-            log.info("Основной лиц.счет lsk={}", kartMainByKlsk.getLsk());
+            log.trace("Основной лиц.счет lsk={}", kartMainByKlsk.getLsk());
             if (nabor.getUsl().isMain() && (lstSelUsl.size() == 0 || lstSelUsl.contains(nabor.getUsl()))
                     && (part == 1 && !Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19) ||
                     part == 2 && Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19)) // фильтр очередности расчета
@@ -334,6 +334,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         || fkCalcTp.equals(36)// Вывоз жидких нечистот и т.п. услуги
                         || fkCalcTp.equals(37) && !countPers.isSingleOwnerOlder70// Капремонт и если не одинокие пенсионеры старше 70, кроме муницип.помещений
                         && !nabor.getKart().getStatus().getId().equals(1)
+                        || fkCalcTp.equals(50) && naborMng.getVvodDistTp(lstNabor, nabor.getUsl().getParentUsl()).equals(4) // если нет счетчика ОДПУ
                         ) {
                     if (Utl.in(fkCalcTp, 25)) {
                         // Текущее содержание - получить соц.норму
