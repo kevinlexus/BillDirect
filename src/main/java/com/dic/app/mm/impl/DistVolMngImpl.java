@@ -279,9 +279,10 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
 
                 log.info("*** Ввод vvodId={}, услуга usl={}, площадь={}, кол-во лиц сч.={}, кол-во лиц норм.={}, кол-во прож.={}, " +
                                 "объем={}, объем сч={}, объем норм.={}" +
-                                " объем за искл.аренд.={},  введено={}",
+                                " объем за искл.аренд.={},  введено={}, вкл.счетчики={}",
                         vvod.getId(), vvod.getUsl().getId(), amnt.areaAmnt, amnt.cntSchAmnt, amnt.cntNormAmnt,
-                        amnt.kprAmnt, amnt.volAmnt, amnt.volSchAmnt, amnt.volNormAmnt, amnt.volAmntResident, kub);
+                        amnt.kprAmnt, amnt.volAmnt, amnt.volSchAmnt, amnt.volNormAmnt, amnt.volAmntResident, kub,
+                        isUseSch);
 
                 // ОГРАНИЧЕНИЕ распределения по законодательству
                 final LimitODN limitODN = calcLimit(vvod.getHouse().getKo(), tp, amnt.kprAmnt, amnt.areaAmnt);
@@ -336,7 +337,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                             BigDecimal limitTmp = null;
                                             if (Utl.in(tp, 0)) {
                                                 // х.в. г.в.
-                                                limitTmp = limitODN.limitArea.multiply(uslVolKartGrp.area);
+                                                limitTmp = limitODN.limitByArea.multiply(uslVolKartGrp.area);
                                             } else if (tp == 2) {
                                                 // эл.эн.
                                                 limitTmp = limitODN.amntVolODN // взято из P_VVOD строка 591
@@ -393,7 +394,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                                 BigDecimal limitTmp = null;
                                                 if (Utl.in(tp, 0)) {
                                                     // х.в. г.в.
-                                                    limitTmp = limitODN.limitArea.multiply(uslVolKartGrp.area);
+                                                    limitTmp = limitODN.limitByArea.multiply(uslVolKartGrp.area);
                                                 } else if (tp == 2) {
                                                     // эл.эн.
                                                     limitTmp = limitODN.amntVolODN // взято из P_VVOD строка 591
@@ -531,7 +532,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                             BigDecimal limitTmp = null;
                             if (Utl.in(tp, 0)) {
                                 // х.в., г.в.
-                                limitTmp = limitODN.limitArea.multiply(uslVolKartGrp.area);
+                                limitTmp = limitODN.limitByArea.multiply(uslVolKartGrp.area);
                             } else if (tp == 2) {
                                 // эл.эн.
                                 limitTmp = limitODN.amntVolODN // взято из P_VVOD строка 591
@@ -547,7 +548,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                             BigDecimal volDistTmp = BigDecimal.ZERO;
                             if (tp == 0) {
                                 // х.в., г.в.
-                                volDistTmp = uslVolKartGrp.area.multiply(limitODN.limitArea)
+                                volDistTmp = uslVolKartGrp.area.multiply(limitODN.limitByArea)
                                         .setScale(5, BigDecimal.ROUND_HALF_UP);
                             } else if (tp == 2) {
                                 // эл.эн.
@@ -719,7 +720,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             isCountVol = !uslVolKartGrp.kart.isResidental() || uslVolKartGrp.isExistPersCurrPeriod;
         } else if (!distTp.equals(3) && !isUseSch) {
             // тип распр.<>3 контролировать и нет наличия счетчиков в текущем периоде
-            isCountVol = uslVolKartGrp.isExistMeterCurrPeriod;
+            isCountVol = !uslVolKartGrp.isExistMeterCurrPeriod;
         }
         return isCountVol;
     }
@@ -802,10 +803,10 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
 */
                 // норма ОДН в м3 на 1 м2
                 limitODN.odnNorm = oplLiter;
-                limitODN.limitArea = oplLiter
+                limitODN.limitByArea = oplLiter
                         .divide(BigDecimal.valueOf(1000), 5, BigDecimal.ROUND_HALF_UP);
                 // общий допустимый объем ОДН
-                limitODN.amntVolODN = limitODN.limitArea.multiply(area).setScale(3, BigDecimal.ROUND_HALF_UP);
+                limitODN.amntVolODN = limitODN.limitByArea.multiply(area).setScale(3, BigDecimal.ROUND_HALF_UP);
             }
 
         } else if (tp == 2) {
@@ -997,7 +998,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
     class LimitODN {
         BigDecimal odnNorm = BigDecimal.ZERO;
         // допустимый лимит ОДН на 1 м2
-        BigDecimal limitArea = BigDecimal.ZERO;
+        BigDecimal limitByArea = BigDecimal.ZERO;
         // площадь общего имущества
         BigDecimal areaProp = BigDecimal.ZERO;
         // общий объем ОДН (используется для ОДН электроэнергии)

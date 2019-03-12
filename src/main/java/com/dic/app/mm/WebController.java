@@ -352,7 +352,7 @@ public class WebController implements CommonConstants {
      */
     @RequestMapping("/evictCacheNaborKartPrice")
     @ResponseBody
-    @CacheEvict(value = {//"KartMng.getKartMain", временно отключил
+    @CacheEvict(value = {"KartMng.getKartMainLsk",
             "PriceMng.multiplyPrice",
             "ReferenceMng.getUslOrgRedirect"}, allEntries = true)
     public String evictCacheNaborKartPrice() {

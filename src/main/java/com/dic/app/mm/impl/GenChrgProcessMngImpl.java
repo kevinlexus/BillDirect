@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import javax.persistence.PersistenceContextType;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -81,8 +80,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             //log.info("******* klskId={} заблокирован для расчета", klskId);
 
             CalcStore calcStore = reqConf.getCalcStore();
-            Ko ko = em.find(Ko.class, klskId); //note Разобраться что оставить!
-            //Ko ko = em.getReference(Ko.class, klskId);
+            //Ko ko = em.find(Ko.class, klskId); //note Разобраться что оставить!
+            Ko ko = em.getReference(Ko.class, klskId);
 
             // создать локальное хранилище объемов
             ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
@@ -245,7 +244,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
         for (Nabor nabor : lstNabor) {
             // получить основной лиц счет по связи klsk помещения
-            Kart kartMainByKlsk = kartMng.getKartMain(nabor.getKart());
+            Kart kartMainByKlsk = em.getReference(Kart.class, kartMng.getKartMainLsk(nabor.getKart()));
             if (nabor.getUsl().isMain() && (lstSelUsl.size() == 0 || lstSelUsl.contains(nabor.getUsl()))
                     && (part == 1 && !Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19) ||
                     part == 2 && Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19)) // фильтр очередности расчета
