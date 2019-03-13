@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
+import com.dic.app.mm.*;
 import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.WrongParam;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,13 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.dic.app.mm.ConfigApp;
-import com.dic.app.mm.ExecMng;
-import com.dic.app.mm.GenMainMng;
-import com.dic.app.mm.GenThrMng;
-import com.dic.app.mm.MntBase;
-import com.dic.app.mm.PrepThread;
-import com.dic.app.mm.ThreadMng;
 import com.dic.bill.dao.HouseDAO;
 import com.dic.bill.dao.SprGenItmDAO;
 import com.dic.bill.dao.VvodDAO;
@@ -57,11 +51,12 @@ public class GenMainMngImpl implements GenMainMng {
     private ApplicationContext ctx;
     @Autowired
     private ThreadMng<Long> threadMng;
+    @Autowired
+    private WebController webController;
 
     /**
      * ОСНОВНОЙ поток формирования
      *
-     * @throws ErrorWhileGen
      */
     @Override
     @Async
@@ -135,54 +130,20 @@ public class GenMainMngImpl implements GenMainMng {
                         execMng.execProc(36, null, null);
                         setMenuProc(menuGenItg, itm, 0.20D, dt1, new Date());
                         break;
-
-                    case "GEN_DIST_VOLS1":
-                        //чистить инф, там где ВООБЩЕ нет счетчиков (нет записи в c_vvod)
+                    case "GEN_DIST_VOLS4":
+                        // распределение объемов в Java
                         dt1 = new Date();
-                        execMng.execProc(17, null, null);
+                        webController.gen(2, 0, 0L, 0L, 0, null, null,
+                                Utl.getStrFromDate(config.getCurDt2()), 0);
                         setMenuProc(menuGenItg, itm, 0.25D, dt1, new Date());
                         break;
-                    case "GEN_DIST_VOLS2":
-                        // распределить где нет ОДПУ
-                        dt1 = new Date();
-                        lst = vvodDao.getWoODPU()
-                                .stream().map(t -> t.getId().longValue()).collect(Collectors.toList());
-                        if (!doInThread(lst, itm, 1)) {
-                            // ошибка распределения
-                            menuGenItg.setState("Найдены ошибки во время распределения объемов где нет ОДПУ!");
-                            log.error("Найдены ошибки во время распределения объемов где нет ОДПУ!");
-                            return;
-                        }
-                        setMenuProc(menuGenItg, itm, 0.30D, dt1, new Date());
-                        break;
-                    case "GEN_DIST_VOLS3":
-                        //распределить где есть ОДПУ
-                        dt1 = new Date();
-                        lst = vvodDao.getWithODPU()
-                                .stream().map(t -> t.getId().longValue()).collect(Collectors.toList());
-                        if (!doInThread(lst, itm, 2)) {
-                            // ошибка распределения
-                            menuGenItg.setState("Найдены ошибки во время распределения объемов где есть ОДПУ!");
-                            log.error("Найдены ошибки во время распределения объемов где есть ОДПУ!");
-                            return;
-                        }
-                        setMenuProc(menuGenItg, itm, 0.35D, dt1, new Date());
-                        break;
-
                     case "GEN_CHRG":
-                        // начисление по домам
+                        // начисление по всем помещениям в Java
                         dt1 = new Date();
-                        lst = houseDao.findAll()
-                                .stream().map(t -> t.getId().longValue()).collect(Collectors.toList());
-                        if (!doInThread(lst, itm, 4)) {
-                            // ошибка распределения
-                            menuGenItg.setState("Найдены ошибки во время расчета начисления по домам!");
-                            log.error("Найдены ошибки во время расчета начисления по домам!");
-                            return;
-                        }
+                        webController.gen(0, 0, 0L, 0L, 0, null, null,
+                                Utl.getStrFromDate(config.getCurDt2()), 0);
                         setMenuProc(menuGenItg, itm, 0.40D, dt1, new Date());
                         break;
-
                     case "GEN_SAL":
                         //сальдо по лиц счетам
                         dt1 = new Date();
