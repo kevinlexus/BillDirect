@@ -446,15 +446,16 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // помещение с проживающими
                     dayVol = tempVol.multiply(calcStore.getPartDayMonth());
                     //log.info("************************ dayVol={}", dayVol);
-                    //area = kartArea;
                 } else if (Utl.in(fkCalcTp, 12)) {
                     // Антенна, код.замок
-                    //area = kartArea;
                     dayVol = calcStore.getPartDayMonth();
                 } else if (Utl.in(fkCalcTp, 20, 21, 23)) {
                     // Х.В., Г.В., Эл.Эн. содерж.общ.им.МКД, Эл.эн.гараж
-                    //area = kartArea;
-                    isMeterExist = true; // так принято в старом начислении
+                    if (Utl.in(fkCalcTp, 20,21)) {
+                        // получить наличие счетчика из родительской услуги
+                        UslPriceVolKart uslPriceVolKart = mapUslPriceVol.get(nabor.getUsl().getParentUsl());
+                        isMeterExist = uslPriceVolKart != null && uslPriceVolKart.isMeter();
+                    }
                     dayVol = naborVolAdd.multiply(calcStore.getPartDayMonth());
                 } else if (Utl.in(fkCalcTp, 34, 44)) {
                     // Повыш.коэфф
@@ -663,9 +664,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             countPers.isEmpty = countPersParent.isEmpty;
 
             // алгоритм взят из C_KART, строка 786
-            if (parVarCntKpr == 0 &&
+            if (parVarCntKpr == 0 /*&&
                     (reqConf.getGenDt().getTime() > Utl.getDateFromStr("01.02.2019").getTime() // после 01.02.19 - не учитывать тип счетов
-                            || Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_RSO"))
+                            || Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_RSO"))*/
                     && countPers.kprNorm == 0
                     && countPers.kprOt == 0 && !kartMain.getStatus().getCd().equals("MUN")) {
                 // вариант Кис.

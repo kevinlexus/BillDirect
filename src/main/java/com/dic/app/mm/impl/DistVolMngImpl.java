@@ -352,6 +352,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                                 log.info("Перерасход lsk={}, usl={}, vol={}",
                                                         d.getKart().getLsk(), d.getUsl().getId(), volDist);
                                                 d.setLimit(limit);
+                                                log.info("$$$$$3 nabor.volAdd={}, nabor.id={}", volDist, d.getId());
                                                 d.setVolAdd(volDist);
                                             });
                                             // добавить инфу по ОДН.
@@ -505,8 +506,10 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                                         nabor.getKart().getLsk());
                                             }*/
                                             if (usl.getFkCalcTp().equals(14)) {
+                                                log.info("$$$$$4 nabor.vol={}, nabor.id={}", volDistKart, nabor.getId());
                                                 nabor.setVol(volDistKart);
                                             } else {
+                                                log.info("$$$$$5 nabor.volAdd={}, nabor.id={}", volDistKart, nabor.getId());
                                                 nabor.setVolAdd(volDistKart);
                                             }
                                             diffDist = diffDist.subtract(volDistKart);
@@ -566,6 +569,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                     .findFirst().ifPresent(d -> {
                                 log.info("Норматив ОДН lsk={}, usl={}, vol={}",
                                         d.getKart().getLsk(), d.getUsl().getId(), volDist);
+                                log.info("$$$$$6 nabor.volAdd={}, nabor.id={}", volDist, d.getId());
                                 d.setLimit(limit);
                                 d.setVolAdd(volDist);
                             });
@@ -763,6 +767,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                         && charge.getType().equals(5));
 
                 // занулить по вводу-услуге
+                log.info("$$$$$1 nabor.vol=null nabor.volAdd=null nabor.limit=null, nabor.id={}", nabor.getId());
                 nabor.setVol(null);
                 nabor.setVolAdd(null);
                 nabor.setLimit(null);
@@ -772,6 +777,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             for (Nabor nabor2 : nabor.getKart().getNabor()) {
                 if (nabor2.getUsl().equals(vvod.getUsl().getUslChild())) {
                     // занулить по зависимым услугам
+                    log.info("$$$$$2 nabor.vol=null nabor.volAdd=null nabor.limit=null, nabor.id={}", nabor.getId());
                     nabor2.setVol(null);
                     nabor2.setVolAdd(null);
                     nabor2.setLimit(null);
