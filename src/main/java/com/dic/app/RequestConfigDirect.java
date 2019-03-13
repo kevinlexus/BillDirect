@@ -51,6 +51,8 @@ public class RequestConfigDirect implements Cloneable {
 
     // выполнять многопоточно
     boolean isMultiThreads = false;
+    // кол-во потоков
+    int cntThreads = 1;
 
     // объекты формирования:
     // УК
@@ -131,12 +133,14 @@ public class RequestConfigDirect implements Cloneable {
                 setTpSel(1);
                 lstItems = new ArrayList<>(1);
                 lstItems.add(ko.getId());
+                cntThreads=1;
             } else if (uk != null) {
                 // по УК
                 isLockForLongLastingProcess = true;
                 setTpSel(4); // почему 0 как и по всему фонду???
                 lstItems = kartDao.findAllKlskIdByReuId(uk.getReu())
                         .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+                cntThreads=15;
             } else if (house != null) {
                 // по дому
                 isLockForLongLastingProcess = false;
@@ -144,6 +148,7 @@ public class RequestConfigDirect implements Cloneable {
                 //lstItems = kartMng.getKoByHouse(house).stream().map(Ko::getId).collect(Collectors.toList());
                 lstItems = kartDao.findAllKlskIdByHouseId(house.getId())
                         .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+                cntThreads=15;
             } else if (vvod != null) {
                 // по вводу
                 isLockForLongLastingProcess = false;
@@ -151,6 +156,7 @@ public class RequestConfigDirect implements Cloneable {
                 //lstItems = kartMng.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
                 lstItems = kartDao.findAllKlskIdByVvodId(vvod.getId())
                         .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+                cntThreads=15;
             } else {
                 isLockForLongLastingProcess = true;
                 setTpSel(5);
@@ -158,6 +164,7 @@ public class RequestConfigDirect implements Cloneable {
                 // конвертировать из List<BD> в List<Long> (native JPA представляет k_lsk_id только в BD и происходит type Erasure)
                 lstItems = kartDao.findAllKlskId()
                         .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+                cntThreads=15;
             }
         } else if (tp == 2) {
             // распределение вводов
@@ -166,19 +173,23 @@ public class RequestConfigDirect implements Cloneable {
                 // распределить конкретный ввод
                 lstItems = new ArrayList<>(1);
                 lstItems.add(vvod.getId());
+                cntThreads=1;
             } else if (uk != null) {
                 // по УК
                 lstItems = vvodDAO.findVvodByUk(uk.getReu())
                         .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+                cntThreads=15;
             } else if (house != null) {
                 // по дому
                 lstItems = vvodDAO.findVvodByHouse(house.getId())
                         .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+                cntThreads=1;
             } else {
                 // все вводы
                 isLockForLongLastingProcess = true;
                 lstItems = vvodDAO.findVvodAll()
                         .stream().map(BigDecimal::longValue).collect(Collectors.toList());
+                cntThreads=15;
             }
         }
     }

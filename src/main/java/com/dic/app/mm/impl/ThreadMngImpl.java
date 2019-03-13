@@ -71,11 +71,9 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
                         // не завершен поток
                         isStop = false;
                     }
-                } catch (InterruptedException e) {
+                } catch (InterruptedException|ExecutionException e) {
                     log.info(Utl.getStackTraceString(e));
                     throw new ErrorWhileGen("ОШИБКА! Произошла ошибка во время исполнения потока");
-                } catch (ExecutionException e) {
-                    e.printStackTrace();
                 }
             }
         }
@@ -86,8 +84,9 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
                 if (fut.get().getErr() == 1) {
                 }
             } catch (Exception e) {
-                log.error(Utl.getStackTraceString(e));
+                log.info(Utl.getStackTraceString(e));
                 log.error("ОШИБКА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА, ВЫПОЛНЕНИЕ ОСТАНОВКИ ПРОЧИХ ПОТОКОВ!");
+                throw new ErrorWhileGen("ОШИБКА! Произошла ошибка во время исполнения потока");
             }
         }
 

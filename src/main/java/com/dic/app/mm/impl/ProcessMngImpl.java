@@ -190,35 +190,20 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         };
 
         // ВЫЗОВ
-        try {
-            if (reqConf.isMultiThreads()) {
-                // вызвать в новой транзакции, многопоточно
-                // note Здесь потоки не назначаются, только вызов.
-                // note Настраивать это значение совместно с Config.java.getAsyncExecutor()
-                // note А так же application.properties spring.datasource.hikari.maximumPoolSize
-                int CNT_THREADS = 15;
-                threadMng.invokeThreads(reverse, CNT_THREADS, isCheckStop, reqConf.getRqn(), stopMark);
-            } else {
-                // вызвать в той же транзакции, однопоточно, для Unit - тестов
-                selectInvokeProcess(reqConf);
-            }
-/*
-        } catch (InterruptedException | ExecutionException | WrongParam | ErrorWhileChrg
-                | WrongGetMethod | ErrorWhileChrgPen | ErrorWhileDist e) {
-            log.error(Utl.getStackTraceString(e));
-            throw new ErrorWhileGen("ОШИБКА во время расчета!");
-*/
-        } finally {
-            //if (reqConf.tpSel == 0) {
-            // снять маркер процесса
-            //    config.getLock().unlockProc(reqConf.getRqn(), stopMark);
-            //}
+        if (reqConf.isMultiThreads()) {
+            // вызвать в новой транзакции, многопоточно
+            // note Здесь потоки не назначаются, только вызов.
+            // note Настраивать это значение совместно с Config.java.getAsyncExecutor()
+            // note А так же application.properties spring.datasource.hikari.maximumPoolSize
+            threadMng.invokeThreads(reverse, reqConf.getCntThreads(), isCheckStop, reqConf.getRqn(), stopMark);
+        } else {
+            // вызвать в той же транзакции, однопоточно, для Unit - тестов
+            selectInvokeProcess(reqConf);
         }
 
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
         log.info("ОКОНЧАНИЕ процесса {} заданных объектов - Общее время выполнения={}", reqConf.getTpName(), totalTime);
-
     }
 
 
@@ -268,7 +253,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                                 log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
                                 break;
                             }
-                            if (Utl.in(reqConf.getTp(),0,3)) {
+                            if (Utl.in(reqConf.getTp(), 0, 3)) {
                                 // Начисление и начисление для распределения объемов
                                 genChrgProcessMng.genChrg(reqConf, id);
                             } else if (reqConf.getTp() == 2) {
@@ -282,7 +267,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                     }
                 } catch (Exception e) {
                     log.error(Utl.getStackTraceString(e));
-                    throw new ErrorWhileGen("ОШИБКА! Произошла ошибка в потоке "+reqConf.getTpName());
+                    throw new ErrorWhileGen("ОШИБКА! Произошла ошибка в потоке " + reqConf.getTpName());
                 } finally {
                     // разблокировать долго длящийся процесс
                     if (reqConf.isLockForLongLastingProcess()) {

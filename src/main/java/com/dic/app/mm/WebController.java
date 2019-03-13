@@ -62,6 +62,9 @@ public class WebController implements CommonConstants {
      * @param genDtStr - дата на которую сформировать
      * @param stop     - 1 - остановить выполнение текущей операции с типом tp
      */
+    @CacheEvict(value = {"KartMng.getKartMainLsk", // чистить кэш каждый раз, перед выполнением
+            "PriceMng.multiplyPrice",
+            "ReferenceMng.getUslOrgRedirect"}, allEntries = true)
     @RequestMapping("/gen")
     public String gen(
             @RequestParam(value = "tp", defaultValue = "0") int tp,
@@ -170,14 +173,10 @@ public class WebController implements CommonConstants {
                         reqConf.prepareChrgCountAmount();
                         log.info("Будет обработано {} объектов", reqConf.getLstItems().size());
                         processMng.genProcessAll(reqConf);
-/*
-                    } else if (reqConf.getTp() == 2) {
-                        // распределение объемов
-                        processMng.distVolAll(reqConf);
-*/
                     }
                     retStatus = "OK";
-                } catch (ErrorWhileGen e) {
+                } catch (Exception e) {
+                    retStatus = "ERROR! Ошибка при выполнении расчета!";
                     log.error(Utl.getStackTraceString(e));
                 } finally {
                     config.getLock().unlockProc(reqConf.getRqn(), stopMark);
