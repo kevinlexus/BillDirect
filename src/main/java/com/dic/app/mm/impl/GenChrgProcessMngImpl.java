@@ -451,7 +451,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     dayVol = calcStore.getPartDayMonth();
                 } else if (Utl.in(fkCalcTp, 20, 21, 23)) {
                     // Х.В., Г.В., Эл.Эн. содерж.общ.им.МКД, Эл.эн.гараж
-                    if (Utl.in(fkCalcTp, 20,21)) {
+                    if (Utl.in(fkCalcTp, 20, 21)) {
                         // получить наличие счетчика из родительской услуги
                         UslPriceVolKart uslPriceVolKart = mapUslPriceVol.get(nabor.getUsl().getParentUsl());
                         isMeterExist = uslPriceVolKart != null && uslPriceVolKart.isMeter();
@@ -506,12 +506,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 } else if (fkCalcTp.equals(6) && countPers.kpr > 0) {
                     // Очистка выгр.ям (Полыс.) (при наличии проживающих)
                     // просто взять цену
-                    //area = kartArea;
-                    dayVol = calcStore.getPartDayMonth();
-/*                    } else { TODO Вернуть в конце разработки!
-                    throw new ErrorWhileChrg("ОШИБКА! По услуге fkCalcTp=" + fkCalcTp +
-                            " не определён блок if в GenChrgProcessMngImpl.genChrg");
-*/
+                    dayVol = new BigDecimal(countPers.kpr).multiply(calcStore.getPartDayMonth());
                 }
 
                 UslPriceVolKart uslPriceVolKart = null;
@@ -595,20 +590,21 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
     /**
      * Построить объем для начисления
-     * @param curDt - дата расчета
-     * @param calcStore - хранилище объемов
-     * @param nabor - строка набора
-     * @param isLinkedEmpty -
+     *
+     * @param curDt              - дата расчета
+     * @param calcStore          - хранилище объемов
+     * @param nabor              - строка набора
+     * @param isLinkedEmpty      -
      * @param isLinkedExistMeter -
-     * @param kartMain - лиц.счет
-     * @param detailUslPrice - инф. о расценке
-     * @param countPers - инф. о кол.прожив.
-     * @param socStandart - соцнорма
-     * @param isMeterExist - наличие счетчика
-     * @param dayVol - объем
-     * @param dayVolOverSoc - объем свыше соц.нормы
-     * @param kartArea - площадь
-     * @param areaOverSoc - площадь свыше соц.нормы
+     * @param kartMain           - лиц.счет
+     * @param detailUslPrice     - инф. о расценке
+     * @param countPers          - инф. о кол.прожив.
+     * @param socStandart        - соцнорма
+     * @param isMeterExist       - наличие счетчика
+     * @param dayVol             - объем
+     * @param dayVolOverSoc      - объем свыше соц.нормы
+     * @param kartArea           - площадь
+     * @param areaOverSoc        - площадь свыше соц.нормы
      */
     private UslPriceVolKart buildVol(Date curDt, CalcStore calcStore, Nabor nabor, Boolean isLinkedEmpty,
                                      Boolean isLinkedExistMeter, Kart kartMain, DetailUslPrice detailUslPrice,

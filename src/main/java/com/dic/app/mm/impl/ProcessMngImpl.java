@@ -218,14 +218,14 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             rollbackFor = Exception.class)*/
     public Future<CommonResult> genProcess(RequestConfigDirect reqConf) throws ErrorWhileGen {
         long startTime = System.currentTimeMillis();
-        log.info("НАЧАЛО потока {}", reqConf.getTpName());
+        log.trace("НАЧАЛО потока {}", reqConf.getTpName());
 
         selectInvokeProcess(reqConf);
 
         CommonResult res = new CommonResult(-111111, 0);
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
-        log.info("ОКОНЧАНИЕ потока {}, время расчета={} мс", reqConf.getTpName(), totalTime);
+        log.trace("ОКОНЧАНИЕ потока {}, время расчета={} мс", reqConf.getTpName(), totalTime);
         return new AsyncResult<>(res);
     }
 
