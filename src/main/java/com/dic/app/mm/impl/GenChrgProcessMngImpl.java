@@ -167,6 +167,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 // 6. Сгруппировать строки начислений для записи в C_CHARGE
                 chrgCountAmountLocal.groupUslVolChrg();
 
+                chrgCountAmountLocal.printVolAmntChrg(null);
+
                 // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE, округлить для ГИС ЖКХ
                 chrgCountAmountLocal.saveChargeAndRound(ko, lstSelUsl);
             }
@@ -457,8 +459,16 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         isMeterExist = uslPriceVolKart != null && uslPriceVolKart.isMeter();
                     }
                     dayVol = naborVolAdd.multiply(calcStore.getPartDayMonth());
-                } else if (Utl.in(fkCalcTp, 34, 44)) {
-                    // Повыш.коэфф
+                } else if (Utl.in(fkCalcTp, 34)) {
+                    // Повыш.коэфф Полыс
+                    if (nabor.getUsl().getParentUsl() != null) {
+                            dayVol = calcStore.getPartDayMonth().multiply(naborNorm);
+                    } else {
+                        throw new ErrorWhileChrg("ОШИБКА! По услуге usl.id=" + nabor.getUsl().getId() +
+                                " отсутствует PARENT_USL");
+                    }
+                } else if (Utl.in(fkCalcTp, 44)) {
+                    // Повыш.коэфф Кис
                     if (nabor.getUsl().getParentUsl() != null) {
                         // получить объем из родительской услуги
                         UslPriceVolKart uslPriceVolKart = mapUslPriceVol.get(nabor.getUsl().getParentUsl());
@@ -691,6 +701,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             }
         }
         countPers.isEmpty = countPers.kpr == 0;
+        if (nabor.getUsl().getFkCalcTp().equals(34)) {
+            // по Повыш коэфф. для Полыс - не учитывается пустое-не пустое помещение
+            countPers.isEmpty = false;
+        }
         return countPers;
     }
 
