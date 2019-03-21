@@ -71,20 +71,24 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 	/**
 	 * Макс количество потоков запускаемых @Async и прочие настройки
 	 */
+/*
 	@Override
 	public Executor getAsyncExecutor() {
 		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(10);
-		executor.setMaxPoolSize(15);
-		executor.setQueueCapacity(30);
-		executor.setThreadNamePrefix("BillDirectExecutor-");
+		*/
+/*executor.setCorePoolSize(30);
+		executor.setMaxPoolSize(50);
+		executor.setQueueCapacity(100);*//*
 
+
+		executor.setThreadNamePrefix("BillDirectExecutor-");
 		// обработчик, если места нет в пуле для потока - с просьбой подождать места
 		// https://stackoverflow.com/questions/49290054/taskrejectedexception-in-threadpooltaskexecutor
 		executor.setRejectedExecutionHandler(new RejectedExecutionHandlerImpl());
 		executor.initialize();
 		return executor;
 	}
+*/
 
 	public static ApplicationContext getContext(){
 	      return ctx;

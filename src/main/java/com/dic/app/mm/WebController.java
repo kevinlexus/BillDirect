@@ -11,6 +11,7 @@ import com.ric.cmn.Utl;
 import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringApplication;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.concurrent.ConcurrentMapCache;
 import org.springframework.context.ApplicationContext;
@@ -278,6 +279,15 @@ public class WebController implements CommonConstants {
         // установить статус - остановить формирование
         config.getLock().unlockProc(1, "AmountGeneration");
         return "ok";
+    }
+
+    /**
+     * Остановить приложение
+     */
+    @RequestMapping("/terminateApp")
+    public void terminateApp() {
+        log.info("ВНИМАНИЕ! ЗАПРОШЕНА ОСТАНОВКА ПРИЛОЖЕНИЯ!");
+        SpringApplication.exit(ctx, () -> 0);
     }
 
     /*

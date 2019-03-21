@@ -793,7 +793,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             for (Nabor nabor2 : nabor.getKart().getNabor()) {
                 if (nabor2.getUsl().equals(vvod.getUsl().getUslChild())) {
                     // занулить по зависимым услугам
-                    log.info("$$$$$2, nabor.id={}, nabor.vol=null, nabor.volAdd=null, nabor.limit=null", nabor.getId());
+                    log.info("$$$$$2, nabor.id={}, nabor.vol=null, nabor.volAdd=null, nabor.limit=null", nabor2.getId());
                     nabor2.setVol(null);
                     nabor2.setVolAdd(null);
                     nabor2.setLimit(null);

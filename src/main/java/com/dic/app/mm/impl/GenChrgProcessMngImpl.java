@@ -516,7 +516,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 } else if (fkCalcTp.equals(6) && countPers.kpr > 0) {
                     // Очистка выгр.ям (Полыс.) (при наличии проживающих)
                     // просто взять цену
-                    dayVol = new BigDecimal(countPers.kpr).multiply(calcStore.getPartDayMonth());
+                    dayVol = new BigDecimal(countPers.kprNorm).multiply(calcStore.getPartDayMonth());
                 }
 
                 UslPriceVolKart uslPriceVolKart = null;
