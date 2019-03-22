@@ -136,10 +136,28 @@ Ext.define('TestApp.view.main.MainController', {
 
     // Начало формирования
     onStartGen: function () {
-	    Ext.Ajax.request({
-	       url: 'http://127.0.0.1:8100/startGen'
-	    });
-        this.getTask().start();// обращение к локальной переменной контроллера task
+        // вложенный запрос
+        me = this;
+        Ext.Ajax.request({
+            url: 'http://127.0.0.1:8100/getStateGen',
+            method: "GET",
+            success: function (response) {
+                state = response.responseText;
+                var grid = me.lookupReference('grid1');
+                var buttonGauge2 = me.lookupReference('buttonGauge2');
+                if (state != '1') {
+                    // начать формирование, если уже не идёт
+                    Ext.Ajax.request({
+                        url: 'http://127.0.0.1:8100/startGen'
+                    });
+                    me.getTask().start();// обращение к локальной переменной контроллера task
+                } else {
+                    console.log('Уже идет формирование!')
+                }
+            }
+        });
+
+
     },
 
     // Остановка формирования
@@ -172,28 +190,42 @@ Ext.define('TestApp.view.main.MainController', {
                     success: function (response) {
                         state = response.responseText;
                         var grid = me.lookupReference('grid1');
+                        var buttonGauge2 = me.lookupReference('buttonGauge2');
                         if (state == '1') {
                             //Идет формирование, обновить грид
                             //вызвать собственное событие контроллера
                             me.fireEvent('ownevent1', this);
+                            var buttonGauge1 = me.lookupReference('buttonGauge1');
+                            var i = buttonGauge1.getText();
+                            if (i % 2 == 0) {
+                                buttonGauge2.setIconCls('x-fa fa-file');
+                            } else {
+                                buttonGauge2.setIconCls('x-fa fa-file-text');
+                            }
+                            i++;
+                            buttonGauge1.setText(i);
+                            buttonGauge2.setText('Выполнение...');
                             ret = false;
                         } else if (state == '2') {
                             //Ошибка формирования
                             ret = true;
                             console.log("Ошибка");
                             //вызвать собственное событие контроллера
+                            buttonGauge2.setText('Выполнить');
+                            buttonGauge2.setIconCls(null);
                             me.fireEvent('ownevent1', this);
                         } else if (state == '0') {
                             //Формирование закончено успешно
                             ret = true;
                             console.log("Закончено успешно");
+                            buttonGauge2.setText('Выполнить');
                             //вызвать собственное событие контроллера
+                            buttonGauge2.setIconCls(null);
                             me.fireEvent('ownevent1', this);
                         }
                         if (refreshFlag) {
                             grid.getStore().reload();
                         }
-                        //console.log("Вызвать callback ret="+ret);
 
                         callback(ret);
                     }

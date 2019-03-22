@@ -11,7 +11,7 @@ Ext.define('TestApp.view.main.List', {
         'Ext.data.*',
         'Ext.util.*',
         'Ext.form.*'
-              ],
+    ],
 
     reference: 'grid1',
 
@@ -48,17 +48,7 @@ Ext.define('TestApp.view.main.List', {
                 stopSelection: false,
                 listeners: {
                     checkchange: 'checkTest'
-                    //checkchange: function (column, rowIdx, checked, eOpts) {
-                    //this.fireEvent('owntest1', this);
-                    //    this.up( "grid" ).fireEvent( "checkrow", comp, rowIndex, checked, eOpts  );
-                        //alert('test3');
-                    //change: 'onTest'
-                    //}
                 }
-        /*,
-                editor: {
-                    allowBlank: false  эта штука здесь врубает какуюто странную вещь, короче нельзя сохранить значение checkbox в базе...
-                }                     */
         },
 	{
             text     : 'Выполнение,%',
@@ -114,7 +104,11 @@ Ext.define('TestApp.view.main.List', {
         },
         items: [{
             minWidth: 80,
-            text: 'Выполнить',
+            text: '0', reference: 'buttonGauge1', // скрытая кнопка, для хранения переменной i
+            hidden:true
+        },{
+            minWidth: 80,
+            text: 'Выполнить', reference: 'buttonGauge2',
             handler: 'onStartGen'
         },{
             minWidth: 80,
