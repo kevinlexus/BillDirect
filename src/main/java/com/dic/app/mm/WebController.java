@@ -55,7 +55,8 @@ public class WebController implements CommonConstants {
     /**
      * Расчет
      *
-     * @param tp       - тип выполнения 0-начисление, 1-задолженность и пеня, 2 - распределение объемов по вводу
+     * @param tp       - тип выполнения 0-начисление, 1-задолженность и пеня, 2 - распределение объемов по вводу,
+     *                 4 - начисление по одной услуге, для автоначисления
      * @param houseId  - houseId объекта (дом)
      * @param vvodId   - vvodId объекта (ввод)
      * @param klskId   - klskId объекта (помещение)
@@ -87,7 +88,7 @@ public class WebController implements CommonConstants {
             retStatus = "OK";
         } else {
             // проверка типа формирования
-            if (!Utl.in(tp, 0, 1, 2)) {
+            if (!Utl.in(tp, 0, 1, 2, 4)) {
                 return "ERROR! Некорректный тип расчета: tp=" + tp;
             }
 
@@ -169,13 +170,19 @@ public class WebController implements CommonConstants {
             retStatus = reqConf.checkArguments();
             if (retStatus == null) {
                 try {
-                    if (Utl.in(reqConf.getTp(), 0, 1, 2)) {
+                    if (Utl.in(reqConf.getTp(), 0, 1, 2, 4)) {
                         // расчет начисления, распределение объемов, расчет задолженности и пени
                         reqConf.prepareChrgCountAmount();
                         log.info("Будет обработано {} объектов", reqConf.getLstItems().size());
                         processMng.genProcessAll(reqConf);
                     }
-                    retStatus = "OK";
+                    if (Utl.in(reqConf.getTp(), 4)) {
+                        // по операции - начисление по одной услуге, для автоначисления
+                        // вернуть начисленный объем
+                        retStatus = "OK:"+reqConf.getChrgCountAmount().getResultVol().toString();
+                    } else {
+                        retStatus = "OK";
+                    }
                 } catch (Exception e) {
                     retStatus = "ERROR! Ошибка при выполнении расчета!";
                     log.error(Utl.getStackTraceString(e));
@@ -209,7 +216,7 @@ public class WebController implements CommonConstants {
     @RequestMapping(value = "/getStateGen", method = RequestMethod.GET)
     @ResponseBody
     public String getStateGen() {
-        return config.getLock().isStopped("AmountGeneration") ? "0" : "1";
+        return config.getLock().isStopped(stopMarkAmntGen) ? "0" : "1";
     }
 
     /**
@@ -277,7 +284,8 @@ public class WebController implements CommonConstants {
     @ResponseBody
     public String stopGen() {
         // установить статус - остановить формирование
-        config.getLock().unlockProc(1, "AmountGeneration");
+        config.getLock().unlockProc(1, stopMarkAmntGen);
+        config.getLock().unlockProc(1, stopMark);
         return "ok";
     }
 

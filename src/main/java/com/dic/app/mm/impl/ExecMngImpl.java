@@ -377,10 +377,13 @@ public class ExecMngImpl implements ExecMng {
 	 * Почистить во всех элементах % выполения
 	 */
 	@Override
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor=Exception.class)
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW, rollbackFor=Exception.class)
 	public void clearPercent() {
 		sprGenItmDao.findAll().forEach(t-> {
 			t.setProc(0D);
+			t.setDt1(null);
+			t.setDt2(null);
+			t.setState(null);
 		});
 	}
 

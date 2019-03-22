@@ -9,6 +9,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import com.dic.app.mm.*;
+import com.ric.cmn.CommonConstants;
 import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.WrongParam;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @Scope("prototype")
-public class GenMainMngImpl implements GenMainMng {
+public class GenMainMngImpl implements GenMainMng, CommonConstants {
 
     @PersistenceContext
     private EntityManager em;
@@ -68,6 +69,8 @@ public class GenMainMngImpl implements GenMainMng {
         execMng.setMenuElemState(menuGenItg, null);
         execMng.setMenuElemDt1(menuGenItg, new Date());
         execMng.setMenuElemDt2(menuGenItg, null);
+
+        //sprGenItmDao.getAllOrdered().stream().forEach(t->execMng.set);
 
         try {
             // прогресс - 0
@@ -116,6 +119,7 @@ public class GenMainMngImpl implements GenMainMng {
 
             // список Id объектов
             List<Long> lst;
+            String retStatus;
             //**********Начать формирование
             for (SprGenItm itm : sprGenItmDao.getAllCheckedOrdered()) {
 
@@ -123,38 +127,49 @@ public class GenMainMngImpl implements GenMainMng {
                 Integer ret = null;
                 Date dt1;
                 switch (itm.getCd()) {
-
                     case "GEN_ADVANCE":
                         // переформировать авансовые платежи
                         dt1 = new Date();
                         execMng.execProc(36, null, null);
-                        setMenuProc(menuGenItg, itm, 0.20D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.20D, dt1)) return;
                         break;
                     case "GEN_DIST_VOLS4":
                         // распределение объемов в Java
                         dt1 = new Date();
-                        webController.gen(2, 0, 0L, 0L, 0, null, null,
+                        retStatus = webController.gen(2, 0, 0L, 0L, 0, null, null,
                                 Utl.getStrFromDate(config.getCurDt2()), 0);
-                        setMenuProc(menuGenItg, itm, 0.25D, dt1, new Date());
+                        if (!retStatus.substring(0,2).equals("OK")) {
+                            // ошибка начисления
+                            execMng.setMenuElemState(menuGenItg, "Ошибка во время распределения объемов!");
+                            log.error("Ошибка во время распределения объемов!");
+                            return;
+                        }
+                        if (markExecuted(menuGenItg, itm, 0.25D, dt1)) return;
                         break;
                     case "GEN_CHRG":
                         // начисление по всем помещениям в Java
                         dt1 = new Date();
-                        webController.gen(0, 0, 0L, 0L, 0, null, null,
+                        retStatus = webController.gen(0, 0, 0L, 0L, 0, null, null,
                                 Utl.getStrFromDate(config.getCurDt2()), 0);
-                        setMenuProc(menuGenItg, itm, 0.40D, dt1, new Date());
+                        if (!retStatus.substring(0,2).equals("OK")) {
+                            // ошибка начисления
+                            execMng.setMenuElemState(menuGenItg, "Найдены ошибки во время расчета начисления!");
+                            log.error("Найдены ошибки во время расчета начисления!");
+                            return;
+                        }
+                        if (markExecuted(menuGenItg, itm, 0.40D, dt1)) return;
                         break;
                     case "GEN_SAL":
                         //сальдо по лиц счетам
                         dt1 = new Date();
                         execMng.execProc(19, null, null);
-                        setMenuProc(menuGenItg, itm, 0.45D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.25D, dt1)) return;
                         break;
                     case "GEN_FLOW":
                         // движение
                         dt1 = new Date();
                         execMng.execProc(20, null, null);
-                        setMenuProc(menuGenItg, itm, 0.50D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.50D, dt1)) return;
                         break;
                     case "GEN_PENYA":
                         // начисление пени по домам
@@ -163,11 +178,11 @@ public class GenMainMngImpl implements GenMainMng {
                                 .stream().map(t -> t.getId().longValue()).collect(Collectors.toList());
                         if (!doInThread(lst, itm, 3)) {
                             // ошибка распределения
-                            menuGenItg.setState("Найдены ошибки во время начисления пени по домам!");
+                            execMng.setMenuElemState(menuGenItg, "Найдены ошибки во время начисления пени по домам!");
                             log.error("Найдены ошибки во время начисления пени по домам!");
                             return;
                         }
-                        setMenuProc(menuGenItg, itm, 0.55D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.55D, dt1)) return;
                         break;
                     case "GEN_PENYA_DIST":
                         // распределение пени по исх сальдо
@@ -177,125 +192,109 @@ public class GenMainMngImpl implements GenMainMng {
                         ret = execMng.execProc(13, null, null);
                         if (ret.equals(1)) {
                             // найдены ошибки - выход
-                            menuGenItg.setState("Найдены ошибки в процессе проверки распределения пени!");
+                            execMng.setMenuElemState(menuGenItg, "Найдены ошибки в процессе проверки распределения пени!");
                             log.error("Найдены ошибки в процессе проверки распределения пени!");
                             return;
                         }
-                        setMenuProc(menuGenItg, itm, 0.60D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.60D, dt1)) return;
                         break;
                     case "GEN_SAL_HOUSES":
                         // оборотная ведомость по домам
                         dt1 = new Date();
                         execMng.execProc(22, null, null);
-                        setMenuProc(menuGenItg, itm, 0.65D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.65D, dt1)) return;
                         break;
-
-
                     case "GEN_XITO14":
                         // начисление по услугам (надо ли оно кому???)
                         dt1 = new Date();
                         execMng.execProc(23, null, null);
-                        setMenuProc(menuGenItg, itm, 0.70D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.70D, dt1)) return;
                         break;
-
-
                     case "GEN_F3_1":
                         // оплата по операциям
                         dt1 = new Date();
                         execMng.execProc(24, null, null);
-                        setMenuProc(menuGenItg, itm, 0.75D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.75D, dt1)) return;
                         break;
-
                     case "GEN_F3_1_2":
                         // оплата по операциям, для оборотной
                         dt1 = new Date();
                         execMng.execProc(25, null, null);
-                        setMenuProc(menuGenItg, itm, 0.77D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.77D, dt1)) return;
                         break;
-
-
                     case "GEN_F2_4":
                         // по УК-организациям Ф.2.4.
                         dt1 = new Date();
                         execMng.execProc(26, null, null);
-                        setMenuProc(menuGenItg, itm, 0.78D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.78D, dt1)) return;
                         break;
-
-
                     case "GEN_F1_1":
                         // по пунктам начисления
                         dt1 = new Date();
                         execMng.execProc(27, null, null);
-                        setMenuProc(menuGenItg, itm, 0.79D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.79D, dt1)) return;
                         break;
-
-
                     case "GEN_ARCH_BILLS":
                         // архив, счета
                         dt1 = new Date();
                         execMng.execProc(28, null, null);
-                        setMenuProc(menuGenItg, itm, 0.80D, dt1, new Date());
-
                         // проверить распр.пени, после того как она переписана в архив
                         ret = execMng.execProc(37, null, null);
                         if (ret.equals(1)) {
                             // найдены ошибки - выход
-                            menuGenItg.setState("Найдены ошибки в распр.пени, после того как она переписана в архив!");
+                            execMng.setMenuElemState(menuGenItg, "Найдены ошибки в распр.пени, после того как она переписана в архив!");
                             log.error("Найдены ошибки в распр.пени, после того как она переписана в архив!");
                             return;
                         }
+                        if (markExecuted(menuGenItg, itm, 0.80D, dt1)) return;
                         break;
-
-
                     case "GEN_DEBTS":
                         // задолжники
                         dt1 = new Date();
                         execMng.execProc(29, null, null);
-                        setMenuProc(menuGenItg, itm, 0.83D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.83D, dt1)) return;
                         break;
-
-
                     case "GEN_EXP_LISTS":
                         // списки
                         dt1 = new Date();
                         execMng.execProc(30, null, null);
                         execMng.execProc(31, null, null);
                         execMng.execProc(32, null, null);
-                        setMenuProc(menuGenItg, itm, 0.85D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.85D, dt1)) return;
                         break;
-
-
                     case "GEN_STAT":
                         // статистика
                         dt1 = new Date();
                         execMng.execProc(33, null, null);
-                        setMenuProc(menuGenItg, itm, 0.90D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 0.90D, dt1)) return;
                         break;
                     case "GEN_COMPRESS_ARCH":
                         // сжатие архивов
                         dt1 = new Date();
                         if (!mntBase.comprAllTables("00000000", null, "anabor", false)) {
-                            menuGenItg.setState("Найдены ошибки при сжатии таблицы a_nabor2!");
+                            execMng.setMenuElemState(menuGenItg, "Найдены ошибки при сжатии таблицы a_nabor2!");
                             log.error("Найдены ошибки при сжатии таблицы a_nabor2!");
                             // выйти при ошибке
                             return;
                         }
+                        if (markExecuted(menuGenItg, menuGenItg, 0.20D, dt1)) return;
                         execMng.setMenuElemPercent(itm, 0.92);
                         if (!mntBase.comprAllTables("00000000", null, "acharge", false)) {
-                            menuGenItg.setState("Найдены ошибки при сжатии таблицы a_charge2!");
+                            execMng.setMenuElemState(menuGenItg, "Найдены ошибки при сжатии таблицы a_charge2!");
                             log.error("Найдены ошибки при сжатии таблицы a_charge2!");
                             // выйти при ошибке
                             return;
                         }
+                        if (markExecuted(menuGenItg, menuGenItg, 0.20D, dt1)) return;
                         execMng.setMenuElemPercent(itm, 0.95);
                         if (!mntBase.comprAllTables("00000000", null, "achargeprep", false)) {
-                            menuGenItg.setState("Найдены ошибки при сжатии таблицы a_charge_prep2!");
+                            execMng.setMenuElemState(menuGenItg, "Найдены ошибки при сжатии таблицы a_charge_prep2!");
                             log.error("Найдены ошибки при сжатии таблицы a_charge_prep2!");
                             // выйти при ошибке
                             return;
                         }
-                        execMng.setMenuElemPercent(itm, 1);
                         setMenuProc(menuGenItg, itm, 0.99D, dt1, new Date());
+                        if (markExecuted(menuGenItg, itm, 1D, dt1)) return;
                         break;
                 }
             }
@@ -316,6 +315,25 @@ public class GenMainMngImpl implements GenMainMng {
             // прогресс формирования +1, чтоб отобразить статус на web странице
             config.incProgress();
         }
+    }
+
+    /**
+     * Маркировать выполненным
+     * @param genItg - элемент Итогового формирования
+     * @param itm - текущий элемент
+     * @param proc - % выполнения
+     * @param dt1 - дата-время начала
+     * @return - формирование остановлено?
+     */
+    private boolean markExecuted(SprGenItm genItg, SprGenItm itm, double proc, Date dt1) {
+        setMenuProc(genItg, itm, proc, dt1, new Date());
+        if (config.getLock().isStopped(stopMarkAmntGen)) {
+            execMng.setMenuElemState(genItg, "Остановлено!");
+            execMng.setMenuElemState(itm, "Остановлено!");
+            log.error("Остановлено!");
+            return true;
+        }
+        return false;
     }
 
     private void setMenuProc(SprGenItm menuGenItg, SprGenItm itm, Double proc, Date dt1, Date dt2) {

@@ -338,8 +338,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                                     log.info("Перерасход lsk={}, usl={}, vol={}",
                                                             n.getKart().getLsk(), n.getUsl().getId(), volDist);
                                                     n.setLimit(limit);
-                                                    log.info("$$$$$3, nabor.id={}, nabor.volAdd={}", n.getId(), volDist);
-                                                    n.setVolAdd(volDist);
+                                                    //log.info("$$$$$3, nabor.id={}, nabor.volAdd={}", n.getId(), volDist);
+                                                    //n.setVolAdd(volDist);
                                                 });
                                                 // добавить инфу по ОДН.
                                                 if (volDist.compareTo(BigDecimal.ZERO) != 0) {
@@ -493,12 +493,12 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                                         nabor.getKart().getLsk());
                                             }*/
                                                 if (usl.getFkCalcTp().equals(14)) {
-                                                    log.info("$$$$$4, nabor.id={}, nabor.vol={}",
-                                                            nabor.getId(), volDistKart);
+                                                    //log.info("$$$$$4, nabor.id={}, nabor.vol={}",
+                                                            //nabor.getId(), volDistKart);
                                                     nabor.setVol(volDistKart);
                                                 } else {
-                                                    log.info("$$$$$5, nabor.id={}, nabor.volAdd={}",
-                                                            nabor.getId(), volDistKart);
+                                                    //log.info("$$$$$5, nabor.id={}, nabor.volAdd={}",
+                                                            //nabor.getId(), volDistKart);
                                                     nabor.setVolAdd(volDistKart);
                                                 }
                                                 diffDist = diffDist.subtract(volDistKart);
@@ -557,7 +557,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                         .findFirst().ifPresent(n -> {
                                     log.info("Норматив ОДН lsk={}, usl={}, vol={}",
                                             n.getKart().getLsk(), n.getUsl().getId(), volDist);
-                                    log.info("$$$$$6, nabor.id={}, nabor.volAdd={}", n.getId(), volDist);
+                                    //log.info("$$$$$6, nabor.id={}, nabor.volAdd={}", n.getId(), volDist);
                                     n.setLimit(limit);
                                     n.setVolAdd(volDist);
                                 });
@@ -783,7 +783,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                         && charge.getType().equals(5));
 
                 // занулить по вводу-услуге
-                log.info("$$$$$1, nabor.id={}, nabor.vol=null, nabor.volAdd=null, nabor.limit=null", nabor.getId());
+                //log.info("$$$$$1, nabor.id={}, nabor.vol=null, nabor.volAdd=null, nabor.limit=null", nabor.getId());
                 nabor.setVol(null);
                 nabor.setVolAdd(null);
                 nabor.setLimit(null);
@@ -793,7 +793,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             for (Nabor nabor2 : nabor.getKart().getNabor()) {
                 if (nabor2.getUsl().equals(vvod.getUsl().getUslChild())) {
                     // занулить по зависимым услугам
-                    log.info("$$$$$2, nabor.id={}, nabor.vol=null, nabor.volAdd=null, nabor.limit=null", nabor2.getId());
+                    //log.info("$$$$$2, nabor.id={}, nabor.vol=null, nabor.volAdd=null, nabor.limit=null", nabor2.getId());
                     nabor2.setVol(null);
                     nabor2.setVolAdd(null);
                     nabor2.setLimit(null);

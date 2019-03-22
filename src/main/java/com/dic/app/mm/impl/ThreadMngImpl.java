@@ -46,7 +46,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
      * @param cntThreads - кол-во потоков
      * @param isCheckStop - проверять остановку главного процесса?
      * @param rqn - номер запроса
-     * @param stopMark
+     * @param stopMark - маркер остановки процесса
      */
     @Override
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
@@ -100,7 +100,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
      * @param lstItem    - список Id на обработку
      * @param isCheckStop - проверять остановку главного процесса?
      * @param rqn - номер запроса
-     * @param stopMark
+     * @param stopMark - маркер остановки процесса
      */
     @Override
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)

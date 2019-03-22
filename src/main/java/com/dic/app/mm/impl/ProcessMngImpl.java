@@ -239,7 +239,8 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         switch (reqConf.getTp()) {
             case 0:
             case 2:
-            case 3: {
+            case 3:
+            case 4: {
                 // перебрать все помещения для расчета
                 // заблокировать, если нужно для долго длящегося процесса
                 if (reqConf.isLockForLongLastingProcess()) {
@@ -253,7 +254,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                                 log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
                                 break;
                             }
-                            if (Utl.in(reqConf.getTp(), 0, 3)) {
+                            if (Utl.in(reqConf.getTp(), 0, 3, 4)) {
                                 // Начисление и начисление для распределения объемов
                                 genChrgProcessMng.genChrg(reqConf, id);
                             } else if (reqConf.getTp() == 2) {

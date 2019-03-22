@@ -97,11 +97,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             //ChrgCount chrgCount = new ChrgCount();
             // выбранные услуги для формирования
             List<Usl> lstSelUsl = new ArrayList<>();
-            if (reqConf.getTp() == 0 && reqConf.getUsl() != null) {
-                // начисление по выбранной услуге
+            if (Utl.in(reqConf.getTp(),0, 4) && reqConf.getUsl() != null) {
+                // начисление по выбранной услуге, начисление по одной услуге, для автоначисления
                 lstSelUsl.add(reqConf.getUsl());
-            } else if (reqConf.getTp() == 3) {
-                // начисление для распределения по вводу, добавить услуги для ограничения формирования только по ним
+            } else if (Utl.in(reqConf.getTp(),3)) {
+                // начисление для распределения по вводу
+                // добавить услуги для ограничения формирования только по ним
                 lstSelUsl.add(reqConf.getVvod().getUsl());
             }
 
@@ -137,7 +138,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             }
 
             // кроме распределения объемов (там нечего еще считать, нет экономии ОДН
-            if (reqConf.getTp() != 3) {
+            if (!Utl.in(reqConf.getTp(),3, 4)) {
                 // 2. распределить экономию ОДН по услуге, пропорционально объемам
                 log.trace("Распределение экономии ОДН");
                 distODNeconomy(chrgCountAmountLocal, ko, lstSelUsl);
@@ -163,7 +164,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
             chrgCountAmountLocal.printVolAmnt(null, "После округления");
 
-            if (reqConf.getTp() != 3) {
+            if (!Utl.in(reqConf.getTp(),3, 4)) {
                 // 6. Сгруппировать строки начислений для записи в C_CHARGE
                 chrgCountAmountLocal.groupUslVolChrg();
 
@@ -173,38 +174,16 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 chrgCountAmountLocal.saveChargeAndRound(ko, lstSelUsl);
             }
 
+            if (reqConf.getTp() == 4) {
+                // 8. по операции - начисление по одной услуге, для автоначисления - по нормативу
+                // заполнить итоговый объем
+                reqConf.getChrgCountAmount().setResultVol(chrgCountAmountLocal.getAmntVolByUsl(reqConf.getUsl()));
+            }
+
             log.info("****** {} помещения klskId={} - окончание   ******",
                     reqConf.getTpName(), ko.getId());
 
-/*
-        log.info("ИТОГО:");
-        log.info("UslPriceVolKart:");
-        BigDecimal amntVol = BigDecimal.ZERO;
 
-        for (UslPriceVolKart t : calcStore.getChrgCountAmount().getLstUslPriceVolKart()) {
-            if (Utl.in(t.usl.getId(),"003")) {
-                log.info("dt:{}-{} usl={} org={} cnt={} " +
-                                "empt={} stdt={} " +
-                                "prc={} prcOv={} prcEm={} " +
-                                "vol={} volOv={} volEm={} ar={} arOv={} " +
-                                "arEm={} Kpr={} Ot={} Wrz={}",
-                        Utl.getStrFromDate(t.dtFrom, "dd"), Utl.getStrFromDate(t.dtTo, "dd"),
-                        t.usl.getId(), t.org.getId(), t.isMeter, t.isEmpty,
-                        t.socStdt, t.price, t.priceOverSoc, t.priceEmpty,
-                        t.vol.setScale(4, BigDecimal.ROUND_HALF_UP),
-                        t.volOverSoc.setScale(4, BigDecimal.ROUND_HALF_UP),
-                        t.volEmpty.setScale(4, BigDecimal.ROUND_HALF_UP),
-                        t.area.setScale(4, BigDecimal.ROUND_HALF_UP),
-                        t.areaOverSoc.setScale(4, BigDecimal.ROUND_HALF_UP),
-                        t.areaEmpty.setScale(4, BigDecimal.ROUND_HALF_UP),
-                        t.kpr.setScale(4, BigDecimal.ROUND_HALF_UP),
-                        t.kprOt.setScale(4, BigDecimal.ROUND_HALF_UP),
-                        t.kprWr.setScale(4, BigDecimal.ROUND_HALF_UP));
-                amntVol=amntVol.add(t.vol.add(t.volOverSoc.add(t.volEmpty)));
-            }
-        }
-        log.info("Итоговый объем:={}", amntVol);
-*/
         } finally {
             // разблокировать помещение
             config.getLock().unlockId(reqConf.getRqn(), 1, klskId);
@@ -347,23 +326,15 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // Х.В., Г.В., без уровня соцнормы/свыше, электроэнергия
                     // получить объем по нормативу в доле на 1 день
                     // узнать, работал ли хоть один счетчик в данном дне
-                    //log.info("factUslVol.getId()={}", factUslVol.getId());
-/*
-                    for (SumMeterVol t : lstMeterVol) {
-                        log.info("$$$$$$ t.getVol()={}, t.getDtFrom()={}, t.getDtTo()={}, t.getUslId()={}, t.getMeterId()={}" +
-                                "", t.getVol(), t.getDtFrom(), t.getDtTo(), t.getUslId(), t.getMeterId());
-                    }
-*/
                     isMeterExist = meterMng.isExistAnyMeter(lstMeterVol, factUslVol.getId(), curDt);
+                    if (reqConf.getTp() == 4) {
+                        // начисление по выбранной услуге, по нормативу, для автоначисления
+                        isMeterExist = false;
+                    }
+
                     // получить соцнорму
                     socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
                     if (isMeterExist) {
-                        // для водоотведения
-                       /* if (fkCalcTp.equals(17)) {
-                            isExistsMeterColdWater = true;
-                        } else if (fkCalcTp.equals(18)) {
-                            isExistsMeterHotWater = true;
-                        }*/
                         // получить объем по счетчику в пропорции на 1 день его работы
                         UslMeterDateVol partVolMeter = lstDayMeterVol.stream()
                                 .filter(t -> t.usl.equals(nabor.getUsl().getMeterUslVol()) && t.dt.equals(curDt))
