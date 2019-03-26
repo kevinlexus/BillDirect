@@ -79,6 +79,14 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         try {
             //log.info("******* klskId={} заблокирован для расчета", klskId);
 
+/*
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+*/
+
             CalcStore calcStore = reqConf.getCalcStore();
             //Ko ko = em.find(Ko.class, klskId); //note Разобраться что оставить!
             Ko ko = em.getReference(Ko.class, klskId);
@@ -381,7 +389,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     for (UslPriceVolKart t : lstColdHotWater) {
                         if (t.getUsl().getFkCalcTp().equals(17)) {
                             // х.в.
-                            dayColdWaterVol = dayVol.add(t.getVol());
+                            //dayColdWaterVol = dayVol.add(t.getVol()); // WTF????
+                            dayColdWaterVol = dayColdWaterVol.add(t.getVol()); // было странное выражение (выше) отредактировал ред.25.03.19
                             isColdMeterExist = t.isMeter();
                         } else {
                             // г.в.
