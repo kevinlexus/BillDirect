@@ -79,10 +79,10 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
             SprGenItm menuMonthOver = sprGenItmDao.getByCd("GEN_MONTH_OVER");
             SprGenItm menuCheckBG = sprGenItmDao.getByCd("GEN_CHECK_BEFORE_GEN");
 
-            //**********почистить ошибку последнего формирования, % выполнения
+            //********** почистить ошибку последнего формирования, % выполнения
             //genMng.clearError(menuGenItg);
 
-            //**********установить дату формирования
+            //********** установить дату формирования
             execMng.setGenDate();
 
             //**********Закрыть базу для пользователей, если выбрано итоговое формир
@@ -91,7 +91,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                 log.info("Установлен признак закрытия базы!");
             }
 
-            //**********Проверки до формирования
+            //********** Проверки до формирования
             if (menuCheckBG.getSel()) {
                 // если выбраны проверки, а они как правило д.б. выбраны при итоговом
                 if (checkErr()) {
@@ -104,7 +104,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                 log.info("Проверки до формирования выполнены!");
             }
 
-            //**********Проверки до перехода месяца
+            //********** Проверки до перехода месяца
             if (menuMonthOver.getSel()) {
                 if (checkMonthOverErr()) {
                     // найдены ошибки - выход
@@ -120,7 +120,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
             // список Id объектов
             List<Long> lst;
             String retStatus;
-            //**********Начать формирование
+            //********** Начать формирование
             for (SprGenItm itm : sprGenItmDao.getAllCheckedOrdered()) {
 
                 log.info("Generating menu item: {}", itm.getCd());

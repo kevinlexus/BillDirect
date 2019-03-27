@@ -10,6 +10,8 @@ import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.cache.annotation.CacheEvict;
@@ -362,18 +364,28 @@ public class WebController implements CommonConstants {
         return "cached";
     }
 
-    /**
-     * Выполнение очистки кэша, связанного с Nabor, Price, Kart
-     *
-     * @return
-     */
-    @RequestMapping("/evictCacheNaborKartPrice")
+    @RequestMapping("/checkCache2")
     @ResponseBody
-    @CacheEvict(value = {"KartMng.getKartMainLsk",
-            "PriceMng.multiplyPrice",
-            "ReferenceMng.getUslOrgRedirect"}, allEntries = true)
-    public String evictCacheNaborKartPrice() {
-        log.info("Кэш 'NaborMng.getDetailUslPrice' очищен!");
+    public void checkCache2() {
+        Nabor nabor = em.find(Nabor.class, 41);
+        log.info("check id=41 nabor.getId()={}, nabor.getOrg().getId()={}", nabor.getId(), nabor.getOrg().getId());
+        nabor = em.find(Nabor.class, 42);
+        log.info("check id=42 nabor.getId()={}, nabor.getOrg().getId()={}", nabor.getId(), nabor.getOrg().getId());
+    }
+
+
+    /**
+     * Выполнение очистки L2 кэша Hibernate, содержащего сущности
+     * Вызывать из Direct, из триггеров обновления справочников в Oracle
+     */
+    @RequestMapping("/evictL2C")
+    @ResponseBody
+    @Transactional
+    public String evictL2C() {
+        SessionFactory sessionFactory = em.getEntityManagerFactory().unwrap(SessionFactory.class);
+        sessionFactory.getCache().evictEntityRegions();
+        sessionFactory.getCache().evictCollectionRegions();
+        log.info("ВНИМАНИЕ! Hbernate L2 Кэш очищен!");
         return "OK";
     }
 }
