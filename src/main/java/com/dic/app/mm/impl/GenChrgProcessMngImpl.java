@@ -256,7 +256,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         nabor.getUsl().getMeterUslVol() : nabor.getUsl();
                 // ввод
                 final Vvod vvod = nabor.getVvod();
-
+                final boolean isForChrg = nabor.isValid(false);
                 // признаки 0 зарег. и наличия счетчика от связанной услуги
                 Boolean isLinkedEmpty = null;
                 Boolean isLinkedExistMeter = null;
@@ -505,14 +505,14 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     if (dayColdWaterVol.compareTo(BigDecimal.ZERO) != 0) {
                         uslPriceVolKart = buildVol(curDt, calcStore, nabor, null, null,
                                 kartMain, detailUslPrice, countPers, socStandart, isColdMeterExist,
-                                dayColdWaterVol, dayVolOverSoc, kartArea, areaOverSoc);
+                                dayColdWaterVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
                         // сгруппировать по лиц.счету, услуге, для распределения по вводу
                         chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
                     }
                     if (dayHotWaterVol.compareTo(BigDecimal.ZERO) != 0) {
                         uslPriceVolKart = buildVol(curDt, calcStore, nabor, null, null,
                                 kartMain, detailUslPrice, countPers, socStandart, isHotMeterExist,
-                                dayHotWaterVol, dayVolOverSoc, kartArea, areaOverSoc);
+                                dayHotWaterVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
                         // сгруппировать по лиц.счету, услуге, для распределения по вводу
                         chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
                     }
@@ -520,7 +520,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // прочие услуги
                     uslPriceVolKart = buildVol(curDt, calcStore, nabor, isLinkedEmpty, isLinkedExistMeter,
                             kartMain, detailUslPrice, countPers, socStandart, isMeterExist,
-                            dayVol, dayVolOverSoc, kartArea, areaOverSoc);
+                            dayVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
                     if (Utl.in(nabor.getUsl().getFkCalcTp(), 17, 18)) {
                         // по х.в., г.в.
                         // сохранить расчитанный объем по расчетному дню, (используется для услуги Повыш коэфф.)
@@ -595,11 +595,13 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * @param dayVolOverSoc      - объем свыше соц.нормы
      * @param kartArea           - площадь
      * @param areaOverSoc        - площадь свыше соц.нормы
+     * @param isForChrg          - сохранять в начислении? (C_CHARGE)
      */
     private UslPriceVolKart buildVol(Date curDt, CalcStore calcStore, Nabor nabor, Boolean isLinkedEmpty,
                                      Boolean isLinkedExistMeter, Kart kartMain, DetailUslPrice detailUslPrice,
                                      CountPers countPers, SocStandart socStandart, boolean isMeterExist,
-                                     BigDecimal dayVol, BigDecimal dayVolOverSoc, BigDecimal kartArea, BigDecimal areaOverSoc) {
+                                     BigDecimal dayVol, BigDecimal dayVolOverSoc, BigDecimal kartArea,
+                                     BigDecimal areaOverSoc, boolean isForChrg) {
         return UslPriceVolKart.UslPriceVolBuilder.anUslPriceVol()
                 .withDt(curDt)
                 .withKart(nabor.getKart()) // группировать по лиц.счету из nabor!
@@ -623,6 +625,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 .withKprWr(countPers.kprWr)
                 .withKprNorm(countPers.kprNorm)
                 .withPartDayMonth(calcStore.getPartDayMonth())
+                .withIsForChrg(isForChrg)
                 .build();
     }
 
@@ -703,7 +706,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 .filter(c -> c.getTp().equals(4) && lstSelUsl.size() == 0)
                 .filter(c -> c.getKart().getNabor().stream()
                         .anyMatch(n -> n.getUsl().equals(c.getUsl().getUslChild())
-                                && n.isValid())) // только по действительным услугам ОДН
+                                && n.isValid(true))) // только по действительным услугам ОДН
                 .collect(Collectors.toList());
 
         // распределить экономию
