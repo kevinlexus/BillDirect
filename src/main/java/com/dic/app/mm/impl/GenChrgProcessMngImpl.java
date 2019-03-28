@@ -93,8 +93,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
             // создать локальное хранилище объемов
             ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
-            log.info("****** {} помещения klskId={} - начало    ******",
-                    reqConf.getTpName(), ko.getId());
+/*            if (reqConf.isSingleObjectCalc()) {
+                log.info("****** {} помещения klskId={} - начало    ******",
+                        reqConf.getTpName(), ko.getId());
+            }*/
             // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
             int parVarCntKpr =
                     Utl.nvl(sprParamMng.getN1("VAR_CNT_KPR"), 0D).intValue();
@@ -188,10 +190,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 reqConf.getChrgCountAmount().setResultVol(chrgCountAmountLocal.getAmntVolByUsl(reqConf.getUsl()));
             }
 
-            log.info("****** {} помещения klskId={} - окончание   ******",
-                    reqConf.getTpName(), ko.getId());
-
-
+/*            if (reqConf.isSingleObjectCalc()) {
+                log.info("****** {} помещения klskId={} - окончание   ******",
+                        reqConf.getTpName(), ko.getId());
+            }*/
         } finally {
             // разблокировать помещение
             config.getLock().unlockId(reqConf.getRqn(), 1, klskId);

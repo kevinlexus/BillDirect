@@ -8,14 +8,11 @@ import com.dic.bill.dao.PenRefDAO;
 import com.dic.bill.dao.VvodDAO;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.ChrgCountAmount;
-import com.dic.bill.mm.KartMng;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
-import com.ric.cmn.excp.*;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -68,6 +65,8 @@ public class RequestConfigDirect implements Cloneable {
     private int tpSel;
     // блокировать для выполнения длительного процесса?
     private boolean isLockForLongLastingProcess = false;
+    // задан расчет одного объекта? (используется в логгировании)
+    private boolean isSingleObjectCalc = false;
 
     // услуга
     Usl usl = null;
@@ -153,6 +152,7 @@ public class RequestConfigDirect implements Cloneable {
                 lstItems = new ArrayList<>(1);
                 lstItems.add(ko.getId());
                 cntThreads=1;
+                isSingleObjectCalc = true;
             } else if (uk != null) {
                 // по УК
                 isLockForLongLastingProcess = true;

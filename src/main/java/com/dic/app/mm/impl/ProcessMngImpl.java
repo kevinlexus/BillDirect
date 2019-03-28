@@ -249,6 +249,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                     config.getLock().setLockProc(reqConf.getRqn(), stopMark);
                 }
                 try {
+                    long i=0,i2=0;
                     while (true) {
                         Long id = reqConf.getNextItem();
                         if (id != null) {
@@ -258,7 +259,21 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                             }
                             if (Utl.in(reqConf.getTp(), 0, 3, 4)) {
                                 // Начисление и начисление для распределения объемов
+                                if (reqConf.isSingleObjectCalc()) {
+                                    log.info("****** {} помещения klskId={} - начало    ******",
+                                            reqConf.getTpName(), id);
+                                }
                                 genChrgProcessMng.genChrg(reqConf, id);
+                                if (reqConf.isSingleObjectCalc()) {
+                                    log.info("****** {} помещения klskId={} - окончание   ******",
+                                            reqConf.getTpName(), id);
+                                } else if (i==500L){
+                                    i=0;
+                                    log.info("****** Поток {}, {}, обработано {} объектов  ******",
+                                            Thread.currentThread().getName(), reqConf.getTpName(), i2);
+                                }
+                                i++;
+                                i2++;
                             } else if (reqConf.getTp() == 2) {
                                 // Распределение объемов
                                 distVolMng.distVolByVvodTrans(reqConf, id);

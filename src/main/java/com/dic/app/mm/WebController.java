@@ -188,8 +188,8 @@ public class WebController implements CommonConstants {
                 } catch (Exception e) {
                     retStatus = "ERROR! Ошибка при выполнении расчета!";
                     log.error(Utl.getStackTraceString(e));
-                } finally {
-                    config.getLock().unlockProc(reqConf.getRqn(), stopMark);
+//                } finally { WTF??? зачем здесь это? ред.28.03.19
+//                    config.getLock().unlockProc(reqConf.getRqn(), stopMark);
                 }
             }
             sw.stop();
