@@ -504,14 +504,24 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 UslPriceVolKart uslPriceVolKart = null;
                 if (nabor.getUsl().getFkCalcTp().equals(19)) {
                     // водоотведение, добавить составляющие по х.в. и г.в.
+                    // было ли учтено кол-во проживающих? для устранения удвоения в стате по водоотведению
+                    boolean isKprTaken = false;
                     if (dayColdWaterVol.compareTo(BigDecimal.ZERO) != 0) {
                         uslPriceVolKart = buildVol(curDt, calcStore, nabor, null, null,
                                 kartMain, detailUslPrice, countPers, socStandart, isColdMeterExist,
                                 dayColdWaterVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
                         // сгруппировать по лиц.счету, услуге, для распределения по вводу
                         chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
+                        isKprTaken = true;
                     }
                     if (dayHotWaterVol.compareTo(BigDecimal.ZERO) != 0) {
+                        if (isKprTaken) {
+                            // уже были учтены проживающие
+                            countPers.kpr =0;
+                            countPers.kprNorm = 0;
+                            countPers.kprOt = 0;
+                            countPers.kprWr = 0;
+                        }
                         uslPriceVolKart = buildVol(curDt, calcStore, nabor, null, null,
                                 kartMain, detailUslPrice, countPers, socStandart, isHotMeterExist,
                                 dayHotWaterVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
