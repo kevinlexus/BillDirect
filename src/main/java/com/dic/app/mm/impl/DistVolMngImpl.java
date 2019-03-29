@@ -173,7 +173,10 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                 lstUslVolKart.stream()
                                         .filter(t ->
                                                 t.getKart().getNabor().stream()
-                                                        .anyMatch((d -> d.getUsl().equals(t.getUsl().getUslChild()))) // где есть наборы по дочерним усл.
+                                                        .anyMatch((d ->
+                                                                distTp!=8 && d.getUsl().equals(t.getUsl().getUslChild()) ||
+                                                                        distTp==8 && d.getUsl().equals(t.getUsl())
+                                                        )) // где есть наборы по дочерним усл.
                                                         && getIsCountOpl(tp, distTp, isUseSch, t)
                                         ).collect(Collectors.toList());
                         for (UslVolKart uslVolKartGrp : lstUslVolKartStat) {
@@ -264,6 +267,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                     amnt.cntSchAmnt = vvod.getSchCnt();
                     // кол-во лиц.счетов по нормативам
                     amnt.cntNormAmnt = vvod.getCntLsk();
+                    amnt.distFactUpNorm = BigDecimal.ZERO;
 
                     log.info("*** Ввод vvodId={}, услуга usl={}, площадь={}, кол-во лиц сч.={}, кол-во лиц норм.={}, кол-во прож.={}, " +
                                     "объем={}, объем сч={}, объем норм.={}" +
@@ -280,12 +284,14 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                         // с ОДПУ
                         if (kub.compareTo(BigDecimal.ZERO) != 0) {
                             if (Utl.in(usl.getFkCalcTp(), 3, 17, 4, 18, 31, 38, 40)) {
-                                if (Utl.in(distTp, 1, 3)) {
-                                    BigDecimal volAmntWithODN = (amnt.volAmnt.add(limitODN.amntVolODN)).setScale(3, BigDecimal.ROUND_HALF_UP);
+                                if (Utl.in(distTp, 1, 3, 8)) {
+                                    BigDecimal volAmntWithODN = (amnt.volAmnt.add(limitODN.amntVolODN))
+                                            .setScale(3, BigDecimal.ROUND_HALF_UP);
                                     if (!isWithoutLimit && volAmntWithODN.compareTo(BigDecimal.ZERO) > 0) {
                                         log.info("*** органичение ОДН по вводу ={}", limitODN.amntVolODN);
                                         if (kub.compareTo(volAmntWithODN) > 0) {
                                             // установить предельно допустимый объем по дому
+                                            amnt.distFactUpNorm = kub.subtract(volAmntWithODN);
                                             kub = volAmntWithODN;
                                             log.info("*** установлен новый объем для распределения по вводу ={}", volAmntWithODN);
                                         }
@@ -303,7 +309,10 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                             List<UslVolKartGrp> lstUslVolKartGrp = lstUslVolKartGrpBase.stream()
                                                     .filter(t -> t.getUsl().equals(usl) &&
                                                             t.getKart().getNabor().stream()
-                                                                    .anyMatch((d -> d.getUsl().equals(t.getUsl().getUslChild()))) // где есть наборы по дочерним усл.
+                                                                    .anyMatch((d ->
+                                                                            distTp!=8 && d.getUsl().equals(t.getUsl().getUslChild()) ||
+                                                                                    distTp==8 && d.getUsl().equals(t.getUsl())
+                                                                    )) // где есть наборы по дочерним усл.
                                                             && getIsCountOpl(tp, distTp, isUseSch, t)).collect(Collectors.toList());
                                             Iterator<UslVolKartGrp> iter = lstUslVolKartGrp.iterator();
                                             while (iter.hasNext()) {
@@ -371,7 +380,11 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                                 List<UslVolKartGrp> lstUslVolKartGrp = lstUslVolKartGrpBase.stream()
                                                         .filter(t -> t.isResidental() && // здесь только жилые помещения
                                                                 t.getKart().getNabor().stream()
-                                                                        .anyMatch((d -> d.getUsl().equals(t.getUsl().getUslChild()))) // где есть наборы по дочерним усл.
+                                                                        .anyMatch((d ->
+                                                                                distTp!=8 && d.getUsl().equals(t.getUsl().getUslChild()) ||
+                                                                                        distTp==8 && d.getUsl().equals(t.getUsl())
+                                                                        )) // где есть наборы по дочерним усл.
+
                                                                 && getIsCountOpl(tp, distTp, isUseSch, t)).collect(Collectors.toList());
                                                 Iterator<UslVolKartGrp> iter = lstUslVolKartGrp.iterator();
                                                 while (iter.hasNext()) {
@@ -523,7 +536,10 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                             List<UslVolKartGrp> lstUslVolKartGrp = lstUslVolKartGrpBase.stream()
                                     .filter(t -> t.isResidental() && // здесь только жилые помещения
                                             t.getKart().getNabor().stream()
-                                                    .anyMatch((d -> d.getUsl().equals(t.getUsl().getUslChild()))) // где есть наборы по дочерним усл.
+                                                    .anyMatch((d ->
+                                                            distTp!=8 && d.getUsl().equals(t.getUsl().getUslChild()) ||
+                                                                    distTp==8 && d.getUsl().equals(t.getUsl())
+                                                    )) // где есть наборы по дочерним усл.
                                             && getIsCountOpl(tp, distTp, isUseSch, t)).collect(Collectors.toList());
 
                             for (UslVolKartGrp uslVolKartGrp : lstUslVolKartGrp) {
@@ -587,12 +603,24 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                     vvod.setKubNrmFact(amnt.distNormFact.setScale(5, BigDecimal.ROUND_HALF_UP));
                     vvod.setKubSchFact(amnt.distSchFact.setScale(5, BigDecimal.ROUND_HALF_UP));
                     vvod.setKubFact(amnt.distFact.setScale(5, BigDecimal.ROUND_HALF_UP));
+
+                    // ограничить Итого распределено по Введенному объему
+                    BigDecimal tmpKubDist = amnt.volAmnt.add(
+                            amnt.distFact.setScale(5, BigDecimal.ROUND_HALF_UP));
+                    if (tmpKubDist.compareTo(kub) > 0) {
+                        tmpKubDist = kub;
+                    }
+                    vvod.setKubDist(tmpKubDist);
                     vvod.setKubSch(vvod.getKubSch().setScale(5, BigDecimal.ROUND_HALF_UP));
                     vvod.setKubNorm(vvod.getKubNorm().setScale(5, BigDecimal.ROUND_HALF_UP));
+                    vvod.setKubFactUpNorm(amnt.distFactUpNorm.setScale(5, BigDecimal.ROUND_HALF_UP));
+                    vvod.setOplAdd(vvod.getOplAdd().setScale(5, BigDecimal.ROUND_HALF_UP));
 
                     log.info("Итого по вводу распределено: " +
-                                    "vvod.getNrm()={}, vvod.getKubNrmFact()={}, vvod.getKubSchFact()={}, vvod.getKubFact()={}",
-                            vvod.getNrm(), vvod.getKubNrmFact(), vvod.getKubSchFact(), vvod.getKubFact());
+                                    "vvod.getNrm()={}, vvod.getKubNrmFact()={}, vvod.getKubSchFact()={}, " +
+                                    "vvod.getKubFact()={}, vvod.getKubDist()={}",
+                            vvod.getNrm(), vvod.getKubNrmFact(), vvod.getKubSchFact(),
+                            vvod.getKubFact(), vvod.getKubDist());
                 }
             }
         } finally {
@@ -726,6 +754,10 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
         } else if (!distTp.equals(3) && !isUseSch) {
             // тип распр.<>3 контролировать и нет наличия счетчиков в текущем периоде
             isCountVol = !uslVolKartGrp.isExistMeterCurrPeriod();
+        } else if (!distTp.equals(3) && isUseSch) {
+            // note ред. 29.03.2019 - проверить
+            // тип распр.<>3 контролировать и нет наличия счетчиков в текущем периоде
+            isCountVol = true;
         }
         return isCountVol;
     }
@@ -1064,8 +1096,10 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
         BigDecimal distNormFact = BigDecimal.ZERO;
         // распределено факт. на счетчики
         BigDecimal distSchFact = BigDecimal.ZERO;
-        // распределено факт. итого
+        //
         BigDecimal distFact = BigDecimal.ZERO;
+
+        BigDecimal distFactUpNorm = BigDecimal.ZERO;
     }
 
 }
