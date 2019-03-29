@@ -236,7 +236,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         for (Nabor nabor : lstNabor) {
             // получить основной лиц счет по связи klsk помещения
             Kart kartMainByKlsk = em.getReference(Kart.class, kartMng.getKartMainLsk(nabor.getKart()));
-            log.trace("Основной лиц.счет lsk={}", kartMainByKlsk.getLsk());
+            //log.trace("Основной лиц.счет lsk={}", kartMainByKlsk.getLsk());
             if (nabor.getUsl().isMain() && (lstSelUsl.size() == 0 || lstSelUsl.contains(nabor.getUsl()))
                     && (part == 1 && !Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19) ||
                     part == 2 && Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19)) // фильтр очередности расчета
@@ -533,8 +533,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     uslPriceVolKart = buildVol(curDt, calcStore, nabor, isLinkedEmpty, isLinkedExistMeter,
                             kartMain, detailUslPrice, countPers, socStandart, isMeterExist,
                             dayVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
-                    if (Utl.in(nabor.getUsl().getFkCalcTp(), 17, 18)) {
-                        // по х.в., г.в.
+                    if (Utl.in(nabor.getUsl().getFkCalcTp(), 17, 18, 31)) {
+                        // по х.в., г.в., эл.эн.
                         // сохранить расчитанный объем по расчетному дню, (используется для услуги Повыш коэфф.)
                         mapUslPriceVol.put(nabor.getUsl(), uslPriceVolKart);
                     }

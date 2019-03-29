@@ -202,9 +202,20 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         }
 
         long endTime = System.currentTimeMillis();
-        long totalTime = (endTime - startTime) / 60000L;
+        long totalTime;
+        String tpTime;
+        if (reqConf.isSingleObjectCalc()) {
+            // один объект - время в мс.
+            totalTime = (endTime - startTime);
+            tpTime = "мс.";
+        } else {
+            // много объектов - время в мин.
+            totalTime = (endTime - startTime) / 60000L;
+            tpTime = "мин.";
+        }
         log.info("");
-        log.info("ОКОНЧАНИЕ процесса {} заданных объектов - Общее время выполнения = {} мин.", reqConf.getTpName(), totalTime);
+        log.info("ОКОНЧАНИЕ процесса {} заданных объектов - Общее время выполнения = {} {}",
+                reqConf.getTpName(), totalTime, tpTime);
         log.info("");
     }
 

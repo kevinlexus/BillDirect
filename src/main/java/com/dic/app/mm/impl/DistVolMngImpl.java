@@ -110,11 +110,12 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             // тип услуги
             int tpTmp = -1;
 
-            if (usl.getFkCalcTp() == null) {
-                throw new ErrorWhileDist("ОШИБКА! По услуге usl=" + usl.getId() + " не заполнен тип fkCalcTp");
-            }
             // вид услуги ограничения ОДН
-            if (Utl.in(usl.getFkCalcTp(), 3, 17, 4, 18, 31, 38, 40)) {
+            if (usl.getFkCalcTp() == null) {
+                // не заполнен вариант расчета - возможно услуга для распределения
+                // объема - информационно - не распределять вообще
+                tpTmp = -1;
+            } else if (Utl.in(usl.getFkCalcTp(), 3, 17, 4, 18, 31, 38, 40)) {
                 if (Utl.in(usl.getFkCalcTp(), 3, 17, 38, 4, 18, 40)) {
                     // х.в., г.в.
                     tpTmp = 0;
@@ -281,7 +282,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                             if (Utl.in(usl.getFkCalcTp(), 3, 17, 4, 18, 31, 38, 40)) {
                                 if (Utl.in(distTp, 1, 3)) {
                                     BigDecimal volAmntWithODN = (amnt.volAmnt.add(limitODN.amntVolODN)).setScale(3, BigDecimal.ROUND_HALF_UP);
-                                    if (!isWithoutLimit) {
+                                    if (!isWithoutLimit && volAmntWithODN.compareTo(BigDecimal.ZERO) > 0) {
                                         log.info("*** органичение ОДН по вводу ={}", limitODN.amntVolODN);
                                         if (kub.compareTo(volAmntWithODN) > 0) {
                                             // установить предельно допустимый объем по дому
@@ -501,6 +502,9 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                                             //nabor.getId(), volDistKart);
                                                     nabor.setVolAdd(volDistKart);
                                                 }
+                                                // добавить итоговые объемы доначисления
+                                                addAmnt(amnt, volDistKart, t);
+
                                                 diffDist = diffDist.subtract(volDistKart);
                                                 log.info("распределено: lsk={}, usl={}, kub={}, vol={}, area={}, areaAmnt={}",
                                                         t.getKart().getLsk(), usl.getId(),
@@ -746,6 +750,10 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
         } else if (!distTp.equals(3) && !isUseSch) {
             // тип распр.<>3 контролировать и нет наличия счетчиков в текущем периоде
             isCountVol = !uslVolKart.isMeter();
+/*        } else if (!distTp.equals(3) && isUseSch) {
+            // ред. 29.03.2019
+            // тип распр.<>3 контролировать и нет наличия счетчиков в текущем периоде
+            isCountVol = true;*/
         }
         return isCountVol;
     }
