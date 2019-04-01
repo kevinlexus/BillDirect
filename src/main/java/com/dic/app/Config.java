@@ -20,10 +20,7 @@ import org.springframework.cache.concurrent.ConcurrentMapCacheFactoryBean;
 import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.ImportResource;
+import org.springframework.context.annotation.*;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.Database;
@@ -43,19 +40,12 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @ImportResource("file:.\\config\\spring.xml")
 public class Config  implements ApplicationContextAware, AsyncConfigurer {
 
-	static ApplicationContext ctx = null;
-
-/*
-	@Qualifier("dataSource")
-	@Autowired
-	DataSource ds;
-*/
+	private static ApplicationContext ctx = null;
 
 	@Override
 	public void setApplicationContext(ApplicationContext context) throws BeansException {
 		ctx = context;
 	}
-
 
 	@Bean
 	public CacheManager cacheManager() {
@@ -67,28 +57,6 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 				new ConcurrentMapCache("ReferenceMng.getUslOrgRedirect")));
 		return cacheManager;
 	}
-
-	/**
-	 * Макс количество потоков запускаемых @Async и прочие настройки
-	 */
-/*
-	@Override
-	public Executor getAsyncExecutor() {
-		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		*/
-/*executor.setCorePoolSize(30);
-		executor.setMaxPoolSize(50);
-		executor.setQueueCapacity(100);*//*
-
-
-		executor.setThreadNamePrefix("BillDirectExecutor-");
-		// обработчик, если места нет в пуле для потока - с просьбой подождать места
-		// https://stackoverflow.com/questions/49290054/taskrejectedexception-in-threadpooltaskexecutor
-		executor.setRejectedExecutionHandler(new RejectedExecutionHandlerImpl());
-		executor.initialize();
-		return executor;
-	}
-*/
 
 	public static ApplicationContext getContext(){
 	      return ctx;
