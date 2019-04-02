@@ -1,7 +1,9 @@
 package com.dic.app.mm.impl;
 
+import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.PrepThread;
+import com.dic.app.mm.ProcessMng;
 import com.dic.app.mm.ThreadMng;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrg;
@@ -20,6 +22,7 @@ import javax.persistence.PersistenceContext;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -42,54 +45,28 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
 
     /**
      * Вызвать выполнение потоков распределения объемов/ начисления - новый метод
-     * @param reverse -   lambda функция
-     * @param cntThreads - кол-во потоков
-     * @param isCheckStop - проверять остановку главного процесса?
+     * @param reqConf - кол-во потоков
      * @param rqn - номер запроса
-     * @param stopMark - маркер остановки процесса
      */
     @Override
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
-    public void invokeThreads(PrepThread<T> reverse,
-                              int cntThreads, boolean isCheckStop, int rqn, String stopMark)
+    public void invokeThreads(RequestConfigDirect reqConf, int rqn)
             throws ErrorWhileGen {
-        log.info("Будет создано {} потоков", cntThreads);
-        // размер очереди
-        List<Future<CommonResult>> frl = new ArrayList<>(cntThreads);
-        for (int i = 0; i < cntThreads; i++) {
+        log.info("Будет создано {} потоков", reqConf.getCntThreads());
+        List<CompletableFuture<CommonResult>> lst = new ArrayList<>();
+        for (int i = 0; i < reqConf.getCntThreads(); i++) {
             // создать новый поток, передать информацию о % выполнения
-            log.info("********* Создан новый поток-1");
-            frl.add(reverse.lambdaFunction(null, -11111));
-            log.info("********* Создан новый поток-2");
-        }
-        // проверить окончание всех потоков
-        boolean isStop = false;
-        while (!isStop) {
-            isStop = true;
-            for (Future<CommonResult> fut : frl) {
-                try {
-                    if (!fut.isDone() && fut.get() != null) {
-                        // не завершен поток
-                        isStop = false;
-                    }
-                } catch (InterruptedException|ExecutionException e) {
-                    log.info(Utl.getStackTraceString(e));
-                    throw new ErrorWhileGen("ОШИБКА! Произошла ошибка во время исполнения потока");
-                }
-            }
+            //log.info("********* Создан новый поток-1 tpName={}", reqConf.getTpName());
+            ProcessMng processMng = ctx.getBean(ProcessMng.class);
+            //log.info("********* Создан новый поток-2 tpName={}", reqConf.getTpName());
+            CompletableFuture<CommonResult> ret = processMng.genProcess(reqConf);
+            //log.info("********* Создан новый поток-3 tpName={}", reqConf.getTpName());
+            lst.add(ret);
+            //log.info("********* Создан новый поток-4 tpName={}", reqConf.getTpName());
         }
 
-        for (Future<CommonResult> fut : frl) {
-            // не удалять! отслеживает ошибку в потоке!
-            try {
-                if (fut.get().getErr() == 1) {
-                }
-            } catch (Exception e) {
-                log.info(Utl.getStackTraceString(e));
-                log.error("ОШИБКА ПОСЛЕ ЗАВЕРШЕНИЯ ПОТОКА, ВЫПОЛНЕНИЕ ОСТАНОВКИ ПРОЧИХ ПОТОКОВ!");
-                throw new ErrorWhileGen("ОШИБКА! Произошла ошибка во время исполнения потока");
-            }
-        }
+        // ждать потоки
+        lst.forEach(CompletableFuture::join);
 
     }
 

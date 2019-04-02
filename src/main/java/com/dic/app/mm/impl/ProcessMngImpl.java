@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
 /**
@@ -72,92 +73,6 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     }
 
     /**
-     * Распределить объемы по вводу (по всем вводам, если reqConf.vvod == null)
-     *
-     * @param reqConf - параметры запроса
-     */
-/*
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
-    public void distVolAll(RequestConfigDirect reqConf)
-            throws ErrorWhileGen {
-        if (reqConf.getTp() != 2) {
-            throw new ErrorWhileGen("ОШИБКА! Задан некорректный тип выполнения");
-        }
-        // заблокировать, если нужно для долго длящегося процесса
-        if (reqConf.isLockForLongLastingProcess()) {
-            config.getLock().setLockProc(reqConf.getRqn(), stopMark);
-        }
-        try {
-            if (reqConf.getVvod() != null) {
-                // распределить конкретный ввод
-                try {
-                    if (reqConf.isMultiThreads()) {
-                        // вызвать в новой транзакции, многопоточно
-                        distVolMng.distVolByVvodTrans(reqConf, reqConf.getVvod().getId());
-                    } else {
-                        // вызвать в той же транзакции, однопоточно, для Unit - тестов
-                        distVolMng.distVolByVvodSameTrans(reqConf, reqConf.getVvod().getId());
-                    }
-                    log.info("Распределение объемов по вводу vvodId={} выполнено", reqConf.getVvod().getId());
-                } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
-                    log.error(Utl.getStackTraceString(e));
-                    throw new ErrorWhileGen("ОШИБКА при распределении объемов");
-                }
-            } else if (reqConf.getUk() != null) {
-                for (Long vvodId : vvodDAO.findVvodByUk(reqConf.getUk().getReu())
-                        .stream().map(BigDecimal::longValue).collect(Collectors.toList())) {
-                    if (!config.getLock().isStopped(stopMark)) {
-                        Vvod vvod = em.find(Vvod.class, vvodId);
-                        distVolCommon(reqConf, vvod);
-                    } else {
-                        log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
-                        break;
-                    }
-                }
-                log.info("Распределение объемов по УК reuId={} выполнено", reqConf.getUk().getReu());
-            } else if (reqConf.getHouse() != null) {
-                for (Vvod vvod : vvodDAO.findVvodByHouse(reqConf.getHouse().getId())) {
-                    distVolCommon(reqConf, vvod);
-                }
-                log.info("Распределение объемов по дому houseId={} выполнено", reqConf.getHouse().getId());
-            } else {
-                // распределить все вводы
-                for (Vvod vvod : vvodDAO.findAll(new Sort(Sort.Direction.ASC, "id"))) {
-                    if (!config.getLock().isStopped(stopMark)) {
-                        distVolCommon(reqConf, vvod);
-                    }
-                }
-                log.info("Распределение объемов по всем вводам выполнено");
-            }
-        } finally {
-            // разблокировать долго длящийся процесс
-            if (reqConf.isLockForLongLastingProcess()) {
-                config.getLock().unlockProc(reqConf.getRqn(), stopMark);
-            }
-        }
-    }
-*/
-
-    /**
-     * Распределить объемы
-     *
-     * @param reqConf - конфиг запроса
-     * @param vvod    - ввод
-     */
-
-    private void distVolCommon(RequestConfigDirect reqConf, Vvod vvod) throws ErrorWhileGen {
-        if (vvod.getUsl() != null && vvod.getUsl().isMain()) {
-            try {
-                distVolMng.distVolByVvodTrans(reqConf, vvod.getId());
-            } catch (ErrorWhileChrgPen | WrongParam | WrongGetMethod | ErrorWhileDist e) {
-                log.error(Utl.getStackTraceString(e));
-                throw new ErrorWhileGen("ОШИБКА при распределении объемов");
-            }
-        }
-    }
-
-    /**
      * Выполнение процесса формирования начисления, задолженности, по помещению, по дому, по вводу
      *
      * @param reqConf - конфиг запроса
@@ -173,24 +88,16 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         log.info("НАЧАЛО процесса {} заданных объектов", reqConf.getTpName());
         // заблокировать, если нужно для долго длящегося процесса
         if (reqConf.isLockForLongLastingProcess()) {
-            config.getLock().setLockProc(reqConf.getRqn(), stopMark);
+            config.getLock().setLockProc(reqConf.getRqn(), reqConf.getStopMark());
         }
         try {
             // проверка остановки процесса
             boolean isCheckStop = false; // note решить что с этим делать!
 
-            // LAMBDA, будет выполнено позже, в создании потока
-            PrepThread<Long> reverse = (item, proc) -> {
-                log.info("************** 1 поток:{}", reqConf.getTpName());
-                ProcessMng processMng = ctx.getBean(ProcessMng.class);
-                log.info("************** 2 поток:{}", reqConf.getTpName());
-                return processMng.genProcess(reqConf);
-            };
-
             // ВЫЗОВ
             if (reqConf.isMultiThreads()) {
                 // вызвать в новой транзакции, многопоточно
-                threadMng.invokeThreads(reverse, reqConf.getCntThreads(), isCheckStop, reqConf.getRqn(), stopMark);
+                threadMng.invokeThreads(reqConf, reqConf.getRqn());
             } else {
                 // вызвать в той же транзакции, однопоточно, для Unit - тестов
                 selectInvokeProcess(reqConf);
@@ -199,7 +106,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         } finally {
             // разблокировать долго длящийся процесс
             if (reqConf.isLockForLongLastingProcess()) {
-                config.getLock().unlockProc(reqConf.getRqn(), stopMark);
+                config.getLock().unlockProc(reqConf.getRqn(), reqConf.getStopMark());
             }
         }
         long endTime = System.currentTimeMillis();
@@ -230,7 +137,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW,
             rollbackFor = Exception.class)
-    public Future<CommonResult> genProcess(RequestConfigDirect reqConf) throws ErrorWhileGen {
+    public CompletableFuture<CommonResult> genProcess(RequestConfigDirect reqConf) throws ErrorWhileGen {
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО потока {}", reqConf.getTpName());
 
@@ -240,7 +147,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
         log.trace("ОКОНЧАНИЕ потока {}, время расчета={} мс", reqConf.getTpName(), totalTime);
-        return new AsyncResult<>(res);
+        return CompletableFuture.completedFuture(res);
     }
 
 
@@ -261,7 +168,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                     while (true) {
                         Long id = reqConf.getNextItem();
                         if (id != null) {
-                            if (reqConf.isLockForLongLastingProcess() && config.getLock().isStopped(stopMark)) {
+                            if (reqConf.isLockForLongLastingProcess() && config.getLock().isStopped(reqConf.getStopMark())) {
                                 log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
                                 break;
                             }
@@ -293,6 +200,10 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                     }
                 } catch (Exception e) {
                     log.error(Utl.getStackTraceString(e));
+                    // остановить другие потоки
+                    if (reqConf.isLockForLongLastingProcess()) {
+                        config.getLock().unlockProc(reqConf.getRqn(), reqConf.getStopMark());
+                    }
                     throw new ErrorWhileGen("ОШИБКА! Произошла ошибка в потоке " + reqConf.getTpName());
                 }
                 break;

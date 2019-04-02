@@ -160,6 +160,7 @@ public class WebController implements CommonConstants {
                     .withDebugLvl(debugLvl)
                     .withRqn(config.incNextReqNum())
                     .withIsMultiThreads(true)
+                    .withStopMark("processMng.genProcess")
                     .build();
             reqConf.prepareId();
             StopWatch sw = new org.springframework.util.StopWatch();

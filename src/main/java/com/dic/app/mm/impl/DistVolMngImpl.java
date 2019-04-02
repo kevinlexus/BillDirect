@@ -65,25 +65,11 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
             rollbackFor = Exception.class)
     @Override
     public void distVolByVvodTrans(RequestConfigDirect reqConf, Long vvodId)
-            throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist, ErrorWhileGen {
+            throws ErrorWhileDist {
         distVolByVvod(reqConf, vvodId);
     }
 
     /**
-     * Вызов из Unit - тестов
-     *
-     * @param reqConf - запрос
-     * @param vvodId  - Id ввода
-     */
-    @Transactional(
-            propagation = Propagation.MANDATORY, // та же транзакция
-            rollbackFor = Exception.class)
-    @Override
-    public void distVolByVvodSameTrans(RequestConfigDirect reqConf, Long vvodId)
-            throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist, ErrorWhileGen {
-        distVolByVvod(reqConf, vvodId);
-    }
-
     /**
      * Распределить объемы по вводу
      *
@@ -91,7 +77,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
      * @param vvodId  - ввод
      */
     private void distVolByVvod(RequestConfigDirect reqConf, Long vvodId)
-            throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist, ErrorWhileGen {
+            throws ErrorWhileDist {
         if (!config.getLock().aquireLockId(reqConf.getRqn(), 1, vvodId, 60)) {
             throw new ErrorWhileDist("ОШИБКА БЛОКИРОВКИ vvodId=" + vvodId);
         }
@@ -628,6 +614,9 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                             vvod.getKubFact(), vvod.getKubDist());
                 }
             }
+        } catch (WrongParam | WrongGetMethod | ErrorWhileGen e) {
+            log.error(Utl.getStackTraceString(e));
+            throw new ErrorWhileDist("ОШИБКА ПРИ РАСПРЕДЕЛЕНИИ ОБЪЕМОВ!");
         } finally {
             // разблокировать помещение
             config.getLock().unlockId(reqConf.getRqn(), 1, vvodId);

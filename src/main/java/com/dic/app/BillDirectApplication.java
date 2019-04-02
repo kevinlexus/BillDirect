@@ -12,5 +12,4 @@ public class BillDirectApplication {
 		ConfigurableApplicationContext app = SpringApplication.run(BillDirectApplication.class, args);
     }
 
-
 }

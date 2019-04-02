@@ -7,6 +7,7 @@ import com.ric.cmn.excp.*;
 import com.ric.dto.CommonResult;
 
 import java.util.Date;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
 public interface ProcessMng {
@@ -16,5 +17,5 @@ public interface ProcessMng {
 
     void genProcessAll(RequestConfigDirect reqConf) throws ErrorWhileGen;
 
-    Future<CommonResult> genProcess(RequestConfigDirect reqConf) throws ErrorWhileGen;
+    CompletableFuture<CommonResult> genProcess(RequestConfigDirect reqConf) throws ErrorWhileGen;
 }

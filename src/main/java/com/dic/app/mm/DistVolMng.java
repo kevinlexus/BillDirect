@@ -6,8 +6,5 @@ import com.ric.cmn.excp.*;
 public interface DistVolMng {
 
     void distVolByVvodTrans(RequestConfigDirect reqConf, Long vvodId)
-            throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist, ErrorWhileGen;
-
-    void distVolByVvodSameTrans(RequestConfigDirect reqConf, Long vvodId)
-            throws ErrorWhileChrgPen, WrongParam, WrongGetMethod, ErrorWhileDist, ErrorWhileGen;
+            throws ErrorWhileDist;
 }

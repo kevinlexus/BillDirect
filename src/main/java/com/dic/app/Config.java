@@ -62,4 +62,15 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 	      return ctx;
 	}
 
+	@Bean
+	public Executor taskExecutor() {
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setCorePoolSize(200);
+		executor.setMaxPoolSize(500);
+		executor.setQueueCapacity(5000);
+		executor.setThreadNamePrefix("BillDirect-");
+		executor.setRejectedExecutionHandler(new RejectedExecutionHandlerImpl());
+		executor.initialize();
+		return executor;
+	}
 }

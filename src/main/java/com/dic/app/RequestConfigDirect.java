@@ -51,9 +51,9 @@ public class RequestConfigDirect implements Cloneable {
     boolean isMultiThreads = false;
     // кол-во потоков
     int cntThreads = 1;
-    final int CNT_THREADS_FOR_COMMON_TASKS = 10; // если сделать больше 10 то виснет на домашнем компе... почему??? ред.21.03.2019
+    final int CNT_THREADS_FOR_COMMON_TASKS = 15; // если сделать больше 10 то виснет на домашнем компе... почему??? ред.21.03.2019
     // кол-во потоков для начисления по распределению объемов
-    final int CNT_THREADS_FOR_CHARGE_FOR_DIST_VOLS = 70;
+    final int CNT_THREADS_FOR_CHARGE_FOR_DIST_VOLS = 20;
     // объекты формирования:
     // УК
     Org uk = null;
@@ -69,6 +69,9 @@ public class RequestConfigDirect implements Cloneable {
     private boolean isLockForLongLastingProcess = false;
     // задан расчет одного объекта? (используется в логгировании)
     private boolean isSingleObjectCalc = false;
+
+    // маркер остановки формирования
+    private String stopMark;
 
     // услуга
     Usl usl = null;
@@ -320,6 +323,9 @@ public class RequestConfigDirect implements Cloneable {
         CalcStore calcStore;
         // выбранный тип объекта формирования
         private int tpSel;
+        // маркер остановки формирования
+        String stopMark;
+
         // хранилище объемов по вводу (дому) (для ОДН и прочих нужд)
         private ChrgCountAmount chrgCountAmount;
 
@@ -390,6 +396,11 @@ public class RequestConfigDirect implements Cloneable {
             return this;
         }
 
+        public RequestConfigDirectBuilder withStopMark(String stopMark) {
+            this.stopMark = stopMark;
+            return this;
+        }
+
         // строить не builder-ом!!!
         public RequestConfigDirect build() {
             RequestConfigDirect requestConfigDirect = new RequestConfigDirect();
@@ -407,6 +418,7 @@ public class RequestConfigDirect implements Cloneable {
             requestConfigDirect.setUsl(usl);
             requestConfigDirect.setLstItems(lstItems);
             requestConfigDirect.setCalcStore(calcStore);
+            requestConfigDirect.setStopMark(stopMark);
             requestConfigDirect.isMultiThreads = this.isMultiThreads;
 
             requestConfigDirect.setCalcStore(requestConfigDirect.buildCalcStore(genDt, tp));

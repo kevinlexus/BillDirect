@@ -6,5 +6,5 @@ import com.ric.cmn.excp.WrongParam;
 
 public interface GenChrgProcessMng {
 
-    void genChrg(RequestConfigDirect reqConf, long klskId) throws WrongParam, ErrorWhileChrg;
+    void genChrg(RequestConfigDirect reqConf, long klskId) throws ErrorWhileChrg;
 }

@@ -71,32 +71,16 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             propagation = Propagation.REQUIRES_NEW,
             isolation = Isolation.READ_COMMITTED, // читать только закомиченные данные, не ставить другое, не даст запустить поток!
             rollbackFor = Exception.class) //
-    public void genChrg(RequestConfigDirect reqConf, long klskId) throws WrongParam, ErrorWhileChrg {
+    public void genChrg(RequestConfigDirect reqConf, long klskId) throws ErrorWhileChrg {
         // заблокировать объект Ko для расчета
         if (!config.getLock().aquireLockId(reqConf.getRqn(), 1, klskId, 60)) {
             throw new ErrorWhileChrg("ОШИБКА БЛОКИРОВКИ klskId=" + klskId);
         }
         try {
-            //log.info("******* klskId={} заблокирован для расчета", klskId);
-
-/*
-            try {
-                Thread.sleep(5000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-*/
-
             CalcStore calcStore = reqConf.getCalcStore();
-            //Ko ko = em.find(Ko.class, klskId); //note Разобраться что оставить!
             Ko ko = em.getReference(Ko.class, klskId);
-
             // создать локальное хранилище объемов
             ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
-/*            if (reqConf.isSingleObjectCalc()) {
-                log.info("****** {} помещения klskId={} - начало    ******",
-                        reqConf.getTpName(), ko.getId());
-            }*/
             // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
             int parVarCntKpr =
                     Utl.nvl(sprParamMng.getN1("VAR_CNT_KPR"), 0D).intValue();
@@ -194,6 +178,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 log.info("****** {} помещения klskId={} - окончание   ******",
                         reqConf.getTpName(), ko.getId());
             }*/
+        } catch (WrongParam wrongParam) {
+            log.error(Utl.getStackTraceString(wrongParam));
+            throw new ErrorWhileChrg("Ошибка в использовании параметра");
         } finally {
             // разблокировать помещение
             config.getLock().unlockId(reqConf.getRqn(), 1, klskId);
@@ -236,6 +223,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         for (Nabor nabor : lstNabor) {
             // получить основной лиц счет по связи klsk помещения
             Kart kartMainByKlsk = em.getReference(Kart.class, kartMng.getKartMainLsk(nabor.getKart()));
+            if (reqConf.getTp()==0 && nabor.getKart().getLsk().equals("15042021")) {
+                log.error("CHECKERR!");
+                throw new RuntimeException("CHECKERR!");
+            }
             //log.trace("Основной лиц.счет lsk={}", kartMainByKlsk.getLsk());
             if (nabor.getUsl().isMain() && (lstSelUsl.size() == 0 || lstSelUsl.contains(nabor.getUsl()))
                     && (part == 1 && !Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19) ||
