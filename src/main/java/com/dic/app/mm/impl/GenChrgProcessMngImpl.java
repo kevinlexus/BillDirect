@@ -223,10 +223,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         for (Nabor nabor : lstNabor) {
             // получить основной лиц счет по связи klsk помещения
             Kart kartMainByKlsk = em.getReference(Kart.class, kartMng.getKartMainLsk(nabor.getKart()));
+/*
             if (reqConf.getTp()==0 && nabor.getKart().getLsk().equals("15042021")) {
                 log.error("CHECKERR!");
                 throw new RuntimeException("CHECKERR!");
             }
+*/
             //log.trace("Основной лиц.счет lsk={}", kartMainByKlsk.getLsk());
             if (nabor.getUsl().isMain() && (lstSelUsl.size() == 0 || lstSelUsl.contains(nabor.getUsl()))
                     && (part == 1 && !Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19) ||
