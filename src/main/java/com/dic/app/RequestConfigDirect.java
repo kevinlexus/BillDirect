@@ -51,7 +51,9 @@ public class RequestConfigDirect implements Cloneable {
     boolean isMultiThreads = false;
     // кол-во потоков
     int cntThreads = 1;
-    final int CNT_THREADS_FOR_COMMON_TASKS = 7; // если сделать больше 10 то виснет на домашнем компе... почему??? ред.21.03.2019
+    final int CNT_THREADS_FOR_COMMON_TASKS = 10; // если сделать больше 10 то виснет на домашнем компе... почему??? ред.21.03.2019
+    // кол-во потоков для начисления по распределению объемов
+    final int CNT_THREADS_FOR_CHARGE_FOR_DIST_VOLS = 70;
     // объекты формирования:
     // УК
     Org uk = null;
@@ -159,7 +161,12 @@ public class RequestConfigDirect implements Cloneable {
                 setTpSel(4); // почему 0 как и по всему фонду???
                 lstItems = kartDao.findAllKlskIdByReuId(uk.getReu())
                         .stream().map(BigDecimal::longValue).collect(Collectors.toList());
-                cntThreads = CNT_THREADS_FOR_COMMON_TASKS;
+                if (tp==3) {
+                    // кол-во потоков для начисления по распределению объемов
+                    cntThreads = CNT_THREADS_FOR_CHARGE_FOR_DIST_VOLS;
+                } else {
+                    cntThreads = CNT_THREADS_FOR_COMMON_TASKS;
+                }
             } else if (house != null) {
                 // по дому
                 isLockForLongLastingProcess = false;
@@ -167,7 +174,12 @@ public class RequestConfigDirect implements Cloneable {
                 //lstItems = kartMng.getKoByHouse(house).stream().map(Ko::getId).collect(Collectors.toList());
                 lstItems = kartDao.findAllKlskIdByHouseId(house.getId())
                         .stream().map(BigDecimal::longValue).collect(Collectors.toList());
-                cntThreads = CNT_THREADS_FOR_COMMON_TASKS;
+                if (tp==3) {
+                    // кол-во потоков для начисления по распределению объемов
+                    cntThreads = CNT_THREADS_FOR_CHARGE_FOR_DIST_VOLS;
+                } else {
+                    cntThreads = CNT_THREADS_FOR_COMMON_TASKS;
+                }
             } else if (vvod != null) {
                 // по вводу
                 isLockForLongLastingProcess = false;
@@ -175,7 +187,12 @@ public class RequestConfigDirect implements Cloneable {
                 //lstItems = kartMng.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
                 lstItems = kartDao.findAllKlskIdByVvodId(vvod.getId())
                         .stream().map(BigDecimal::longValue).collect(Collectors.toList());
-                cntThreads = CNT_THREADS_FOR_COMMON_TASKS;
+                if (tp==3) {
+                    // кол-во потоков для начисления по распределению объемов
+                    cntThreads = CNT_THREADS_FOR_CHARGE_FOR_DIST_VOLS;
+                } else {
+                    cntThreads = CNT_THREADS_FOR_COMMON_TASKS;
+                }
             } else {
                 isLockForLongLastingProcess = true;
                 setTpSel(5);
@@ -183,7 +200,12 @@ public class RequestConfigDirect implements Cloneable {
                 // конвертировать из List<BD> в List<Long> (native JPA представляет k_lsk_id только в BD и происходит type Erasure)
                 lstItems = kartDao.findAllKlskId()
                         .stream().map(BigDecimal::longValue).collect(Collectors.toList());
-                cntThreads = CNT_THREADS_FOR_COMMON_TASKS;
+                if (tp==3) {
+                    // кол-во потоков для начисления по распределению объемов
+                    cntThreads = CNT_THREADS_FOR_CHARGE_FOR_DIST_VOLS;
+                } else {
+                    cntThreads = CNT_THREADS_FOR_COMMON_TASKS;
+                }
             }
         } else if (tp == 2) {
             // распределение вводов

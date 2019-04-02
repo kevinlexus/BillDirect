@@ -95,7 +95,6 @@ public class TestDistPay {
         testDataBuilder.addChargeForTest(kart, "019", "8.17");
         testDataBuilder.addChargeForTest(kart, "015", "0.70");
 
-
         // Добавить перерасчеты
         kart.getChange().clear();
         Date dtek = Utl.getDateFromStr("01.04.2014");

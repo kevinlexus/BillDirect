@@ -46,8 +46,8 @@ public class WebController implements CommonConstants {
     private PrepErrDAO prepErrDao;
     @Autowired
     private OrgDAO orgDAO;
-    @Autowired
-    private ProcessMng processMng;
+    //@Autowired
+    //private ProcessMng processMng;
     @Autowired
     private ConfigApp config;
     @Autowired
@@ -176,6 +176,7 @@ public class WebController implements CommonConstants {
                         // расчет начисления, распределение объемов, расчет задолженности и пени
                         reqConf.prepareChrgCountAmount();
                         log.info("Будет обработано {} объектов", reqConf.getLstItems().size());
+                        ProcessMng processMng = ctx.getBean(ProcessMng.class);
                         processMng.genProcessAll(reqConf);
                     }
                     if (Utl.in(reqConf.getTp(), 4)) {

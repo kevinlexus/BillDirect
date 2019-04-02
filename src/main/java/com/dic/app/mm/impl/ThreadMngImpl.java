@@ -58,8 +58,9 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
         List<Future<CommonResult>> frl = new ArrayList<>(cntThreads);
         for (int i = 0; i < cntThreads; i++) {
             // создать новый поток, передать информацию о % выполнения
-            //log.info("********* Создан новый поток!");
+            log.info("********* Создан новый поток-1");
             frl.add(reverse.lambdaFunction(null, -11111));
+            log.info("********* Создан новый поток-2");
         }
         // проверить окончание всех потоков
         boolean isStop = false;

@@ -16,6 +16,7 @@ import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
 import org.javatuples.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,8 +41,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
 
     @PersistenceContext
     private EntityManager em;
-    @Autowired
-    private ProcessMng processMng;
+    //@Autowired
+    //private ProcessMng processMng;
     @Autowired
     private VvodDAO vvodDAO;
     @Autowired
@@ -50,6 +51,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
     private ObjParMng objParMng;
     @Autowired
     private ConfigApp config;
+    @Autowired
+    private ApplicationContext ctx;
 
     /**
      * Вызов из Web контроллера
@@ -155,6 +158,8 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                     // СБОР ИНФОРМАЦИИ, для расчета ОДН, подсчета итогов
                     // кол-во лиц.счетов, объемы, кол-во прожив.
                     // собрать информацию об объемах по лиц.счетам принадлежащим вводу
+
+                    ProcessMng processMng = ctx.getBean(ProcessMng.class);
                     processMng.genProcessAll(reqConf2);
 
                     // объемы по лиц.счетам (базовый фильтр по услуге)

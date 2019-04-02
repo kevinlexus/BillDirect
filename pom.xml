@@ -130,7 +130,7 @@
         <dependency>
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
-            <version>3.2.0</version>
+            <version>3.3.1</version>
         </dependency>
 
         <!-- для Hibernate second level cache -->

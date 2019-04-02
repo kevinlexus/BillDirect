@@ -18,21 +18,15 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Scope;
-import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import javax.persistence.PersistenceContextType;
-import java.math.BigDecimal;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.stream.Collectors;
 
 /**
  * Сервис выполнения процессов формирования
@@ -177,30 +171,37 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
 
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО процесса {} заданных объектов", reqConf.getTpName());
-
-        // проверка остановки процесса
-        boolean isCheckStop = false; // note решить что с этим делать!
-
-        // LAMBDA, будет выполнено позже, в создании потока
-        PrepThread<Long> reverse = (item, proc) -> {
-            //log.info("************** 1");
-            ProcessMng processMng = ctx.getBean(ProcessMng.class);
-            //log.info("************** 2");
-            return processMng.genProcess(reqConf);
-        };
-
-        // ВЫЗОВ
-        if (reqConf.isMultiThreads()) {
-            // вызвать в новой транзакции, многопоточно
-            // note Здесь потоки не назначаются, только вызов.
-            // note Настраивать это значение совместно с Config.java.getAsyncExecutor()
-            // note А так же application.properties spring.datasource.hikari.maximumPoolSize
-            threadMng.invokeThreads(reverse, reqConf.getCntThreads(), isCheckStop, reqConf.getRqn(), stopMark);
-        } else {
-            // вызвать в той же транзакции, однопоточно, для Unit - тестов
-            selectInvokeProcess(reqConf);
+        // заблокировать, если нужно для долго длящегося процесса
+        if (reqConf.isLockForLongLastingProcess()) {
+            config.getLock().setLockProc(reqConf.getRqn(), stopMark);
         }
+        try {
+            // проверка остановки процесса
+            boolean isCheckStop = false; // note решить что с этим делать!
 
+            // LAMBDA, будет выполнено позже, в создании потока
+            PrepThread<Long> reverse = (item, proc) -> {
+                log.info("************** 1 поток:{}", reqConf.getTpName());
+                ProcessMng processMng = ctx.getBean(ProcessMng.class);
+                log.info("************** 2 поток:{}", reqConf.getTpName());
+                return processMng.genProcess(reqConf);
+            };
+
+            // ВЫЗОВ
+            if (reqConf.isMultiThreads()) {
+                // вызвать в новой транзакции, многопоточно
+                threadMng.invokeThreads(reverse, reqConf.getCntThreads(), isCheckStop, reqConf.getRqn(), stopMark);
+            } else {
+                // вызвать в той же транзакции, однопоточно, для Unit - тестов
+                selectInvokeProcess(reqConf);
+            }
+
+        } finally {
+            // разблокировать долго длящийся процесс
+            if (reqConf.isLockForLongLastingProcess()) {
+                config.getLock().unlockProc(reqConf.getRqn(), stopMark);
+            }
+        }
         long endTime = System.currentTimeMillis();
         long totalTime;
         String tpTime;
@@ -227,11 +228,11 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
      */
     @Async
     @Override
-    @Transactional/*(propagation = Propagation.REQUIRES_NEW,
-            rollbackFor = Exception.class)*/
+    @Transactional(propagation = Propagation.REQUIRES_NEW,
+            rollbackFor = Exception.class)
     public Future<CommonResult> genProcess(RequestConfigDirect reqConf) throws ErrorWhileGen {
         long startTime = System.currentTimeMillis();
-        log.trace("НАЧАЛО потока {}", reqConf.getTpName());
+        log.info("НАЧАЛО потока {}", reqConf.getTpName());
 
         selectInvokeProcess(reqConf);
 
@@ -244,7 +245,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
 
 
     /**
-     * Выбрать и вызвать поток
+     * Обработать очередь объектов
      *
      * @param reqConf - конфиг запроса
      */
@@ -254,13 +255,9 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             case 2:
             case 3:
             case 4: {
-                // перебрать все помещения для расчета
-                // заблокировать, если нужно для долго длящегося процесса
-                if (reqConf.isLockForLongLastingProcess()) {
-                    config.getLock().setLockProc(reqConf.getRqn(), stopMark);
-                }
+                // перебрать все объекты для расчета
                 try {
-                    long i=0,i2=0;
+                    long i = 0, i2 = 0;
                     while (true) {
                         Long id = reqConf.getNextItem();
                         if (id != null) {
@@ -278,8 +275,8 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                                 if (reqConf.isSingleObjectCalc()) {
                                     log.info("****** {} помещения klskId={} - окончание   ******",
                                             reqConf.getTpName(), id);
-                                } else if (i==500L){
-                                    i=0;
+                                } else if (i == 500L) {
+                                    i = 0;
                                     log.info("****** Поток {}, {}, обработано {} объектов  ******",
                                             Thread.currentThread().getName(), reqConf.getTpName(), i2);
                                 }
@@ -297,11 +294,6 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                 } catch (Exception e) {
                     log.error(Utl.getStackTraceString(e));
                     throw new ErrorWhileGen("ОШИБКА! Произошла ошибка в потоке " + reqConf.getTpName());
-                } finally {
-                    // разблокировать долго длящийся процесс
-                    if (reqConf.isLockForLongLastingProcess()) {
-                        config.getLock().unlockProc(reqConf.getRqn(), stopMark);
-                    }
                 }
                 break;
             }
