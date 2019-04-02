@@ -227,7 +227,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             if (reqConf.getTp()==0 && nabor.getKart().getLsk().equals("15042021")) {
                 log.error("CHECKERR!");
                 throw new RuntimeException("CHECKERR!");
-            }
+            } ss
 */
             //log.trace("Основной лиц.счет lsk={}", kartMainByKlsk.getLsk());
             if (nabor.getUsl().isMain() && (lstSelUsl.size() == 0 || lstSelUsl.contains(nabor.getUsl()))
