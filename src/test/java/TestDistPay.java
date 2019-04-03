@@ -46,26 +46,21 @@ public class TestDistPay {
     @Transactional
     public void testDistPay() {
         log.info("Test TestDistPay.testDistPay");
-        final String lsk = "00000004";
-        Kart kart = em.find(Kart.class, lsk);
 
+        // дом
+        House house = new House();
+        Ko houseKo = new Ko();
 
-        // Добавить наборы
-        kart.getNabor().clear();
-        testDataBuilder.addNaborForTest(kart, 7, "003", null, null, null, null, null);
-        testDataBuilder.addNaborForTest(kart, 4, "005", null, null, null, null, null);
-        testDataBuilder.addNaborForTest(kart, 12, "004", null, null, null, null, null);
-        testDataBuilder.addNaborForTest(kart, 8, "006", null, null, null, null, null);
-        testDataBuilder.addNaborForTest(kart, 4, "004", null, null, null, null, null);
-        testDataBuilder.addNaborForTest(kart, 3, "007", null, null, null, null, null);
-        testDataBuilder.addNaborForTest(kart, 1, "019", null, null, null, null, null);
-        testDataBuilder.addNaborForTest(kart, 11, "014", null, null, null, null, null);
-        testDataBuilder.addNaborForTest(kart, 13, "031", null, null, null, null, null);
-        testDataBuilder.addNaborForTest(kart, 9, "015", null, null, null, null, null);
+        house.setKo(houseKo);
+        house.setKul("0001");
+        house.setNd("000001");
+
+        // построить лицевые счета по помещению
+        Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),
+                3, true, true, 1, 1);
+        Kart kart = em.find(Kart.class, "ОСН_0001");
 
         // Добавить сальдо
-        kart.getSaldoUsl().clear();
-
         // прошлый период
         testDataBuilder.addSaldoUslForTest(kart, 7, "003", "201403", "100.50");
         testDataBuilder.addSaldoUslForTest(kart, 8, "004", "201403", "100.50");
@@ -85,7 +80,6 @@ public class TestDistPay {
         testDataBuilder.addSaldoUslForTest(kart, 9, "015", "201404", "-8.38");
 
         // Добавить начисление
-        kart.getCharge().clear();
         testDataBuilder.addChargeForTest(kart, "011", "8.10");
         testDataBuilder.addChargeForTest(kart, "003", "18.10");
         testDataBuilder.addChargeForTest(kart, "004", "0.12");
@@ -96,7 +90,6 @@ public class TestDistPay {
         testDataBuilder.addChargeForTest(kart, "015", "0.70");
 
         // Добавить перерасчеты
-        kart.getChange().clear();
         Date dtek = Utl.getDateFromStr("01.04.2014");
         ChangeDoc changeDoc = new ChangeDoc();
         changeDoc.setDt(dtek);
@@ -112,7 +105,6 @@ public class TestDistPay {
                 .map(SaldoUsl::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого начисление:{}", itgChrg);
         BigDecimal itgChng = kart.getChange().stream()
-                .filter(t->t.getKart().getLsk().equals(lsk))
                 .map(Change::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого перерасчеты:{}", itgChng);
     }

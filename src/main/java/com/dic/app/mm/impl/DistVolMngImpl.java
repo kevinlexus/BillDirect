@@ -166,7 +166,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                                 t.getKart().getNabor().stream()
                                                         .anyMatch((d ->
                                                                 distTp!=8 && d.getUsl().equals(t.getUsl().getUslChild()) ||
-                                                                        distTp==8 && d.getUsl().equals(t.getUsl())
+                                                                        distTp==8 && d.getUsl().equals(t.getUsl()) // распределение только для информации
                                                         )) // где есть наборы по дочерним усл.
                                                         && getIsCountOpl(tp, distTp, isUseSch, t)
                                         ).collect(Collectors.toList());
@@ -302,7 +302,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                                             t.getKart().getNabor().stream()
                                                                     .anyMatch((d ->
                                                                             distTp!=8 && d.getUsl().equals(t.getUsl().getUslChild()) ||
-                                                                                    distTp==8 && d.getUsl().equals(t.getUsl())
+                                                                                    distTp==8 && d.getUsl().equals(t.getUsl()) // распределение только для информации
                                                                     )) // где есть наборы по дочерним усл.
                                                             && getIsCountOpl(tp, distTp, isUseSch, t)).collect(Collectors.toList());
                                             Iterator<UslVolKartGrp> iter = lstUslVolKartGrp.iterator();
@@ -373,7 +373,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                                                 t.getKart().getNabor().stream()
                                                                         .anyMatch((d ->
                                                                                 distTp!=8 && d.getUsl().equals(t.getUsl().getUslChild()) ||
-                                                                                        distTp==8 && d.getUsl().equals(t.getUsl())
+                                                                                        distTp==8 && d.getUsl().equals(t.getUsl()) // распределение только для информации
                                                                         )) // где есть наборы по дочерним усл.
 
                                                                 && getIsCountOpl(tp, distTp, isUseSch, t)).collect(Collectors.toList());
@@ -529,7 +529,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                             t.getKart().getNabor().stream()
                                                     .anyMatch((d ->
                                                             distTp!=8 && d.getUsl().equals(t.getUsl().getUslChild()) ||
-                                                                    distTp==8 && d.getUsl().equals(t.getUsl())
+                                                                    distTp==8 && d.getUsl().equals(t.getUsl()) // распределение только для информации
                                                     )) // где есть наборы по дочерним усл.
                                             && getIsCountOpl(tp, distTp, isUseSch, t)).collect(Collectors.toList());
 
