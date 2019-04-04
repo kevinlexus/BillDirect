@@ -104,6 +104,11 @@ public class TestDistPay {
         testDataBuilder.addChangeForTest(kart, changeDoc, 4, 12, "013",
                 "201404", null, 1, strDt, "3.15");
 
+        // Добавить корректировки оплатой (T_CORRECTS_PAYMENTS)
+        ChangeDoc corrPayDoc = testDataBuilder.buildChangeDocForTest(strDt, dopl);
+        testDataBuilder.addCorrectPayForTest(kart, corrPayDoc, 4, 3, "011",
+                "201401", "201403", "10.04.2014", null, "111.26");
+
         // Добавить платеж
         Kwtp kwtp = testDataBuilder.buildKwtpForTest(kart, dopl, "10.04.2014", null, 0,
                 "021", "12313", "001", "100.25", null);
@@ -126,6 +131,10 @@ public class TestDistPay {
         BigDecimal itgChng = kart.getChange().stream()
                 .map(Change::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого перерасчеты:{}", itgChng);
+
+        BigDecimal itgCorrPay = kart.getCorrectPay().stream()
+                .map(CorrectPay::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
+        log.info("Итого корректировки оплаты:{}", itgCorrPay);
 
         List<SumUslOrgRec> lstSal = saldoUslDao.getSaldoUslByLsk(lsk, "201403");
         BigDecimal itgSal = lstSal.stream().map(SumUslOrgRec::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
