@@ -41,6 +41,17 @@ public class TestDistPay {
     private EntityManager em;
 
 
+    @Test
+    @Rollback()
+    @Transactional
+    public void testDistPay2() {
+        List<SumUslOrgRec> lst = saldoUslDao.getSaldoUslByLsk("00000211", "201405");
+        for (SumUslOrgRec t : lst) {
+            log.info("saldo usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
+        }
+    }
+
+
     /**
      * Проверка корректности распределения платежа (Кис)
      */
@@ -49,7 +60,6 @@ public class TestDistPay {
     @Transactional
     public void testDistPay() {
         log.info("Test TestDistPay.testDistPay");
-
         // дом
         House house = new House();
         Ko houseKo = new Ko();
@@ -143,11 +153,13 @@ public class TestDistPay {
         BigDecimal itgPay = kart.getKwtpDay().stream()
                 .map(KwtpDay::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого оплата KwtpDay:{}", itgPay);
+
         BigDecimal itgSumma = kart.getKwtpMg().stream()
                 .map(KwtpMg::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal itgPen = kart.getKwtpMg().stream()
                 .map(KwtpMg::getPenya).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого оплата KwtpMg:summa={}, pay={}", itgSumma, itgPen);
+
         itgPay = kart.getKwtp().stream()
                 .map(Kwtp::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого оплата Kwtp:{}", itgPay);
