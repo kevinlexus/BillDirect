@@ -1,6 +1,8 @@
 import com.dic.app.Config;
+import com.dic.bill.dao.CorrectPayDAO;
 import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dto.SumUslOrgRec;
+import com.dic.bill.mm.SaldoMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
 import lombok.extern.slf4j.Slf4j;
@@ -36,21 +38,13 @@ public class TestDistPay {
     private TestDataBuilder testDataBuilder;
     @Autowired
     private SaldoUslDAO saldoUslDao;
+    @Autowired
+    private CorrectPayDAO correctPayDAO;
+    @Autowired
+    private SaldoMng saldoMng;
 
     @PersistenceContext
     private EntityManager em;
-
-
-    @Test
-    @Rollback()
-    @Transactional
-    public void testDistPay2() {
-        List<SumUslOrgRec> lst = saldoUslDao.getSaldoUslByLsk("00000211", "201405");
-        for (SumUslOrgRec t : lst) {
-            log.info("saldo usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
-        }
-    }
-
 
     /**
      * Проверка корректности распределения платежа (Кис)
@@ -116,8 +110,8 @@ public class TestDistPay {
 
         // Добавить корректировки оплатой (T_CORRECTS_PAYMENTS)
         ChangeDoc corrPayDoc = testDataBuilder.buildChangeDocForTest(strDt, dopl);
-        testDataBuilder.addCorrectPayForTest(kart, corrPayDoc, 4, 3, "011",
-                "201401", "201403", "10.04.2014", null, "111.26");
+        testDataBuilder.addCorrectPayForTest(kart, corrPayDoc, 4, "011", 3,
+                "201401", "201404", "10.04.2014", null, "111.26");
 
         // Добавить платеж
         Kwtp kwtp = testDataBuilder.buildKwtpForTest(kart, dopl, "10.04.2014", null, 0,
@@ -163,6 +157,12 @@ public class TestDistPay {
         itgPay = kart.getKwtp().stream()
                 .map(Kwtp::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого оплата Kwtp:{}", itgPay);
+
+        List<SumUslOrgRec> lst = saldoMng.getOutSal(kart, "201404",
+                true, true, true, true, true);
+        for (SumUslOrgRec t : lst) {
+            log.info("Исходящее сальдо: usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
+        }
 
     }
 
