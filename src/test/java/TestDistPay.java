@@ -104,19 +104,15 @@ public class TestDistPay {
         Kwtp kwtp = testDataBuilder.buildKwtpForTest(kart, "201401", "10.04.2014", null, 0,
                 "021", "12313", "01", "100.25", null);
         KwtpMg kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, "201401", "20.05", "5.12");
-/*
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 1, "10.05");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 5, "10.00");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "015", 3, "5.00");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 4, "0.12");
-*/
 
         kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, "201401", "75.08", "0.00");
-/*
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 1, "50.30");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 6, "19.70");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 4, "5.08");
-*/
 
         BigDecimal itgChrg = kart.getSaldoUsl().stream()
                 .filter(t->t.getMg().equals("201404"))
@@ -130,9 +126,11 @@ public class TestDistPay {
         BigDecimal itgPay = kart.getKwtpDay().stream()
                 .map(KwtpDay::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого оплата KwtpDay:{}", itgPay);
-        itgPay = kart.getKwtpMg().stream()
+        BigDecimal itgSumma = kart.getKwtpMg().stream()
                 .map(KwtpMg::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
-        log.info("Итого оплата KwtpMg:{}", itgPay);
+        BigDecimal itgPen = kart.getKwtpMg().stream()
+                .map(KwtpMg::getPenya).reduce(BigDecimal.ZERO, BigDecimal::add);
+        log.info("Итого оплата KwtpMg:summa={}, pay={}", itgSumma, itgPen);
         itgPay = kart.getKwtp().stream()
                 .map(Kwtp::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого оплата Kwtp:{}", itgPay);
