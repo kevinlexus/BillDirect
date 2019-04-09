@@ -155,7 +155,7 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 						.withUslId(someResult.getUslId())
 						.withOrgId(someResult.getOrgId())
 						.withMg(t.getMg())
-						.withSumma(t.getSumma().multiply(new BigDecimal("-1")))
+						.withSumma(t.getSumma().negate())
 						.build());
 			}
 			// списать сумму
@@ -216,7 +216,7 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 						.withMg(period)
 						.withUslId(t.getUslId())
 						.withOrgId(t.getOrgId())
-						.withSumma(t.getSumma().multiply(new BigDecimal("-1")))
+						.withSumma(t.getSumma().negate())
 						.build());
 			}
 			// списать сумму

@@ -96,9 +96,9 @@ public class DebitThrMngImpl implements DebitThrMng {
 					.map(t-> new SumDebRec(null, null, null, t.getSumma(), null, null,
 							(t.getDt().getTime() < dt1.getTime() ? dt1.getTime() :t.getDt().getTime()) //<-- ПРЕДНАМЕРЕННАЯ ошибка
 									< curDt.getTime() ?  // (Не включая текущий день, для задолжности для расчета пени)
-									t.getSumma().multiply(new BigDecimal("-1")) : BigDecimal.ZERO ,
+									t.getSumma().negate() : BigDecimal.ZERO ,
 							t.getDt().getTime() <= curDt.getTime() ? // (включая текущий день, для обычной задолжности)
-									t.getSumma().multiply(new BigDecimal("-1")) : BigDecimal.ZERO,
+									t.getSumma().negate() : BigDecimal.ZERO,
 							null, null,
 							t.getMg(), t.getTp()))
 							.collect(Collectors.toList()));
@@ -108,8 +108,8 @@ public class DebitThrMngImpl implements DebitThrMng {
 					.filter(t-> t.getDt().getTime() <= curDt.getTime())
 					.filter(t-> t.getUslId().equals(u.getUslId()) && t.getOrgId().equals(u.getOrgId()))
 					.map(t-> new SumDebRec(null, null, t.getSumma(), null, null, null,
-							t.getSumma().multiply(new BigDecimal("-1")) ,
-							t.getSumma().multiply(new BigDecimal("-1")),
+							t.getSumma().negate() ,
+							t.getSumma().negate(),
 							null, null,
 							t.getMg(), t.getTp()))
 							.collect(Collectors.toList()));

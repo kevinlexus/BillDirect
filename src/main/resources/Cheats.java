@@ -168,7 +168,7 @@ public class VchangeDet implements java.io.Serializable {
 
 // Создать коллекцию другого объекта из stream
         lstDeb.addAll(lstFlow.stream()
-        .map(t->new SumDebRec(t.getSumma().multiply(new BigDecimal("-1")),BigDecimal.ZERO,t.getMg()))
+        .map(t->new SumDebRec(t.getSumma().negate(),BigDecimal.ZERO,t.getMg()))
         .collect(Collectors.toList()));
 
         // Сортировка без компаратора

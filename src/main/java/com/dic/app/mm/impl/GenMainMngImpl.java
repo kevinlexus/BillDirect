@@ -174,7 +174,9 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                     case "GEN_PENYA":
                         // начисление пени по домам
                         dt1 = new Date();
-                        lst = houseDao.getNotClosed()
+/*                        lst = houseDao.getNotClosed()
+                                .stream().map(t -> t.getId().longValue()).collect(Collectors.toList()); ред.07.04.2019 - убрал фильтр закрытых - не просчитывается пеня!*/
+                        lst = houseDao.findAll()
                                 .stream().map(t -> t.getId().longValue()).collect(Collectors.toList());
                         if (!doInThread(lst, itm, 3)) {
                             // ошибка распределения

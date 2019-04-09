@@ -163,10 +163,11 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             case 3:
             case 4: {
                 // перебрать все объекты для расчета
+                Long id = null;
                 try {
                     long i = 0, i2 = 0;
                     while (true) {
-                        Long id = reqConf.getNextItem();
+                        id = reqConf.getNextItem();
                         if (id != null) {
                             if (reqConf.isLockForLongLastingProcess() && config.getLock().isStopped(reqConf.getStopMark())) {
                                 log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
@@ -204,7 +205,13 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                     if (reqConf.isLockForLongLastingProcess()) {
                         config.getLock().unlockProc(reqConf.getRqn(), reqConf.getStopMark());
                     }
-                    throw new ErrorWhileGen("ОШИБКА! Произошла ошибка в потоке " + reqConf.getTpName());
+                    if (reqConf.getTp() == 2) {
+                        throw new ErrorWhileGen("ОШИБКА! Произошла ошибка в потоке " + reqConf.getTpName()
+                                +", объект vvodId="+id);
+                    } else {
+                        throw new ErrorWhileGen("ОШИБКА! Произошла ошибка в потоке " + reqConf.getTpName()
+                                +", объект klskId="+id);
+                    }
                 }
                 break;
             }

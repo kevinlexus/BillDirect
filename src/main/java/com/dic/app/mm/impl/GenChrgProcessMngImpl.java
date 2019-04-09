@@ -24,6 +24,7 @@ import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Сервис расчета начисления
@@ -79,6 +80,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         try {
             CalcStore calcStore = reqConf.getCalcStore();
             Ko ko = em.getReference(Ko.class, klskId);
+
             // создать локальное хранилище объемов
             ChrgCountAmountLocal chrgCountAmountLocal = new ChrgCountAmountLocal();
             // параметр подсчета кол-во проживающих (0-для Кис, 1-Полыс., 1 - для ТСЖ (пока, может поправить)
@@ -118,6 +120,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             // перенести данный метод внутрь genVolPart, после того как будет реализованна архитектурная возможность
             // отключать услугу в течении месяца
             List<Nabor> lstNabor = naborMng.getValidNabor(ko, null);
+
+            // очистить информационные строки по льготам
+            lstNabor.stream().map(Nabor::getKart).distinct().forEach(t->
+                    t.getChargePrep().removeIf(chargePrep -> chargePrep.getTp().equals(9)));
 
             // РАСЧЕТ по блокам:
 
@@ -316,15 +322,34 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         || (fkCalcTp.equals(24) || fkCalcTp.equals(32) // Прочие услуги, расчитываемые как расценка * норматив * общ.площадь
                         && !nabor.getKart().getStatus().getId().equals(1))// или 32 услуга, только не по муниципальному фонду
                         || fkCalcTp.equals(36)// Вывоз жидких нечистот и т.п. услуги
-                        || fkCalcTp.equals(37) && !countPers.isSingleOwnerOlder70// Капремонт и если не одинокие пенсионеры старше 70, кроме муницип.помещений
+                        || fkCalcTp.equals(37)// Капремонт
                         && !nabor.getKart().getStatus().getId().equals(1)
                         || fkCalcTp.equals(50) && naborMng.getVvodDistTp(lstNabor, nabor.getUsl().getParentUsl()).equals(4) // если нет счетчика ОДПУ
                         ) {
-                    if (Utl.in(fkCalcTp, 25)) {
-                        // Текущее содержание - получить соц.норму
+                    if (fkCalcTp.equals(25)) {
+                        // текущее содержание - получить соц.норму
                         socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
+                        dayVol = kartArea.multiply(calcStore.getPartDayMonth());
+                    } else if (fkCalcTp.equals(37)) {
+                        // капремонт
+                        if (countPers.capPriv !=null) {
+                            // есть льгота, добавить информацию, если уже не была добавлена в этом периоде
+                            if (!chrgCountAmountLocal.isCapPrivAdded()) {
+                                ChargePrep chargePrep = new ChargePrep();
+                                nabor.getKart().getChargePrep().add(chargePrep);
+                                chargePrep.setKart(nabor.getKart());
+                                chargePrep.setUsl(nabor.getUsl());
+                                chargePrep.setTp(9);
+                                chargePrep.setSpk(countPers.capPriv);
+                                chrgCountAmountLocal.setCapPrivAdded(true);
+                            }
+                        } else {
+                            dayVol = kartArea.multiply(calcStore.getPartDayMonth());
+                        }
+                    } else {
+                        // прочие услуги
+                        dayVol = kartArea.multiply(calcStore.getPartDayMonth());
                     }
-                    dayVol = kartArea.multiply(calcStore.getPartDayMonth());
                 } else if (Utl.in(fkCalcTp, 17, 18, 31)) {
                     // Х.В., Г.В., без уровня соцнормы/свыше, электроэнергия
                     // получить объем по нормативу в доле на 1 день
@@ -499,15 +524,15 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // водоотведение, добавить составляющие по х.в. и г.в.
                     // было ли учтено кол-во проживающих? для устранения удвоения в стате по водоотведению
                     boolean isKprTaken = false;
-                    if (dayColdWaterVol.compareTo(BigDecimal.ZERO) != 0) {
+                    //if (dayColdWaterVol.compareTo(BigDecimal.ZERO) != 0) {//note  ред. 05.04.19 закомментировал - Кис. попросили делать пустую строку, даже если нет объема, для статы
                         uslPriceVolKart = buildVol(curDt, calcStore, nabor, null, null,
                                 kartMain, detailUslPrice, countPers, socStandart, isColdMeterExist,
                                 dayColdWaterVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
                         // сгруппировать по лиц.счету, услуге, для распределения по вводу
                         chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
                         isKprTaken = true;
-                    }
-                    if (dayHotWaterVol.compareTo(BigDecimal.ZERO) != 0) {
+                    //}
+                    //if (dayHotWaterVol.compareTo(BigDecimal.ZERO) != 0) {//note  ред. 05.04.19 закомментировал - Кис. попросили делать пустую строку, даже если нет объема, для статы
                         if (isKprTaken) {
                             // уже были учтены проживающие
                             countPers.kpr =0;
@@ -520,7 +545,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                                 dayHotWaterVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
                         // сгруппировать по лиц.счету, услуге, для распределения по вводу
                         chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
-                    }
+                    //}
                 } else {
                     // прочие услуги
                     uslPriceVolKart = buildVol(curDt, calcStore, nabor, isLinkedEmpty, isLinkedExistMeter,

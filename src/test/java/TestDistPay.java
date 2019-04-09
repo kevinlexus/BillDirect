@@ -1,11 +1,13 @@
 import com.dic.app.Config;
 import com.dic.bill.dao.CorrectPayDAO;
 import com.dic.bill.dao.SaldoUslDAO;
+import com.dic.bill.dto.SumUslOrgDTO;
 import com.dic.bill.dto.SumUslOrgRec;
 import com.dic.bill.mm.SaldoMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
 import lombok.extern.slf4j.Slf4j;
+import org.assertj.core.util.Preconditions;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +47,16 @@ public class TestDistPay {
 
     @PersistenceContext
     private EntityManager em;
+
+    @Test
+    public void check() {
+        String some = null;
+        if (1==1) {
+            some = "11";
+        }
+        String check = Preconditions.checkNotNull(some);
+        log.info("check:{}", check);
+    }
 
     /**
      * Проверка корректности распределения платежа (Кис)
@@ -88,14 +100,15 @@ public class TestDistPay {
         testDataBuilder.buildSaldoUslForTest(kart, 9, "015", "201404", "-8.38");
 
         // Добавить начисление
-        testDataBuilder.addChargeForTest(kart, "011", "8.10");
+        testDataBuilder.addChargeForTest(kart, "029", "8.10");
         testDataBuilder.addChargeForTest(kart, "003", "18.10");
-        testDataBuilder.addChargeForTest(kart, "004", "0.12");
-        testDataBuilder.addChargeForTest(kart, "007", "11.10");
-        testDataBuilder.addChargeForTest(kart, "031", "23.16");
-        testDataBuilder.addChargeForTest(kart, "006", "154.21");
-        testDataBuilder.addChargeForTest(kart, "019", "8.17");
-        testDataBuilder.addChargeForTest(kart, "015", "0.70");
+        testDataBuilder.addChargeForTest(kart, "005", "0.12");
+        testDataBuilder.addChargeForTest(kart, "031", "11.10");
+        testDataBuilder.addChargeForTest(kart, "011", "55.5");
+        testDataBuilder.addChargeForTest(kart, "013", "23.16");
+        testDataBuilder.addChargeForTest(kart, "042", "154.21");
+        testDataBuilder.addChargeForTest(kart, "043", "8.17");
+        testDataBuilder.addChargeForTest(kart, "038", "555.70");
 
         // Добавить перерасчеты
         String strDt = "01.04.2014";
@@ -110,26 +123,28 @@ public class TestDistPay {
 
         // Добавить корректировки оплатой (T_CORRECTS_PAYMENTS)
         ChangeDoc corrPayDoc = testDataBuilder.buildChangeDocForTest(strDt, dopl);
-        testDataBuilder.addCorrectPayForTest(kart, corrPayDoc, 4, "011", 3,
-                "201401", "201404", "10.04.2014", null, "111.26");
+        testDataBuilder.addCorrectPayForTest(kart, corrPayDoc, 4, "011", 4,
+                "201401", "201404", "10.04.2014", null, "50.26");
 
         // Добавить платеж
         Kwtp kwtp = testDataBuilder.buildKwtpForTest(kart, dopl, "10.04.2014", null, 0,
                 "021", "12313", "001", "100.25", null);
         KwtpMg kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl, "20.05", "5.12");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 1, "10.05");
-        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 5, "10.00");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 4, "10.00");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "015", 3, "5.00");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 4, "0.12");
 
         kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl, "75.08", "0.00");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 1, "50.30");
-        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 6, "19.70");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 4, "19.70");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 4, "5.08");
 
-        BigDecimal itgChrg = kart.getSaldoUsl().stream()
-                .filter(t->t.getMg().equals("201404"))
-                .map(SaldoUsl::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
+        kart.getNabor().forEach(t-> log.info("Nabor: usl={}, org={}", t.getUsl().getId(), t.getOrg().getId()));
+        log.info("");
+
+        BigDecimal itgChrg = kart.getCharge().stream()
+                .map(Charge::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого начисление:{}", itgChrg);
 
         BigDecimal itgChng = kart.getChange().stream()
@@ -158,13 +173,14 @@ public class TestDistPay {
                 .map(Kwtp::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого оплата Kwtp:{}", itgPay);
 
-        List<SumUslOrgRec> lst = saldoMng.getOutSal(kart, "201404",
+/*
+        List<SumUslOrgDTO> lst = saldoMng.getOutSal(kart, "201404",
                 true, true, true, true, true);
-        for (SumUslOrgRec t : lst) {
+*/
+        List<SumUslOrgDTO> lst = saldoMng.getOutSal(kart, "201404",
+                true, true, true, true, true);
+        for (SumUslOrgDTO t : lst) {
             log.info("Исходящее сальдо: usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
         }
-
     }
-
-
 }

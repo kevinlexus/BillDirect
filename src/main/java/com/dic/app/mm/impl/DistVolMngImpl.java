@@ -445,7 +445,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                                             addDistVol(mapDistNormVol, mapDistVol, uslVolKart, limit, volDist);
                                                         }
                                                         // добавить итоговые объемы экономии
-                                                        addAmnt(amnt, volDist.multiply(new BigDecimal("-1")), uslVolKartGrp);
+                                                        addAmnt(amnt, volDist.negate(), uslVolKartGrp);
                                                     }
                                                 }
 
@@ -663,7 +663,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
         // получить Kart, так как entry.getKey() - из другой сессии
         Kart kart = em.find(Kart.class, entry.getKey().getLsk());
         Pair<BigDecimal, BigDecimal> mapVal = entry.getValue();
-        BigDecimal vol = mapVal.getValue0().setScale(5, BigDecimal.ROUND_HALF_UP).multiply(new BigDecimal("-1"));
+        BigDecimal vol = mapVal.getValue0().setScale(5, BigDecimal.ROUND_HALF_UP).negate();
 
         ChargePrep chargePrep = new ChargePrep();
         kart.getChargePrep().add(chargePrep);
@@ -684,7 +684,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
         // получить Kart, так как entry.getKey() - из другой сессии
         Kart kart = em.find(Kart.class, entry.getKey().getLsk());
         Pair<BigDecimal, BigDecimal> mapVal = entry.getValue();
-        BigDecimal vol = mapVal.getValue0().setScale(5, BigDecimal.ROUND_HALF_UP).multiply(new BigDecimal("-1"));
+        BigDecimal vol = mapVal.getValue0().setScale(5, BigDecimal.ROUND_HALF_UP).negate();
 
         Charge charge = new Charge();
         kart.getCharge().add(charge);
