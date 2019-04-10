@@ -193,6 +193,13 @@ public class VchangeDet implements java.io.Serializable {
         )
         .collect(Collectors.toList());
 
+        // Anymatch
+        Charge charge : kart.getCharge().stream()
+        .filter(t -> t.getType().equals(1))
+        .filter(t -> t.getUsl().getUslRound().stream()
+        .anyMatch(d -> d.getReu().equals(kart.getUk().getReu())))
+        .sorted(Comparator.comparing(d -> d.getUsl().getId())) // сортировать по коду услуги
+        .collect(Collectors.toList())
 // Транзакция
 
 @Transactional(readOnly = false, propagation = Propagation.REQUIRED)
