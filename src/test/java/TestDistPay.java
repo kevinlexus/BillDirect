@@ -1,4 +1,5 @@
 import com.dic.app.Config;
+import com.dic.app.mm.DistPayMng;
 import com.dic.bill.dao.CorrectPayDAO;
 import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dto.SumUslOrgDTO;
@@ -41,9 +42,9 @@ public class TestDistPay {
     @Autowired
     private SaldoUslDAO saldoUslDao;
     @Autowired
-    private CorrectPayDAO correctPayDAO;
-    @Autowired
     private SaldoMng saldoMng;
+    @Autowired
+    private DistPayMng distPayMng;
 
     @PersistenceContext
     private EntityManager em;
@@ -69,14 +70,17 @@ public class TestDistPay {
         // дом
         House house = new House();
         Ko houseKo = new Ko();
+        em.persist(houseKo);
 
         house.setKo(houseKo);
         house.setKul("0001");
         house.setNd("000001");
+        em.persist(house);
 
         // построить лицевые счета по помещению
         Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),
                 3, true, true, 1, 1);
+        em.persist(ko);
         String lsk = "ОСН_0001";
         Kart kart = em.find(Kart.class, lsk);
 
@@ -139,6 +143,7 @@ public class TestDistPay {
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 1, "50.30");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 4, "19.70");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 4, "5.08");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "005", 4, "22.00");
 
         kart.getNabor().forEach(t-> log.info("Nabor: usl={}, org={}", t.getUsl().getId(), t.getOrg().getId()));
         log.info("");
@@ -177,10 +182,24 @@ public class TestDistPay {
         List<SumUslOrgDTO> lst = saldoMng.getOutSal(kart, "201404",
                 true, true, true, true, true);
 */
+/*
         List<SumUslOrgDTO> lst = saldoMng.getOutSal(kart, "201404",
                 true, true, true, true, true);
         for (SumUslOrgDTO t : lst) {
             log.info("Исходящее сальдо: usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
         }
+*/
+
+        // Добавить платеж для распределения
+        log.info("");
+        String strSumma = "500.23";
+        log.info("Распределить сумму:{}", strSumma);
+        String dopl2 = "201402";
+        kwtp = testDataBuilder.buildKwtpForTest(kart, dopl2, "11.04.2014", null, 0,
+                "022", "12314", "001", strSumma, null);
+        kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl2, strSumma, "0");
+
+        // распределить
+        distPayMng.distKwtpMg(kwtpMg);
     }
 }
