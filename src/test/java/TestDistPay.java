@@ -77,8 +77,10 @@ public class TestDistPay {
         em.persist(house);
 
         // построить лицевые счета по помещению
+        int ukId = 12;
+        //int ukId = 547;
         Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),
-                3, true, true, 1, 1);
+                3, true, true, 1, 1, ukId);
         em.persist(ko);
         String lsk = "ОСН_0001";
         Kart kart = em.find(Kart.class, lsk);
@@ -195,7 +197,7 @@ public class TestDistPay {
 
         // Добавить платеж для распределения
         log.info("");
-        String strSumma = "500.23";
+        String strSumma = "5000.23";
         log.info("Распределить сумму:{}", strSumma);
         String dopl2 = "201402";
         kwtp = testDataBuilder.buildKwtpForTest(kart, dopl2, "11.04.2014", null, 0,

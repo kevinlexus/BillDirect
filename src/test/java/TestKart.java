@@ -111,7 +111,7 @@ public class TestKart {
 
         // построить лицевые счета по помещению
         Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),
-                3, true, true, 1, 1);
+                3, true, true, 1, 1, 547);
 
         reqConf.setVvod(null);
         reqConf.setKo(ko);
@@ -188,19 +188,19 @@ public class TestKart {
 
         // построить лицевые счета по помещению
         testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),
-                3, true, true, 1, 1);
+                3, true, true, 1, 1, 547);
         testDataBuilder.buildKartForTest(house, "0002", BigDecimal.valueOf(50.24),
-                2, true, true, 1, 2);
+                2, true, true, 1, 2, 547);
         testDataBuilder.buildKartForTest(house, "0003", BigDecimal.valueOf(75.89),
-                2, true, true, 1, 3);
+                2, true, true, 1, 3, 547);
         // нежилое
         testDataBuilder.buildKartForTest(house, "0004", BigDecimal.valueOf(22.01),
-                1, true, true, 9, 1);
+                1, true, true, 9, 1, 547);
         testDataBuilder.buildKartForTest(house, "0005", BigDecimal.valueOf(67.1),
-                4, true, true, 1, 2);
+                4, true, true, 1, 2, 547);
         // нормативы по услугам х.в. г.в.
         testDataBuilder.buildKartForTest(house, "0006", BigDecimal.valueOf(35.12),
-                2, true, false, 1, 0);
+                2, true, false, 1, 0, 547);
 
         StopWatch sw = new org.springframework.util.StopWatch();
         sw.start("TIMING:Распределение объемов");
