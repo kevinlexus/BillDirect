@@ -2,19 +2,19 @@ package com.dic.app.mm.impl;
 
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.DistPayMng;
+import com.dic.bill.dao.NaborDAO;
+import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dao.SprProcPayDAO;
 import com.dic.bill.dto.SumUslOrgDTO;
 import com.dic.bill.mm.SaldoMng;
-import com.dic.bill.model.scott.Kart;
-import com.dic.bill.model.scott.KwtpMg;
-import com.dic.bill.model.scott.Org;
-import com.dic.bill.model.scott.SprProcPay;
+import com.dic.bill.model.scott.*;
 import com.ric.cmn.DistributableBigDecimal;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileDistPay;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -34,12 +34,16 @@ public class DistPayMngImpl implements DistPayMng {
     private final SaldoMng saldoMng;
     private final ConfigApp configApp;
     private final SprProcPayDAO sprProcPayDAO;
+    private final NaborDAO naborDAO;
+    private final SaldoUslDAO saldoUslDAO;
 
     public DistPayMngImpl(SaldoMng saldoMng, ConfigApp configApp,
-                          SprProcPayDAO sprProcPayDAO) {
+                          SprProcPayDAO sprProcPayDAO, NaborDAO naborDAO, SaldoUslDAO saldoUslDAO) {
         this.saldoMng = saldoMng;
         this.configApp = configApp;
         this.sprProcPayDAO = sprProcPayDAO;
+        this.naborDAO = naborDAO;
+        this.saldoUslDAO = saldoUslDAO;
     }
 
     /**
@@ -56,14 +60,20 @@ public class DistPayMngImpl implements DistPayMng {
         private BigDecimal summa = BigDecimal.ZERO;
         // сумма оплаченной пени
         private BigDecimal penya = BigDecimal.ZERO;
+        // входящее, общее сальдо
+        //private List<SumUslOrgDTO> inSal;
+        // итог по общ.сал.
+        private BigDecimal amntInSal = BigDecimal.ZERO;
         // входящее, дебетовое сальдо
-        private List<SumUslOrgDTO> inDebSal;
+        //private List<SumUslOrgDTO> inDebSal;
         // итог по вх.деб.сал.
-        private BigDecimal amntInDebSal = BigDecimal.ZERO;
+        //private BigDecimal amntInDebSal = BigDecimal.ZERO;
         // список закрытых орг.
         List<SprProcPay> lstSprProcPay;
         // уже распределенная оплата
         private List<SumUslOrgDTO> lstDistPayment = new ArrayList<>();
+        // уже распределенная оплата - для контроля
+        private List<SumUslOrgDTO> lstDistControl = new ArrayList<>();
     }
 
     /**
@@ -80,12 +90,16 @@ public class DistPayMngImpl implements DistPayMng {
             if (uk.getDistPayTp().equals(0)) {
                 log.info("3.0 Тип распределения - общий");
                 // сумма оплаты > 0, распределить по деб.сал, с ограничением
-                log.info("3.1 Распределить по вх.деб.сал. c ограничением по исх.сал.");
-                distWithRestriction(amount, 0, true, false, null);
+                log.info("3.1 Распределить по вх.деб.сал.+кр.сал. c ограничением по исх.сал.");
+                distWithRestriction(amount, 0, true, true,
+                        true, true, true,
+                        false, null);
                 if (amount.getSumma().compareTo(BigDecimal.ZERO) > 0) {
                     // распределить переплату по начислению, без ограничения
                     log.info("3.2 Распределить переплату по начислению, без ограничения по исх.сал.");
-                    distWithRestriction(amount, 1, false, false, null);
+                    distWithRestriction(amount, 1, false, true,
+                            true, true, true,
+                            false, null);
 
                 } else if (amount.getSumma().compareTo(BigDecimal.ZERO) < 0) {
                     throw new ErrorWhileDistPay("ОШИБКА! Отрицательная сумма после распределения оплаты!");
@@ -93,32 +107,59 @@ public class DistPayMngImpl implements DistPayMng {
             } else {
                 // УК 14,15 - другой способ распределения
                 log.info("4.0 Тип распределения - сложный (Для УК 14,15)");
-                BigDecimal overPay = amount.getSumma().subtract(amount.getAmntInDebSal());
-                if (Utl.between(overPay, new BigDecimal("0.01"), new BigDecimal("100"))) {
-                    log.info("4.1 Переплата в диапазоне от 0.01 до 100 руб. включительно, составила:{}, " +
-                            "распределить оплату по вх.деб.сал.", overPay);
-                    log.info("    с ограничением по исх.сал., без услуги 003");
-                    distWithRestriction(amount, 0, true, false, Collections.singletonList("003"));
-                    if (amount.getSumma().compareTo(BigDecimal.ZERO) > 0) {
-                        log.info("4.1.1 Остаток распределить на вх.деб.сал.закрытых орг. " +
-                                "- по списку, без ?????????????? ограничения по исх.сал.");
-                        distWithRestriction(amount, 0, true, /// note Нихрена не понятно как распределять!
-                                true, null);
+                BigDecimal overPay = amount.getSumma().subtract(amount.getAmntInSal());
+                BigDecimal underPay = amount.getAmntInSal().subtract(amount.getSumma());
+                log.info("4.1 переплата:{}", overPay);
+                final BigDecimal rangeBegin = new BigDecimal("0.01");
+                final BigDecimal rangeEnd = new BigDecimal("100");
+
+                if ((overPay.compareTo(BigDecimal.ZERO) > 0)) {
+                    // переплата
+                    if (Utl.between(overPay, rangeBegin, rangeEnd)) {
+                        log.info("4.1.1 Переплата в диапазоне от 0.01 до 100 руб. включительно, составила:{}, " +
+                                "распределить оплату по вх.деб.сал.-оплата", overPay);//todo ?????????????
+                        log.info("    с ограничением по исх.сал., без услуги 003");
+                        distWithRestriction(amount, 2, true, true,
+                                true, true,
+                                true, false,
+                                Collections.singletonList("003"));
+                        if (amount.getSumma().compareTo(BigDecimal.ZERO) > 0) {
+                            log.info("4.1.2 Остаток распределить на услугу usl=003 ");
+                            distExclusivelyBySingleUslId(amount, "003");
+                        }
+                    } else {
+                        log.info("4.1.3 Переплата > 100 руб. составила:{}", overPay);
                     }
                 } else {
-                    log.info("4.2 Переплата > 100 руб. составила:{}", overPay);
+                    // недоплата
+                    if (Utl.between(overPay, rangeBegin, rangeEnd)) {
+                        log.info("4.2.1 Недоплата в диапазоне от 0.01 до 100 руб. включительно, составила:{}, " +
+                                "распределить оплату по вх.деб.сал.-оплата", overPay); //todo ?????????????
+                        log.info("    с ограничением по исх.сал., без услуги 003");
+                        distWithRestriction(amount, 2, true, true,
+                                true, true,
+                                true, false,
+                                Collections.singletonList("003"));
+                        if (amount.getSumma().compareTo(BigDecimal.ZERO) > 0) {
+                            log.info("4.2.2 Остаток распределить на услугу usl=003 ");
+                            distExclusivelyBySingleUslId(amount, "003");
+                        }
+                    } else {
+                        log.info("4.2.3 Недоплата < 100 руб. составила:{}", overPay);
+                    }
 
                 }
             }
         } else {
             log.info("2.0 Сумма оплаты < 0, снятие ранее принятой оплаты");
             // сумма оплаты < 0 (снятие оплаты)
-            // TODO
+            // TODO ????? должно выполняться в отдельной процедуре? (уже есть такое в PL/SQL, написано нормально
         }
     }
 
     /**
      * Построить объект расчета
+     *
      * @param kwtpMg - строка платежа
      */
     private Amount buildAmount(KwtpMg kwtpMg) {
@@ -130,9 +171,22 @@ public class DistPayMngImpl implements DistPayMng {
         log.info("1.0 C_KWTP_MG.ID={}, C_KWTP_MG.SUMMA={}, C_KWTP_MG.PENYA={}",
                 kwtpMg.getId(), amount.getSumma(), amount.getPenya());
         log.info("    KART.REU={}", amount.getKart().getUk().getReu());
+        // получить вх.общ.сал.
+//        amount.setInSal(saldoMng.getOutSal(amount.getKart(), configApp.getPeriod(), null,
+//                true, false, false, false, false));
+        // итог по вх.сал.
+//        amount.setAmntInSal(amount.getInSal().stream().map(SumUslOrgDTO::getSumma)
+//                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        /*log.info("Вх.сальдо по лиц.счету lsk={}:",
+                amount.getKart().getLsk());
+        amount.getInSal().forEach(t -> log.info("usl={}, org={}, summa={}",
+                t.getUslId(), t.getOrgId(), t.getSumma()));
+        amount.setLstSprProcPay(sprProcPayDAO.findAll());
+        log.info("итого:{}", amount.getAmntInSal());
+        log.info("");*/
+
         // получить вх.деб.сал.
-        amount.setInDebSal(saldoMng.getOutSal(amount.getKart(), configApp.getPeriod(), null,
-                true, false, false, false, false)
+/*        amount.setInDebSal(amount.getInSal()
                 .stream().filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0)
                 .collect(Collectors.toList()));
         // итог по вх.деб.сал.
@@ -141,29 +195,48 @@ public class DistPayMngImpl implements DistPayMng {
         log.info("Вх.деб.сальдо по лиц.счету lsk={}:",
                 amount.getKart().getLsk());
         amount.getInDebSal().forEach(t -> log.info("usl={}, org={}, summa={}",
-                t.getUslId(), t.getOrgId(), t.getSumma()));
+                t.getUslId(), t.getOrgId(), t.getSumma()));*/
         amount.setLstSprProcPay(sprProcPayDAO.findAll());
-        log.info("итого:{}", amount.getAmntInDebSal());
+        //log.info("итого:{}", amount.getAmntInDebSal());
         return amount;
     }
 
     /**
      * Распределить платеж
-     * @param amount           - итоги
-     * @param tp               - тип 0-по деб.сальдо, 1- по начислению
-     * @param isRestrictByOutDebSal       - ограничить по исх.деб.сал.
-     * @param isUseClosedOrgList - использовать список закрытых организаций
-     * @param lstRestrictUslId - список Id услуг, которые исключить из базовой коллекции для распределения
+     *
+     * @param amount                 - итоги
+     * @param tp                     - тип 0-по деб.сальдо, 1- по начислению, 2- по деб.сал-оплата
+     * @param isRestrictByOutDebSal  - ограничить по исх.деб.сал.?
+     * @param isUseChargeInRestrict  - использовать в ограничении по исх.деб.сал.начисление?
+     * @param isUseChangeInRestrict  - использовать в ограничении по исх.деб.сал.перерасчеты?
+     * @param isUseCorrPayInRestrict - использовать в ограничении по исх.деб.сал.корр оплаты?
+     * @param isUsePayInRestrict     - использовать в ограничении по исх.деб.сал.оплату?
+     * @param isUseClosedOrgList     - использовать список закрытых организаций?
+     * @param lstExcludeUslId        - список Id услуг, которые исключить из базовой коллекции для распределения
      */
-    private void distWithRestriction(Amount amount, int tp, boolean isRestrictByOutDebSal, boolean isUseClosedOrgList,
-                                     List<String> lstRestrictUslId) {
+    private void distWithRestriction(Amount amount, int tp, boolean isRestrictByOutDebSal,
+                                     boolean isUseChargeInRestrict, boolean isUseChangeInRestrict,
+                                     boolean isUseCorrPayInRestrict, boolean isUsePayInRestrict,
+                                     boolean isUseClosedOrgList,
+                                     List<String> lstExcludeUslId) {
+
+        // Распределить на все услуги
         String currPeriod = configApp.getPeriod();
         List<SumUslOrgDTO> lstDistribBase;
-        // Получить базовую коллекцию для распределения
+        // получить базовую коллекцию для распределения
         if (tp == 0) {
-            // получить вх.деб.сал
-            lstDistribBase = amount.getInDebSal();
+            // получить вх.сал.
+            lstDistribBase = saldoMng.getOutSal(amount.getKart(), currPeriod, null,
+                    true, false, false, false, false);
 
+        } else if (tp == 2) {
+            // получить вх.деб.сал - оплата
+            List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), currPeriod, null,
+                    true, false, false, false, true);
+            // фильтровать по положительным значениям
+            lstDistribBase = inSal.stream()
+                    .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0
+                    ).collect(Collectors.toList());
         } else {
             // получить начисление
             List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), currPeriod, null,
@@ -174,18 +247,17 @@ public class DistPayMngImpl implements DistPayMng {
                     ).collect(Collectors.toList());
         }
         // исключить услуги
-        if (lstRestrictUslId != null) {
-            lstDistribBase.removeIf(t -> lstRestrictUslId.contains(t.getUslId()));
+        if (lstExcludeUslId != null) {
+            lstDistribBase.removeIf(t -> lstExcludeUslId.contains(t.getUslId()));
         }
         // оставить только услуги и организации, содержащиеся в списке закрытых орг.
         if (isUseClosedOrgList) {
             lstDistribBase.removeIf(t -> amount.getLstSprProcPay()
-                    .stream().noneMatch(d-> amount.getKart().getUk().equals(d.getUk()) // УК
+                    .stream().noneMatch(d -> amount.getKart().getUk().equals(d.getUk()) // УК
                             && t.getUslId().equals(d.getUsl().getId())  // услуга
                             && t.getOrgId().equals(d.getOrg().getId())  // организация - поставщик
                             && Utl.between2(amount.getKwtpMg().getDopl(), d.getMgFrom(), d.getMgTo()) // период
                     )
-
             );
         }
 
@@ -200,7 +272,7 @@ public class DistPayMngImpl implements DistPayMng {
         lstDistribBase.forEach(t -> log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma()));
         log.info("итого:{}", amntSal);
 
-        // Распределить сумму по вх.деб.сальдо
+        // распределить сумму по базе распределения
         Map<DistributableBigDecimal, BigDecimal> mapDistPay =
                 Utl.distBigDecimalByListIntoMap(amount.getSumma(), lstDistribBase, 2);
 
@@ -209,60 +281,104 @@ public class DistPayMngImpl implements DistPayMng {
 
         if (isRestrictByOutDebSal) {
             log.info("Сумма для распределения будет ограничена по исх.сальдо");
-            if (distSumma.compareTo(BigDecimal.ZERO) > 0) {
-                // Ограничить суммы распределения по услугам, чтобы не было кредитового сальдо
+            if (distSumma.compareTo(BigDecimal.ZERO) != 0) {
+                // Ограничить суммы  распределения по услугам, чтобы не было кредитового сальдо
                 // получить сумму исходящего сальдо, учитывая все операции
-                List<SumUslOrgDTO> outSal = saldoMng.getOutSal(amount.getKart(), currPeriod, amount.getLstDistPayment(),
-                        true, true, true, true, true);
-                List<SumUslOrgDTO> lstOutDebSal = outSal.stream()
-                        .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0).collect(Collectors.toList());
-
-                log.info("Исх.деб.сальдо по лиц.счету lsk={}:",
+                List<SumUslOrgDTO> lstOutSal = saldoMng.getOutSal(amount.getKart(), currPeriod, amount.getLstDistControl(),
+                        true, isUseChargeInRestrict, isUseChangeInRestrict, isUseCorrPayInRestrict,
+                        isUsePayInRestrict);
+                log.info("Исх.сальдо по лиц.счету lsk={}:",
                         amount.getKart().getLsk());
-                lstOutDebSal.forEach(t -> log.info("usl={}, org={}, summa={}",
+                lstOutSal.forEach(t -> log.info("usl={}, org={}, summa={}",
                         t.getUslId(), t.getOrgId(), t.getSumma()));
 
+                // ограничить суммы распределения по исх.сал.
+                for (Map.Entry<DistributableBigDecimal, BigDecimal> dist : mapDistPay.entrySet()) {
+                    SumUslOrgDTO distRec = (SumUslOrgDTO) dist.getKey();
+                    if (dist.getValue().compareTo(BigDecimal.ZERO) != 0) {
+                        // контролировать по значениям распределения
+                        lstOutSal.stream().filter(sal -> sal.getUslId().equals(distRec.getUslId())
+                                && sal.getOrgId().equals(distRec.getOrgId()))
+                                .forEach(sal -> {
+                                    if (dist.getValue().compareTo(BigDecimal.ZERO) > 0) {
+                                        // ограничить положительные суммы распределения, если появилось кред.сал.
+                                        if (sal.getSumma().compareTo(BigDecimal.ZERO) < 0) {
+                                            if (sal.getSumma().abs().compareTo(dist.getValue())>0) {
+                                                // кредит сальдо больше распред.суммы в абс выражении
+                                                dist.setValue(BigDecimal.ZERO);
+                                            } else {
+                                                // кредит сальдо меньше распред.суммы в абс выражении
+                                                dist.setValue(dist.getValue().subtract(sal.getSumma().abs()));
+                                            }
+                                        }
+                                    } else {
+                                        // ограничить отрицательные суммы распределения, если появилось деб.сал.
+                                        if (sal.getSumma().compareTo(BigDecimal.ZERO) > 0) {
+                                            if (sal.getSumma().compareTo(dist.getValue().abs())>0) {
+                                                // деб.сальдо больше распред.суммы в абс выражении
+                                                dist.setValue(BigDecimal.ZERO);
+                                            } else {
+                                                // деб.сальдо меньше распред.суммы в абс выражении
+                                                dist.setValue(dist.getValue().abs().subtract(sal.getSumma()).negate());
+                                            }
+                                        }
+                                    }
 
-                // ограничить суммы распределения по исх.деб.сал.
-                for (Map.Entry<DistributableBigDecimal, BigDecimal> t : mapDistPay.entrySet()) {
-                    SumUslOrgDTO distRec = (SumUslOrgDTO) t.getKey();
-                    lstOutDebSal.stream().filter(d -> d.getUslId().equals(distRec.getUslId())
-                            && d.getOrgId().equals(distRec.getOrgId())
-                            && d.getSumma().compareTo(t.getValue()) < 0)
-                            .forEach(d -> {
-                                t.setValue(d.getSumma());
-                                log.info("распределение ограничено по исх.деб.сал usl={}, org={}, summa={}",
-                                        d.getUslId(), d.getOrgId(), t.getValue());
-                            });
+                                    log.info("распределение ограничено по исх.сал. usl={}, org={}, summa={}",
+                                            sal.getUslId(), sal.getOrgId(), dist.getValue());
+                                });
+                    }
                 }
-
-                // занулить распределение, по которому нет исх.деб.сал.
-                mapDistPay.keySet().stream().map(t -> (SumUslOrgDTO) t)
-                        .filter(t -> lstOutDebSal.stream()
-                                .noneMatch(d -> d.getUslId().equals(t.getUslId()) &&
-                                        d.getOrgId().equals(t.getOrgId()
-                                        ))).forEach(t -> {
-                    mapDistPay.put(t, BigDecimal.ZERO);
-                    log.info("распределение обнулено (нет исх.деб.сал) по usl={}, org={}, summa={}",
-                            t.getUslId(), t.getOrgId(), 0);
-
-                });
 
                 // сохранить, распечатать распределение оплаты
                 distSumma = saveDistPay(amount, mapDistPay, true);
 
                 amount.setSumma(amount.getSumma().add(distSumma.negate()));
                 log.info("итого распределено:{}, остаток:{}", distSumma, amount.getSumma());
+
+
+                lstOutSal = saldoMng.getOutSal(amount.getKart(), currPeriod, amount.getLstDistPayment(),
+                        true, true, true, true,true);
+                log.info("После распределения оплаты: Исх.сальдо по лиц.счету lsk={}:",
+                        amount.getKart().getLsk());
+                lstOutSal.forEach(t -> log.info("usl={}, org={}, summa={}",
+                        t.getUslId(), t.getOrgId(), t.getSumma()));
+
             }
+        }
+    }
+
+    /**
+     * Распределить платеж экслюзивно, на одну услугу
+     *
+     * @param amount           - итоги
+     * @param includeOnlyUslId - список Id услуг, на которые распределить оплату, не зависимо от их сальдо
+     */
+    private void distExclusivelyBySingleUslId(Amount amount, String includeOnlyUslId) throws ErrorWhileDistPay {
+        // Распределить эксклюзивно на одну услугу
+        Nabor nabor = naborDAO.getByLskUsl(amount.getKart().getLsk(), includeOnlyUslId);
+        if (nabor != null) {
+            // сохранить для записи в KWTP_DAY
+            BigDecimal distSumma = amount.getSumma();
+            amount.getLstDistPayment().add(
+                    new SumUslOrgDTO(includeOnlyUslId, nabor.getOrg().getId(), distSumma));
+            amount.setSumma(amount.getSumma().add(distSumma.negate()));
+            log.info("Распределено фактически:");
+            log.info("usl={}, org={}, summa={}", includeOnlyUslId, nabor.getOrg().getId(), distSumma);
+            log.info("итого распределено:{}, остаток:{}", distSumma, amount.getSumma());
+        } else {
+            throw new ErrorWhileDistPay("ОШИБКА! При распределении не найдена запись в наборе услуг lsk="
+                    + amount.getKart().getLsk()
+                    + "usl=" + includeOnlyUslId);
         }
     }
 
     /**
      * Сохранить, суммировать и распечатать распределение
      *
-     * @param amount - Итоги
+     * @param amount     - Итоги
      * @param mapDistPay - коллекция распределения
-     * @param isSave - сохранить распределение?
+     * @param isSave     - сохранить распределение?
      */
     private BigDecimal saveDistPay(Amount amount, Map<DistributableBigDecimal, BigDecimal> mapDistPay, boolean isSave) {
         if (isSave) {
@@ -277,6 +393,10 @@ public class DistPayMngImpl implements DistPayMng {
                 // сохранить для записи в KWTP_DAY
                 amount.getLstDistPayment().add(
                         new SumUslOrgDTO(sumUslOrgDTO.getUslId(), sumUslOrgDTO.getOrgId(), t.getValue()));
+            } else {
+                // сохранить для контроля
+                amount.getLstDistControl().add(
+                        new SumUslOrgDTO(sumUslOrgDTO.getUslId(), sumUslOrgDTO.getOrgId(), t.getValue()));
             }
             amnt = amnt.add(t.getValue());
             log.info("usl={}, org={}, summa={}", sumUslOrgDTO.getUslId(), sumUslOrgDTO.getOrgId(), t.getValue());
@@ -285,4 +405,19 @@ public class DistPayMngImpl implements DistPayMng {
         log.info("итого распределено:{}", amnt);
         return amnt;
     }
+
+    /**
+     * Выполняемая раз в месяц коррекционная проводка по сальдо
+     */
+    @Override
+    public void distSalCorrOperation() {
+        //configApp.getPeriod();
+        saldoUslDAO.getSaldoUslBySign("201404", 1)
+                .forEach(t -> log.info("SaldoUsl: lsk={}, usl={}, org={}, summa={}",
+                        t.getKart().getLsk(), t.getUsl().getId(),
+                        t.getOrg().getId(), t.getSumma()));
+
+
+    }
+
 }

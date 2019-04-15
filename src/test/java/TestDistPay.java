@@ -51,7 +51,7 @@ public class TestDistPay {
     @Test
     public void check() {
         String some = null;
-        if (1==1) {
+        if (1 == 1) {
             some = "11";
         }
         String check = Preconditions.checkNotNull(some);
@@ -77,8 +77,8 @@ public class TestDistPay {
         em.persist(house);
 
         // построить лицевые счета по помещению
-        int ukId = 12;
-        //int ukId = 547;
+        //int ukId = 12;
+        int ukId = 547;
         Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),
                 3, true, true, 1, 1, ukId);
         em.persist(ko);
@@ -87,22 +87,19 @@ public class TestDistPay {
 
         // Добавить сальдо
         // прошлый период
-        testDataBuilder.buildSaldoUslForTest(kart, 7, "003", "201403", "10.62");
-        testDataBuilder.buildSaldoUslForTest(kart, 8, "004", "201403", "552.17");
-        testDataBuilder.buildSaldoUslForTest(kart, 9, "004", "201403", "-211.88");
-        testDataBuilder.buildSaldoUslForTest(kart, 1, "004", "201403", "-14.25");
+        testDataBuilder.buildSaldoUslForTest(kart, "003", 7, "201403", "10.62");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 8, "201403", "552.17");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 9, "201403", "-211.88");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 1, "201403", "-14.25");
 
         // текущий период
-        testDataBuilder.buildSaldoUslForTest(kart, 7, "003", "201404", "200.50");
-        testDataBuilder.buildSaldoUslForTest(kart, 4, "005", "201404", "22.53");
-        testDataBuilder.buildSaldoUslForTest(kart, 12, "004", "201404", "0.11");
-        testDataBuilder.buildSaldoUslForTest(kart, 8, "006", "201404", "10.34");
-        testDataBuilder.buildSaldoUslForTest(kart, 4, "004", "201404", "3.79");
-        testDataBuilder.buildSaldoUslForTest(kart, 3, "007", "201404", "4.18");
-        testDataBuilder.buildSaldoUslForTest(kart, 1, "019", "201404", "-50.19");
-        testDataBuilder.buildSaldoUslForTest(kart, 11, "014", "201404", "-100.79");
-        testDataBuilder.buildSaldoUslForTest(kart, 10, "031", "201404", "-1");
-        testDataBuilder.buildSaldoUslForTest(kart, 9, "015", "201404", "-8.38");
+        testDataBuilder.buildSaldoUslForTest(kart, "003", 7, "201404", "200.50");
+        testDataBuilder.buildSaldoUslForTest(kart, "005", 4, "201404", "22.53");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 12, "201404", "0.11");
+        testDataBuilder.buildSaldoUslForTest(kart, "006", 8, "201404", "10.34");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 4, "201404", "3.79");
+        testDataBuilder.buildSaldoUslForTest(kart, "007", 3, "201404", "4.18");
+        testDataBuilder.buildSaldoUslForTest(kart, "005", 8, "201404", "-100");
 
         // Добавить текущее начисление
         testDataBuilder.addChargeForTest(kart, "029", "8.10");
@@ -143,6 +140,7 @@ public class TestDistPay {
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 4, "10.00");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "015", 3, "5.00");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 4, "0.12");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "006", 8, "10.33");
 
         kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl, "75.08", "0.00");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 1, "50.30");
@@ -150,25 +148,37 @@ public class TestDistPay {
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 4, "5.08");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "005", 4, "22.00");
 
-        kart.getNabor().forEach(t-> log.info("Nabor: usl={}, org={}", t.getUsl().getId(), t.getOrg().getId()));
-        log.info("");
+        log.info("Тест-записи - Nabor: Набор услуг:");
+        kart.getNabor().forEach(t -> log.info("usl={}, org={}", t.getUsl().getId(), t.getOrg().getId()));
 
+        log.info("Тест-записи - Charge: Начисление:");
+        kart.getChange().forEach(t -> {
+            log.info("usl={}, org={}, summa={}", t.getUsl().getId(), t.getOrg().getId(), t.getSumma());
+        });
         BigDecimal itgChrg = kart.getCharge().stream()
                 .map(Charge::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого начисление:{}", itgChrg);
 
+        log.info("Тест-записи - Change: Перерасчеты:");
+        kart.getChange().forEach(t -> {
+            log.info("usl={}, org={}, summa={}", t.getUsl().getId(), t.getOrg().getId(), t.getSumma());
+        });
         BigDecimal itgChng = kart.getChange().stream()
                 .map(Change::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого перерасчеты:{}", itgChng);
 
+        log.info("Тест-записи - CorrectPay: Корректировки оплаты:");
+        kart.getCorrectPay().forEach(t -> {
+            log.info("usl={}, org={}, summa={}", t.getUsl().getId(), t.getOrg().getId(), t.getSumma());
+        });
         BigDecimal itgCorrPay = kart.getCorrectPay().stream()
                 .map(CorrectPay::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого корректировки оплаты:{}", itgCorrPay);
 
-        List<SumUslOrgRec> lstSal = saldoUslDao.getSaldoUslByLsk(lsk, "201403");
-        BigDecimal itgSal = lstSal.stream().map(SumUslOrgRec::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
-        log.info("Итого сальдо:{}", itgSal);
-
+        log.info("Тест-записи - KwtpDay: Оплата:");
+        kart.getKwtpDay().forEach(t -> {
+            log.info("usl={}, org={}, summa={}", t.getUsl().getId(), t.getOrg().getId(), t.getSumma());
+        });
         BigDecimal itgPay = kart.getKwtpDay().stream()
                 .map(KwtpDay::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("Итого оплата KwtpDay:{}", itgPay);
@@ -181,6 +191,8 @@ public class TestDistPay {
 
         itgPay = kart.getKwtp().stream()
                 .map(Kwtp::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+
         log.info("Итого оплата Kwtp:{}", itgPay);
 
 /*
@@ -197,7 +209,7 @@ public class TestDistPay {
 
         // Добавить платеж для распределения
         log.info("");
-        String strSumma = "331.45";
+        String strSumma = "231.45";
         log.info("Распределить сумму:{}", strSumma);
         String dopl2 = "201402";
         kwtp = testDataBuilder.buildKwtpForTest(kart, dopl2, "11.04.2014", null, 0,
@@ -207,4 +219,13 @@ public class TestDistPay {
         // распределить
         distPayMng.distKwtpMg(kwtpMg);
     }
+
+    @Test
+    @Rollback()
+    @Transactional
+    public void testDistSalCorrOperation() {
+        log.info("Test DistPayMng.distSalCorrOperation");
+        distPayMng.distSalCorrOperation();
+    }
+
 }
