@@ -429,7 +429,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
      * @param t           - тип возвращаемых объектов
      * @param var         - вариант проверки в процедуре SCOTT.P_THREAD.EXTENDED_CHK
      */
-    private <T> boolean checkErrVar(SprGenItm menuCheckBG, T t, int var, String strMes) {
+    private boolean checkErrVar(SprGenItm menuCheckBG, Object t, int var, String strMes) {
         StoredProcedureQuery procedureQuery;
         procedureQuery =
                 em.createStoredProcedureQuery("SCOTT.P_THREAD.EXTENDED_CHK", t);
