@@ -48,7 +48,28 @@ public class ExecMngImpl implements ExecMng {
         Integer ret = null;
 
         switch (var) {
-            // проверки ошибок
+            // проверки ошибок (оставил несколько проверок здесь - после распределения пени и после архивов)
+            case 13:
+            case 37:
+                qr = em.createStoredProcedureQuery("scott.gen.gen_check");
+                qr.registerStoredProcedureParameter(1, Integer.class, ParameterMode.OUT);
+                qr.registerStoredProcedureParameter(2, String.class, ParameterMode.OUT);
+                qr.registerStoredProcedureParameter(3, Integer.class, ParameterMode.IN);
+                // перекодировать в gen.gen_check код выполнения
+                int par = 0;
+                switch (var) {
+                    case 13:
+                        par=6;
+                        break;
+                    case 37:
+                        par=9;
+                        break;
+                }
+                qr.setParameter(3, par);
+                qr.execute();
+                ret = (Integer) qr.getOutputParameterValue(1);
+                log.info("Проверка ошибок scott.gen.gen_check с параметром var_={}, дала результат err_={}", par, ret);
+        // проверки ошибок
 		/*case 4:
 		case 5:
 		case 6:

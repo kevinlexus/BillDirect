@@ -57,6 +57,7 @@ Ext.define('TestApp.view.main.MainController', {
             interval: 2000
         })
         );
+
         //Проверить, идёт ли формирование
         Ext.Ajax.request({
             url: 'http://127.0.0.1:8100/getStateGen',
@@ -210,6 +211,7 @@ Ext.define('TestApp.view.main.MainController', {
                             //Ошибка формирования
                             ret = true;
                             console.log("Ошибка");
+                            refreshFlag=true;
                             //вызвать собственное событие контроллера
                             buttonGauge2.setText('Выполнить');
                             buttonGauge2.setIconCls(null);
@@ -218,6 +220,7 @@ Ext.define('TestApp.view.main.MainController', {
                             //Формирование закончено успешно
                             ret = true;
                             console.log("Закончено успешно");
+                            refreshFlag=true;
                             buttonGauge2.setText('Выполнить');
                             //вызвать собственное событие контроллера
                             buttonGauge2.setIconCls(null);

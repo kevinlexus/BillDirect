@@ -3,8 +3,10 @@ package com.dic.app.mm.impl;
 import com.dic.app.mm.*;
 import com.dic.bill.dao.HouseDAO;
 import com.dic.bill.dao.SprGenItmDAO;
+import com.dic.bill.model.scott.House;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.SprGenItm;
+import com.dic.bill.model.scott.Stub;
 import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrg;
@@ -81,6 +83,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
 
             SprGenItm menuMonthOver = sprGenItmDao.getByCd("GEN_MONTH_OVER");
             SprGenItm menuCheckBG = sprGenItmDao.getByCd("GEN_CHECK_BEFORE_GEN");
+            SprGenItm menuCheckAG = sprGenItmDao.getByCd("GEN_CHECK_AFTER_GEN");
 
             //********** почистить ошибку последнего формирования, % выполнения
             //genMng.clearError(menuGenItg);
@@ -97,18 +100,18 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
             //********** Проверки до формирования
             if (menuCheckBG.getSel()) {
                 // если выбраны проверки, а они как правило д.б. выбраны при итоговом
-                if (checkErr(menuCheckBG)) {
+                if (checkErrBeforeGen(menuCheckBG)) {
                     // найдены ошибки - выход
                     menuGenItg.setState("Найдены ошибки до формирования!");
                     log.info("Найдены ошибки до формирования!");
                     return;
                 }
-                execMng.setMenuElemPercent(menuCheckBG, 1);
+                if (markExecuted(menuGenItg, menuCheckBG, 0.05D, new Date())) return;
                 log.info("Проверки до формирования выполнены!");
             }
 
-            //********** Проверки до перехода месяца
-            if (menuMonthOver.getSel()) {
+            //********** Проверки до перехода месяца note Переделать этот бред!
+/*            if (menuMonthOver.getSel()) {
                 if (checkMonthOverErr()) {
                     // найдены ошибки - выход
                     menuGenItg.setState("Найдены ошибки до перехода месяца!");
@@ -119,7 +122,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                 log.info("Проверки до перехода месяца выполнены!");
             }
             execMng.setMenuElemPercent(menuGenItg, 0.10D);
-
+*/
             // список Id объектов
             List<Long> lst;
             String retStatus;
@@ -193,14 +196,6 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                         // распределение пени по исх сальдо
                         dt1 = new Date();
                         execMng.execProc(21, null, null);
-                        // проверить распр.пени
-                        ret = execMng.execProc(13, null, null);
-                        if (ret.equals(1)) {
-                            // найдены ошибки - выход
-                            execMng.setMenuElemState(menuGenItg, "Найдены ошибки в процессе проверки распределения пени!");
-                            log.error("Найдены ошибки в процессе проверки распределения пени!");
-                            return;
-                        }
                         if (markExecuted(menuGenItg, itm, 0.60D, dt1)) return;
                         break;
                     case "GEN_SAL_HOUSES":
@@ -243,14 +238,6 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                         // архив, счета
                         dt1 = new Date();
                         execMng.execProc(28, null, null);
-                        // проверить распр.пени, после того как она переписана в архив
-                        ret = execMng.execProc(37, null, null);
-                        if (ret.equals(1)) {
-                            // найдены ошибки - выход
-                            execMng.setMenuElemState(menuGenItg, "Найдены ошибки в распр.пени, после того как она переписана в архив!");
-                            log.error("Найдены ошибки в распр.пени, после того как она переписана в архив!");
-                            return;
-                        }
                         if (markExecuted(menuGenItg, itm, 0.80D, dt1)) return;
                         break;
                     case "GEN_DEBTS":
@@ -298,14 +285,30 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                             // выйти при ошибке
                             return;
                         }
-                        setMenuProc(menuGenItg, itm, 0.99D, dt1, new Date());
+                        setMenuProc(menuGenItg, itm, 0.96D, dt1, new Date());
                         if (markExecuted(menuGenItg, itm, 1D, dt1)) return;
                         break;
                 }
             }
 
+            //********** Проверки после формирования
+            if (menuCheckAG.getSel()) {
+                // если выбраны проверки, а они как правило д.б. выбраны при итоговом
+                if (checkErrAfterGen(menuCheckAG)) {
+                    // найдены ошибки - выход
+                    menuGenItg.setState("Найдены ошибки после формирования!");
+                    log.info("Найдены ошибки до формирования!");
+                    return;
+                }
+                if (markExecuted(menuGenItg, menuCheckAG, 0.99D, new Date())) return;
+                log.info("Проверки после формирования выполнены!");
+            }
+
             // выполнено всё
-            execMng.setMenuElemPercent(menuGenItg, 1D);
+            if (menuGenItg.getSel()) {
+                execMng.setMenuElemState(menuGenItg, "Выполнено успешно!");
+                execMng.setMenuElemPercent(menuGenItg, 1D);
+            }
         } catch (Exception e) {
             log.error(Utl.getStackTraceString(e));
             execMng.setMenuElemState(menuGenItg, "Ошибка! Смотреть логи! ".concat(e.getMessage()));
@@ -347,13 +350,16 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
         execMng.setMenuElemDt1(itm, dt1);
         execMng.setMenuElemDt2(itm, dt2);
         execMng.setMenuElemState(itm, "Выполнено успешно");
-        execMng.setMenuElemPercent(menuGenItg, proc);
+        if (menuGenItg.getSel()) {
+            execMng.setMenuElemPercent(menuGenItg, proc);
+        }
         // прогресс формирования +1
         config.incProgress();
     }
 
     /**
      * Выполнение в потоках
+     *
      * @param lst - список Id вводов
      * @param spr - элемент меню
      */
@@ -379,81 +385,97 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
     }
 
     /**
-     * Проверка ошибок
+     * Проверка ошибок до формирования
      * вернуть false - если нет ошибок
+     *
      * @param menuCheckBG - строка меню
      */
-    private boolean checkErr(SprGenItm menuCheckBG) {
-        StoredProcedureQuery procedureQuery =
-                em.createStoredProcedureQuery("scott.p_thread.extended_chk", Kart.class);
-        procedureQuery.registerStoredProcedureParameter("p_var", Integer.class, ParameterMode.IN);
-        procedureQuery.registerStoredProcedureParameter("prep_refcursor", void.class, ParameterMode.REF_CURSOR);
-        procedureQuery.setParameter("p_var", 1);
+    private boolean checkErrBeforeGen(SprGenItm menuCheckBG) {
+        if (checkErrVar(menuCheckBG, Kart.class, 1, "ВНИМАНИЕ! Лицевые, содержащие некорректную " +
+                "дату прописки-выписки в проживающих:"))
+            return true;
+        if (checkErrVar(menuCheckBG, Kart.class, 2, "ВНИМАНИЕ! Лицевые, содержащие пересекающийся " +
+                "период статуса прописки:"))
+            return true;
+        if (checkErrVar(menuCheckBG, Kart.class, 3, "ВНИМАНИЕ! Лицевые, содержащие пересекающийся " +
+                "период статуса прописки:"))
+            return true;
+
+        return false;
+    }
+
+    /**
+     * Проверка ошибок после формирования
+     * вернуть false - если нет ошибок
+     *
+     * @param menuCheckBG - строка меню
+     */
+    private boolean checkErrAfterGen(SprGenItm menuCheckBG) {
+        if (checkErrVar(menuCheckBG, Stub.class, 100, "ВНИМАНИЕ! Лицевые содержат некорректное " +
+                "распределение пени (T_CHPENYA_FOR_SALDO):"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 101, "ВНИМАНИЕ! Лицевые содержат некорректное " +
+                "исх. сальдо по пене (A_PENYA):"))
+            return true;
+
+        return false;
+    }
+
+    /**
+     * Проверка ошибок
+     * вернуть false - если нет ошибок
+     *
+     * @param menuCheckBG - строка меню
+     * @param t           - тип возвращаемых объектов
+     * @param var         - вариант проверки в процедуре SCOTT.P_THREAD.EXTENDED_CHK
+     */
+    private <T> boolean checkErrVar(SprGenItm menuCheckBG, T t, int var, String strMes) {
+        StoredProcedureQuery procedureQuery;
+        procedureQuery =
+                em.createStoredProcedureQuery("SCOTT.P_THREAD.EXTENDED_CHK", t);
+        procedureQuery.registerStoredProcedureParameter("P_VAR", Integer.class, ParameterMode.IN);
+        procedureQuery.registerStoredProcedureParameter("PREP_REFCURSOR", void.class, ParameterMode.REF_CURSOR);
+        procedureQuery.setParameter("P_VAR", var);
         procedureQuery.execute();
 
-        @SuppressWarnings("unchecked")
-        List<Kart> lstKart = procedureQuery.getResultList();
-        lstKart.forEach(t-> log.info("ПРОВЕРКА! lsk={}", t.getLsk()));
-        String strErr = lstKart.stream().map(Kart::getLsk).limit(100)
-                .collect(Collectors.joining(","));
+        String strErr = null;
+        if (t instanceof Kart) {
+            @SuppressWarnings("unchecked")
+            List<Kart> lst = procedureQuery.getResultList();
+            strErr = printStrKart(lst);
+        } else if (t instanceof House) {
+            @SuppressWarnings("unchecked")
+            List<House> lst = procedureQuery.getResultList();
+            strErr = printStrHouse(lst);
+        } else if (t instanceof Stub) {
+            @SuppressWarnings("unchecked")
+            List<Stub> lst = procedureQuery.getResultList();
+            strErr = printStrStub(lst);
+        }
 
-        if (strErr != null) {
+        if (strErr != null && strErr.length() > 0) {
             // ошибки
-            menuCheckBG.setState("По следующим лиц.сч. некорректно кол-во проживающих:"+strErr);
+            menuCheckBG.setState(strMes + strErr);
             return true;
         } else {
             // нет ошибок
             return false;
         }
+    }
 
-        // новая проверка, на список домов в разных УК, по которым обнаружены открытые лицевые счета
-        /*Integer ret = execMng.execProc(38, null, null);
-        boolean isErr = false;
-        if (ret.equals(1)) {
-            // установить статус ошибки, выйти из формирования
-            isErr = true;
-        }
-        ret = execMng.execProc(4, null, null);
-        if (ret.equals(1)) {
-            // установить статус ошибки, выйти из формирования
-            isErr = true;
-        }
-        ret = execMng.execProc(5, null, null);
-        if (ret.equals(1)) {
-            // установить статус ошибки, выйти из формирования
-            isErr = true;
-        }
-        ret = execMng.execProc(6, null, null);
-        if (ret.equals(1)) {
-            // установить статус ошибки, выйти из формирования
-            isErr = true;
-        }
-        ret = execMng.execProc(7, null, null);
-        if (ret.equals(1)) {
-            // установить статус ошибки, выйти из формирования
-            isErr = true;
-        }
+    private String printStrKart(List<Kart> lst) {
+        return lst.stream().map(Kart::getLsk).limit(100)
+                .collect(Collectors.joining(","));
+    }
 
-        ret = execMng.execProc(12, null, null);
-        if (ret.equals(1)) {
-            // установить статус ошибки, выйти из формирования
-            isErr = true;
-        }
+    private String printStrHouse(List<House> lst) {
+        return lst.stream().map(t -> String.valueOf(t.getId())).limit(100)
+                .collect(Collectors.joining(","));
+    }
 
-        ret = execMng.execProc(8, null, null);
-        if (ret.equals(1)) {
-            // установить статус ошибки, выйти из формирования
-            isErr = true;
-        }
-
-        ret = execMng.execProc(15, null, null);
-
-        if (ret.equals(1)) {
-            // установить статус ошибки, выйти из формирования
-            isErr = true;
-        }
-         */
-
+    private String printStrStub(List<Stub> lst) {
+        return lst.stream().map(Stub::getText).limit(100)
+                .collect(Collectors.joining(","));
     }
 
     /**
