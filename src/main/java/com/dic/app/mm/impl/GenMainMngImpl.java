@@ -1,18 +1,16 @@
 package com.dic.app.mm.impl;
 
-import java.util.Date;
-import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
-
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-
 import com.dic.app.mm.*;
+import com.dic.bill.dao.HouseDAO;
+import com.dic.bill.dao.SprGenItmDAO;
+import com.dic.bill.model.scott.Kart;
+import com.dic.bill.model.scott.SprGenItm;
 import com.ric.cmn.CommonConstants;
+import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrg;
+import com.ric.cmn.excp.ErrorWhileGen;
 import com.ric.cmn.excp.WrongParam;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.Async;
@@ -20,48 +18,53 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.dic.bill.dao.HouseDAO;
-import com.dic.bill.dao.SprGenItmDAO;
-import com.dic.bill.dao.VvodDAO;
-import com.dic.bill.model.scott.SprGenItm;
-import com.ric.cmn.Utl;
-import com.ric.cmn.excp.ErrorWhileGen;
+import javax.persistence.EntityManager;
+import javax.persistence.ParameterMode;
+import javax.persistence.PersistenceContext;
+import javax.persistence.StoredProcedureQuery;
+import java.util.Date;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
-
+/**
+ * Сервис итогового формирования
+ *
+ * @version 1.0
+ */
 @Slf4j
 @Service
 @Scope("prototype")
 public class GenMainMngImpl implements GenMainMng, CommonConstants {
 
+    private final ConfigApp config;
+    private final SprGenItmDAO sprGenItmDao;
+    private final HouseDAO houseDao;
+    private final ExecMng execMng;
+    private final MntBase mntBase;
+    private final ApplicationContext ctx;
+    private final ThreadMng<Long> threadMng;
+    private final WebController webController;
     @PersistenceContext
     private EntityManager em;
-    @Autowired
-    private ConfigApp config;
-    @Autowired
-    private SprGenItmDAO sprGenItmDao;
-    @Autowired
-    private VvodDAO vvodDao;
-    @Autowired
-    private HouseDAO houseDao;
-    @Autowired
-    private ExecMng execMng;
-    @Autowired
-    private MntBase mntBase;
-    @Autowired
-    private ApplicationContext ctx;
-    @Autowired
-    private ThreadMng<Long> threadMng;
-    @Autowired
-    private WebController webController;
+
+    public GenMainMngImpl(ConfigApp config, SprGenItmDAO sprGenItmDao, HouseDAO houseDao, ExecMng execMng, MntBase mntBase, ApplicationContext ctx, ThreadMng<Long> threadMng, WebController webController) {
+        this.config = config;
+        this.sprGenItmDao = sprGenItmDao;
+        this.houseDao = houseDao;
+        this.execMng = execMng;
+        this.mntBase = mntBase;
+        this.ctx = ctx;
+        this.threadMng = threadMng;
+        this.webController = webController;
+    }
 
     /**
      * ОСНОВНОЙ поток формирования
-     *
      */
     @Override
     @Async
-    @Transactional(readOnly = false, propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
+    @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public void startMainThread() {
         // маркер итогового формирования
         config.getLock().setLockProc(1, "AmountGeneration");
@@ -94,7 +97,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
             //********** Проверки до формирования
             if (menuCheckBG.getSel()) {
                 // если выбраны проверки, а они как правило д.б. выбраны при итоговом
-                if (checkErr()) {
+                if (checkErr(menuCheckBG)) {
                     // найдены ошибки - выход
                     menuGenItg.setState("Найдены ошибки до формирования!");
                     log.info("Найдены ошибки до формирования!");
@@ -124,7 +127,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
             for (SprGenItm itm : sprGenItmDao.getAllCheckedOrdered()) {
 
                 log.info("Generating menu item: {}", itm.getCd());
-                Integer ret = null;
+                Integer ret;
                 Date dt1;
                 switch (itm.getCd()) {
                     case "GEN_ADVANCE":
@@ -138,7 +141,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                         dt1 = new Date();
                         retStatus = webController.gen(2, 0, 0L, 0L, 0, null, null,
                                 Utl.getStrFromDate(config.getCurDt2()), 0);
-                        if (!retStatus.substring(0,2).equals("OK")) {
+                        if (!retStatus.substring(0, 2).equals("OK")) {
                             // ошибка начисления
                             execMng.setMenuElemState(menuGenItg, "Ошибка во время распределения объемов!");
                             log.error("Ошибка во время распределения объемов!");
@@ -151,7 +154,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                         dt1 = new Date();
                         retStatus = webController.gen(0, 0, 0L, 0L, 0, null, null,
                                 Utl.getStrFromDate(config.getCurDt2()), 0);
-                        if (!retStatus.substring(0,2).equals("OK")) {
+                        if (!retStatus.substring(0, 2).equals("OK")) {
                             // ошибка начисления
                             execMng.setMenuElemState(menuGenItg, "Найдены ошибки во время расчета начисления!");
                             log.error("Найдены ошибки во время расчета начисления!");
@@ -178,7 +181,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                                 .stream().map(t -> t.getId().longValue()).collect(Collectors.toList()); ред.07.04.2019 - убрал фильтр закрытых - не просчитывается пеня!*/
                         lst = houseDao.findAll()
                                 .stream().map(t -> t.getId().longValue()).collect(Collectors.toList());
-                        if (!doInThread(lst, itm, 3)) {
+                        if (!doInThread(lst, itm)) {
                             // ошибка распределения
                             execMng.setMenuElemState(menuGenItg, "Найдены ошибки во время начисления пени по домам!");
                             log.error("Найдены ошибки во время начисления пени по домам!");
@@ -321,10 +324,11 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
 
     /**
      * Маркировать выполненным
+     *
      * @param genItg - элемент Итогового формирования
-     * @param itm - текущий элемент
-     * @param proc - % выполнения
-     * @param dt1 - дата-время начала
+     * @param itm    - текущий элемент
+     * @param proc   - % выполнения
+     * @param dt1    - дата-время начала
      * @return - формирование остановлено?
      */
     private boolean markExecuted(SprGenItm genItg, SprGenItm itm, double proc, Date dt1) {
@@ -350,20 +354,17 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
 
     /**
      * Выполнение в потоках
-     *
      * @param lst - список Id вводов
      * @param spr - элемент меню
-     * @param var - вариант выполнения
-     * @return
      */
-    private boolean doInThread(List<Long> lst, SprGenItm spr, int var) {
+    private boolean doInThread(List<Long> lst, SprGenItm spr) {
         // будет выполнено позже, в создании потока
         PrepThread<Long> reverse = (item, proc) -> {
             // сохранить процент выполнения
             //execMng.setPercent(spr, proc);
             // потоковый сервис
             GenThrMng genThrMng = ctx.getBean(GenThrMng.class);
-            return genThrMng.doJob(var, item, spr, proc);
+            return genThrMng.doJob(3, item, spr, proc);
         };
 
         // вызвать в потоках
@@ -380,10 +381,33 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
     /**
      * Проверка ошибок
      * вернуть false - если нет ошибок
+     * @param menuCheckBG - строка меню
      */
-    private boolean checkErr() {
+    private boolean checkErr(SprGenItm menuCheckBG) {
+        StoredProcedureQuery procedureQuery =
+                em.createStoredProcedureQuery("scott.p_thread.extended_chk", Kart.class);
+        procedureQuery.registerStoredProcedureParameter("p_var", Integer.class, ParameterMode.IN);
+        procedureQuery.registerStoredProcedureParameter("prep_refcursor", void.class, ParameterMode.REF_CURSOR);
+        procedureQuery.setParameter("p_var", 1);
+        procedureQuery.execute();
+
+        @SuppressWarnings("unchecked")
+        List<Kart> lstKart = procedureQuery.getResultList();
+        lstKart.forEach(t-> log.info("ПРОВЕРКА! lsk={}", t.getLsk()));
+        String strErr = lstKart.stream().map(Kart::getLsk).limit(100)
+                .collect(Collectors.joining(","));
+
+        if (strErr != null) {
+            // ошибки
+            menuCheckBG.setState("По следующим лиц.сч. некорректно кол-во проживающих:"+strErr);
+            return true;
+        } else {
+            // нет ошибок
+            return false;
+        }
+
         // новая проверка, на список домов в разных УК, по которым обнаружены открытые лицевые счета
-        Integer ret = execMng.execProc(38, null, null);
+        /*Integer ret = execMng.execProc(38, null, null);
         boolean isErr = false;
         if (ret.equals(1)) {
             // установить статус ошибки, выйти из формирования
@@ -423,12 +447,13 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
         }
 
         ret = execMng.execProc(15, null, null);
+
         if (ret.equals(1)) {
             // установить статус ошибки, выйти из формирования
             isErr = true;
         }
+         */
 
-        return isErr;
     }
 
     /**
