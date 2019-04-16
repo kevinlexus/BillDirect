@@ -95,8 +95,8 @@ public class DistPayMngImpl implements DistPayMng {
                         true, true, true,
                         false, null);
                 if (amount.getSumma().compareTo(BigDecimal.ZERO) > 0) {
-                    // распределить переплату по начислению, без ограничения
-                    log.info("3.2 Распределить переплату по начислению, без ограничения по исх.сал.");
+                    // распределить переплату по начислению+перерасчет-оплата, без ограничения
+                    log.info("3.2 Распределить переплату по начислению+перерасчет-оплата, без ограничения по исх.сал.");
                     distWithRestriction(amount, 1, false, true,
                             true, true, true,
                             false, null);
@@ -205,7 +205,7 @@ public class DistPayMngImpl implements DistPayMng {
      * Распределить платеж
      *
      * @param amount                 - итоги
-     * @param tp                     - тип 0-по деб.сальдо, 1- по начислению, 2- по деб.сал-оплата
+     * @param tp                     - тип 0-по вх.деб.сал.+кред.сал, 1- по начислению+перерасчет-оплата, 2- по деб.сал-оплата
      * @param isRestrictByOutDebSal  - ограничить по исх.деб.сал.?
      * @param isUseChargeInRestrict  - использовать в ограничении по исх.деб.сал.начисление?
      * @param isUseChangeInRestrict  - использовать в ограничении по исх.деб.сал.перерасчеты?
@@ -229,18 +229,19 @@ public class DistPayMngImpl implements DistPayMng {
             lstDistribBase = saldoMng.getOutSal(amount.getKart(), currPeriod, null,
                     true, false, false, false, false);
 
-        } else if (tp == 2) {
-            // получить вх.деб.сал - оплата
-            List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), currPeriod, null,
-                    true, false, false, false, true);
-            // фильтровать по положительным значениям
+        } else if (tp == 1) {
+            // получить начисление+перерасчет-оплата
+            List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
+                    amount.getLstDistPayment(),
+                    false, true, false, false, false);
+            // фильтровать по положительным значениям???? note фильтровать точно???
             lstDistribBase = inSal.stream()
                     .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0
                     ).collect(Collectors.toList());
-        } else {
-            // получить начисление
+        } else { //todo проверить ветку!
+            // получить вх.деб.сал - оплата
             List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), currPeriod, null,
-                    false, true, false, false, false);
+                    true, false, false, false, true);
             // фильтровать по положительным значениям
             lstDistribBase = inSal.stream()
                     .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0
@@ -277,7 +278,7 @@ public class DistPayMngImpl implements DistPayMng {
                 Utl.distBigDecimalByListIntoMap(amount.getSumma(), lstDistribBase, 2);
 
         // распечатать предварительное распределение оплаты
-        BigDecimal distSumma = saveDistPay(amount, mapDistPay, false);
+        BigDecimal distSumma = saveDistPay(amount, mapDistPay, !isRestrictByOutDebSal);
 
         if (isRestrictByOutDebSal) {
             log.info("Сумма для распределения будет ограничена по исх.сальдо");
