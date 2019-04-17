@@ -290,6 +290,7 @@ public class WebController implements CommonConstants {
         // установить статус - остановить формирование
         config.getLock().unlockProc(1, stopMarkAmntGen);
         config.getLock().unlockProc(1, stopMark);
+        config.incProgress();
         return "ok";
     }
 

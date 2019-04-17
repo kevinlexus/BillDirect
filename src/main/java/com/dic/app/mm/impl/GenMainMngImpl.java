@@ -3,6 +3,7 @@ package com.dic.app.mm.impl;
 import com.dic.app.mm.*;
 import com.dic.bill.dao.HouseDAO;
 import com.dic.bill.dao.SprGenItmDAO;
+import com.dic.bill.mm.SprParamMng;
 import com.dic.bill.model.scott.House;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.SprGenItm;
@@ -39,6 +40,7 @@ import java.util.stream.Collectors;
 @Scope("prototype")
 public class GenMainMngImpl implements GenMainMng, CommonConstants {
 
+    private final SprParamMng sprParamMng;
     private final ConfigApp config;
     private final SprGenItmDAO sprGenItmDao;
     private final HouseDAO houseDao;
@@ -50,7 +52,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
     @PersistenceContext
     private EntityManager em;
 
-    public GenMainMngImpl(ConfigApp config, SprGenItmDAO sprGenItmDao, HouseDAO houseDao, ExecMng execMng, MntBase mntBase, ApplicationContext ctx, ThreadMng<Long> threadMng, WebController webController) {
+    public GenMainMngImpl(ConfigApp config, SprGenItmDAO sprGenItmDao, HouseDAO houseDao, ExecMng execMng, MntBase mntBase, ApplicationContext ctx, ThreadMng<Long> threadMng, WebController webController, SprParamMng sprParamMng) {
         this.config = config;
         this.sprGenItmDao = sprGenItmDao;
         this.houseDao = houseDao;
@@ -59,6 +61,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
         this.ctx = ctx;
         this.threadMng = threadMng;
         this.webController = webController;
+        this.sprParamMng = sprParamMng;
     }
 
     /**
@@ -390,7 +393,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
      *
      * @param menuCheckBG - строка меню
      */
-    private boolean checkErrBeforeGen(SprGenItm menuCheckBG) {
+    private boolean checkErrBeforeGen(SprGenItm menuCheckBG) throws WrongParam {
         if (checkErrVar(menuCheckBG, Kart.class, 1, "ВНИМАНИЕ! Лицевые, содержащие некорректную " +
                 "дату прописки-выписки в проживающих:"))
             return true;
@@ -399,6 +402,33 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
             return true;
         if (checkErrVar(menuCheckBG, Kart.class, 3, "ВНИМАНИЕ! Лицевые, содержащие пересекающийся " +
                 "период статуса прописки:"))
+            return true;
+        if (checkErrVar(menuCheckBG, Kart.class, 4, "ВНИМАНИЕ! Лицевые, содержащие некорректное кол-во " +
+                "проживающих в карточке:"))
+            return true;
+        // проверка показаний счетчиков
+        if (Utl.nvl(sprParamMng.getN1("CONTROL_METER"), 1D).equals(1D)) {
+            if (checkErrVar(menuCheckBG, Kart.class, 5, "ВНИМАНИЕ! Лицевые, содержащие некорректные " +
+                    "показания счетчиков:"))
+                return true;
+        }
+        if (checkErrVar(menuCheckBG, Stub.class, 6, "ВНИМАНИЕ! Не идёт общая сумма " +
+                "в C_KWTP и C_KWTP_MG:"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 7, "ВНИМАНИЕ! Не проинкассированы " +
+                "следующие компьютеры:"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 8, "ВНИМАНИЕ! Изменилось кол-во полей! " +
+                "Необходимо исправить модель в Java: A_CHARGE_PREP2"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 9, "ВНИМАНИЕ! Изменилось кол-во полей! " +
+                "Необходимо исправить модель в Java: A_CHARGE2"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 10, "ВНИМАНИЕ! Изменилось кол-во полей! " +
+                "Необходимо исправить модель в Java: A_NABOR2"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 11, "ВНИМАНИЕ! Не идёт общая сумма " +
+                "в C_KWTP и KWTP_DAY:"))
             return true;
 
         return false;
@@ -410,12 +440,50 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
      *
      * @param menuCheckBG - строка меню
      */
-    private boolean checkErrAfterGen(SprGenItm menuCheckBG) {
+    private boolean checkErrAfterGen(SprGenItm menuCheckBG) throws WrongParam {
         if (checkErrVar(menuCheckBG, Stub.class, 100, "ВНИМАНИЕ! Лицевые содержат некорректное " +
                 "распределение пени (T_CHPENYA_FOR_SALDO):"))
             return true;
         if (checkErrVar(menuCheckBG, Stub.class, 101, "ВНИМАНИЕ! Лицевые содержат некорректное " +
                 "исх. сальдо по пене (A_PENYA):"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 102, "ВНИМАНИЕ! Не идет исходящее сальдо SALDO_USL и XITOG3_LSK " +
+                "по следующим лиц.:"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 103, "ВНИМАНИЕ! Не идет исходящий долг в C_CHARGEPAY и A_PENYA " +
+                "по следующим лиц.:"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 104, "ВНИМАНИЕ! Не идет начисление в оборотке XITOG3_LSK и C_CHARGE" +
+                "по следующим лиц.:"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 105, "ВНИМАНИЕ! Не идут перерасчеты в оборотке XITOG3_LSK и C_CHANGE" +
+                "по следующим лиц.:"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 106, "ВНИМАНИЕ! Не идет оплата в оборотке XITOG3_LSK и KWTP_DAY " +
+                "по следующим лиц.:"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 107, "ВНИМАНИЕ! Не идет сальдо с движением C_CHARGEPAY и SALDO_USL "))
+            return true;
+        if (checkErrVar(menuCheckBG, Kart.class, 108, "ВНИМАНИЕ! Не идет сальдо с движением C_CHARGEPAY и SALDO_USL " +
+                "по следующим лиц.:"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 109, "ВНИМАНИЕ! В сальдо SALDO_USL присутствуют организации ниже уровня 1: "))
+            return true;
+        if (Utl.nvl(sprParamMng.getN1("HAVE_LK"), 1D).equals(1D)) {
+            if (checkErrVar(menuCheckBG, Stub.class, 110, "ВНИМАНИЕ! Не все показания счетчиков из личного " +
+                    "кабинета были учтены в базе!"))
+                return true;
+            if (checkErrVar(menuCheckBG, Stub.class, 111, "ВНИМАНИЕ! Несоответствующий период в личном кабинете!!"))
+                return true;
+        }
+        if (checkErrVar(menuCheckBG, Stub.class, 112, "ВНИМАНИЕ! В оборотке XITOG3_LSK некорректно сальдо по пене " +
+                "по следующим лиц.:"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 113, "ВНИМАНИЕ!  Не идет пеня в оборотке XITOG3_LSK и A_PENYA " +
+                "по следующим лиц.:"))
+            return true;
+        if (checkErrVar(menuCheckBG, Stub.class, 114, "ВНИМАНИЕ!  Не идет пеня в T_CHPENYA_FOR_SALDO и C_PENYA " +
+                "по следующим лиц.:"))
             return true;
 
         return false;
@@ -426,10 +494,11 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
      * вернуть false - если нет ошибок
      *
      * @param menuCheckBG - строка меню
-     * @param t           - тип возвращаемых объектов
+     * @param t           - тип возвращаемых объектов из REFCURSOR
      * @param var         - вариант проверки в процедуре SCOTT.P_THREAD.EXTENDED_CHK
      */
-    private boolean checkErrVar(SprGenItm menuCheckBG, Object t, int var, String strMes) {
+    private <T> boolean checkErrVar(SprGenItm menuCheckBG, Class<T> t, int var, String strMes) throws WrongParam {
+        log.info("Выполняется проверка var={}", var);
         StoredProcedureQuery procedureQuery;
         procedureQuery =
                 em.createStoredProcedureQuery("SCOTT.P_THREAD.EXTENDED_CHK", t);
@@ -439,23 +508,33 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
         procedureQuery.execute();
 
         String strErr = null;
-        if (t instanceof Kart) {
-            @SuppressWarnings("unchecked")
-            List<Kart> lst = procedureQuery.getResultList();
-            strErr = printStrKart(lst);
-        } else if (t instanceof House) {
-            @SuppressWarnings("unchecked")
-            List<House> lst = procedureQuery.getResultList();
-            strErr = printStrHouse(lst);
-        } else if (t instanceof Stub) {
-            @SuppressWarnings("unchecked")
-            List<Stub> lst = procedureQuery.getResultList();
-            strErr = printStrStub(lst);
+        switch (t.getName()) {
+            case "com.dic.bill.model.scott.Kart": {
+                @SuppressWarnings("unchecked")
+                List<Kart> lst = procedureQuery.getResultList();
+                strErr = printStrKart(lst);
+                break;
+            }
+            case "com.dic.bill.model.scott.House": {
+                @SuppressWarnings("unchecked")
+                List<House> lst = procedureQuery.getResultList();
+                strErr = printStrHouse(lst);
+                break;
+            }
+            case "com.dic.bill.model.scott.Stub": {
+                @SuppressWarnings("unchecked")
+                List<Stub> lst = procedureQuery.getResultList();
+                strErr = printStrStub(lst);
+                break;
+            }
+            default: {
+                throw new WrongParam("Некорректный параметр var=" + var);
+            }
         }
 
         if (strErr != null && strErr.length() > 0) {
             // ошибки
-            menuCheckBG.setState(strMes + strErr);
+            menuCheckBG.setState("Var="+ var+" "+strMes + strErr);
             return true;
         } else {
             // нет ошибок
