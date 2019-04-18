@@ -6,6 +6,7 @@ import com.dic.bill.mm.SaldoMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.excp.ErrorWhileDistPay;
+import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.assertj.core.util.Preconditions;
 import org.junit.Test;
@@ -64,7 +65,7 @@ public class TestDistPay {
     @Test
     @Rollback()
     @Transactional
-    public void testDistPay() throws ErrorWhileDistPay {
+    public void testDistPay() throws ErrorWhileDistPay, WrongParam {
         log.info("Test TestDistPay.testDistPay");
         // дом
         House house = new House();
@@ -77,8 +78,8 @@ public class TestDistPay {
         em.persist(house);
 
         // построить лицевые счета по помещению
-        //int ukId = 12;
-        int ukId = 547;
+        int ukId = 12; // УК 14,15
+        //int ukId = 547; // общий тип распределения
         Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),
                 3, true, true, 1, 1, ukId);
         em.persist(ko);
@@ -154,7 +155,7 @@ public class TestDistPay {
 
         log.info("Тест-записи - SaldoUsl: Вх.сальдо:");
         List<SumUslOrgDTO> lst = saldoMng.getOutSal(kart, "201404", null, null, true,
-                false, false, false, false);
+                false, false, false, false, false, null);
         for (SumUslOrgDTO t : lst) {
             log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
         }
@@ -178,7 +179,7 @@ public class TestDistPay {
 
         log.info("Тест-записи - V_CHANGES_FOR_SALDO: Контроль перерасчетов:");
         lst = saldoMng.getOutSal(kart, "201404", null, null,
-                false, false, true, false, false);
+                false, false, false, true, false, false, null);
         for (SumUslOrgDTO t : lst) {
             log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
         }
@@ -201,7 +202,7 @@ public class TestDistPay {
 
         log.info("Тест-записи - SaldoUsl: Исх.сальдо:");
         lst = saldoMng.getOutSal(kart, "201404", null, null,
-                true, true, true, true, true);
+                true, true, false, true, true, true, null);
         for (SumUslOrgDTO t : lst) {
             log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
         }
