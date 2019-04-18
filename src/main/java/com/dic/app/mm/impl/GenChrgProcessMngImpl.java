@@ -272,12 +272,18 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 // получить родительский лиц.счет, если указан явно
                 if (Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_ADDIT", "LSK_TP_RSO")) {
                     // дополнит.счета Капрем., РСО
+                    kartMain = kartMainByKlsk;
+                    // ред. 18.04.19 по просьбе КИС: Алена. Вылезло еще кое что. Посмотрите? 82005413 по услуге 015
+                    // стоят кубы по привязки с л.сч.86019516 16,85(на 5 человек), а должны считаться
+                    // как на 1 собств. в этой карточке 3,37.
+/*
                     if (nabor.getKart().getParentKart() != null) {
                         kartMain = nabor.getKart().getParentKart();
                         //kartMain = kartMainByKlsk;
                     } else {
                         kartMain = kartMainByKlsk;
                     }
+*/
                 } else {
                     // основные лиц.счета - взять текущий лиц.счет
                     kartMain = nabor.getKart();

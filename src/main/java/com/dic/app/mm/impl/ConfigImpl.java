@@ -2,11 +2,9 @@ package com.dic.app.mm.impl;
 
 import com.dic.app.mm.ConfigApp;
 import com.dic.bill.Lock;
-import com.dic.bill.dao.ParamDAO;
 import com.dic.bill.model.scott.Param;
 import com.ric.cmn.Utl;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -27,27 +25,11 @@ public class ConfigImpl implements ConfigApp {
     @PersistenceContext
     private EntityManager em;
 
-    @Autowired
-    ParamDAO paramDao;
-
     // номер текущего запроса
     private int reqNum = 0;
 
-    //private List<Integer> workLst; // обрабатываемые лицевые счета
-
-    // текущий период (для партицирования и проч.)
-    String period;
-    // период +1 месяц
-    String periodNext;
-    // период -1 месяц
-    String periodBack;
-
     // прогресс текущего формирования
-    Integer progress;
-
-    // запретить начислять по лиц.счетам, если формируется глобальное начисление
-    Boolean isRestrictChrgLsk = false;
-
+    private Integer progress;
 
     // блокировщик выполнения процессов
     private Lock lock;
@@ -71,7 +53,7 @@ public class ConfigImpl implements ConfigApp {
     // Получить Calendar текущего периода
     ////@Cacheable(cacheNames="Config.getCalendarCurrentPeriod") Пока отключил 24.11.2017
     private List<Calendar> getCalendarCurrentPeriod() {
-        List<Calendar> calendarLst = new ArrayList<Calendar>();
+        List<Calendar> calendarLst = new ArrayList<>();
 
         Param param = em.find(Param.class, 1);
         if (param == null) {
@@ -87,6 +69,7 @@ public class ConfigImpl implements ConfigApp {
 
 
         // получить даты начала и окончания периода
+        assert param != null;
         Date dt = Utl.getDateFromPeriod(param.getPeriod().concat("01"));
         Date dt1 = Utl.getFirstDate(dt);
         Date dt2 = Utl.getLastDate(dt1);
@@ -117,7 +100,6 @@ public class ConfigImpl implements ConfigApp {
 
     /**
      * Получить первую дату текущего месяца
-     * @return
      */
     @Override
     public Date getCurDt1() {
@@ -126,7 +108,6 @@ public class ConfigImpl implements ConfigApp {
 
     /**
      * Получить последнюю дату текущего периода
-     * @return
      */
     @Override
     public Date getCurDt2() {
@@ -137,14 +118,6 @@ public class ConfigImpl implements ConfigApp {
     @Override
     public synchronized int incNextReqNum() {
         return this.reqNum++;
-    }
-
-    public Boolean getIsRestrictChrgLsk() {
-        return isRestrictChrgLsk;
-    }
-
-    public void setIsRestrictChrgLsk(Boolean isRestrictChrgLsk) {
-        this.isRestrictChrgLsk = isRestrictChrgLsk;
     }
 
     @Override

@@ -2,7 +2,6 @@ import com.dic.app.Config;
 import com.dic.app.mm.DistPayMng;
 import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dto.SumUslOrgDTO;
-import com.dic.bill.dto.SumUslOrgRec;
 import com.dic.bill.mm.SaldoMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
@@ -154,8 +153,8 @@ public class TestDistPay {
         kart.getNabor().forEach(t -> log.info("usl={}, org={}", t.getUsl().getId(), t.getOrg().getId()));
 
         log.info("Тест-записи - SaldoUsl: Вх.сальдо:");
-        List<SumUslOrgDTO> lst = saldoMng.getOutSal(kart, "201404", null,
-                true, false, false, false, false);
+        List<SumUslOrgDTO> lst = saldoMng.getOutSal(kart, "201404", null, null, true,
+                false, false, false, false);
         for (SumUslOrgDTO t : lst) {
             log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
         }
@@ -178,7 +177,7 @@ public class TestDistPay {
         log.info("Итого перерасчеты:{}", itgChng);
 
         log.info("Тест-записи - V_CHANGES_FOR_SALDO: Контроль перерасчетов:");
-        lst = saldoMng.getOutSal(kart, "201404", null,
+        lst = saldoMng.getOutSal(kart, "201404", null, null,
                 false, false, true, false, false);
         for (SumUslOrgDTO t : lst) {
             log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
@@ -201,7 +200,7 @@ public class TestDistPay {
         log.info("Итого оплата KwtpDay:{}", itgPay);
 
         log.info("Тест-записи - SaldoUsl: Исх.сальдо:");
-        lst = saldoMng.getOutSal(kart, "201404", null,
+        lst = saldoMng.getOutSal(kart, "201404", null, null,
                 true, true, true, true, true);
         for (SumUslOrgDTO t : lst) {
             log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
