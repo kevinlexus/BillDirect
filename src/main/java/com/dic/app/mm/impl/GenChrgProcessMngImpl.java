@@ -24,7 +24,6 @@ import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Сервис расчета начисления
@@ -93,10 +92,10 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             //ChrgCount chrgCount = new ChrgCount();
             // выбранные услуги для формирования
             List<Usl> lstSelUsl = new ArrayList<>();
-            if (Utl.in(reqConf.getTp(),0, 4) && reqConf.getUsl() != null) {
+            if (Utl.in(reqConf.getTp(), 0, 4) && reqConf.getUsl() != null) {
                 // начисление по выбранной услуге, начисление по одной услуге, для автоначисления
                 lstSelUsl.add(reqConf.getUsl());
-            } else if (Utl.in(reqConf.getTp(),3)) {
+            } else if (Utl.in(reqConf.getTp(), 3)) {
                 // начисление для распределения по вводу
                 // добавить услуги для ограничения формирования только по ним
                 lstSelUsl.add(reqConf.getVvod().getUsl());
@@ -122,7 +121,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             List<Nabor> lstNabor = naborMng.getValidNabor(ko, null);
 
             // очистить информационные строки по льготам
-            lstNabor.stream().map(Nabor::getKart).distinct().forEach(t->
+            lstNabor.stream().map(Nabor::getKart).distinct().forEach(t ->
                     t.getChargePrep().removeIf(chargePrep -> chargePrep.getTp().equals(9)));
 
             // РАСЧЕТ по блокам:
@@ -138,7 +137,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             }
 
             // кроме распределения объемов (там нечего еще считать, нет экономии ОДН
-            if (!Utl.in(reqConf.getTp(),3, 4)) {
+            if (!Utl.in(reqConf.getTp(), 3, 4)) {
                 // 2. распределить экономию ОДН по услуге, пропорционально объемам
                 log.trace("Распределение экономии ОДН");
                 distODNeconomy(chrgCountAmountLocal, ko, lstSelUsl);
@@ -164,7 +163,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
             chrgCountAmountLocal.printVolAmnt(null, "После округления");
 
-            if (!Utl.in(reqConf.getTp(),3, 4)) {
+            if (!Utl.in(reqConf.getTp(), 3, 4)) {
                 // 6. Сгруппировать строки начислений для записи в C_CHARGE
                 chrgCountAmountLocal.groupUslVolChrg();
 
@@ -239,7 +238,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             if (nabor.getUsl().isMain() && (lstSelUsl.size() == 0 || lstSelUsl.contains(nabor.getUsl()))
                     && (part == 1 && !Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19) ||
                     part == 2 && Utl.in(nabor.getUsl().getFkCalcTp(), 47, 19)) // фильтр очередности расчета
-                    ) {
+            ) {
                 // РАСЧЕТ по основным услугам (из набора услуг или по заданным во вводе)
 /*
                 log.trace("part={}, {}: lsk={}, uslId={}, fkCalcTp={}, dt={}",
@@ -275,6 +274,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // дополнит.счета Капрем., РСО
                     if (nabor.getKart().getParentKart() != null) {
                         kartMain = nabor.getKart().getParentKart();
+                        //kartMain = kartMainByKlsk;
                     } else {
                         kartMain = kartMainByKlsk;
                     }
@@ -295,7 +295,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     }
                 }
 */
-                CountPers countPers = getCountPersAmount(reqConf, parVarCntKpr, parCapCalcKprTp, curDt, nabor, kartMain);
+                CountPers countPers = getCountPersAmount(parVarCntKpr, parCapCalcKprTp, curDt, nabor, kartMain);
 
                 SocStandart socStandart = null;
                 // получить наличие счетчика
@@ -325,14 +325,14 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         || fkCalcTp.equals(37)// Капремонт
                         && !nabor.getKart().getStatus().getId().equals(1)
                         || fkCalcTp.equals(50) && naborMng.getVvodDistTp(lstNabor, nabor.getUsl().getParentUsl()).equals(4) // если нет счетчика ОДПУ
-                        ) {
+                ) {
                     if (fkCalcTp.equals(25)) {
                         // текущее содержание - получить соц.норму
                         socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
                         dayVol = kartArea.multiply(calcStore.getPartDayMonth());
                     } else if (fkCalcTp.equals(37)) {
                         // капремонт
-                        if (countPers.capPriv !=null) {
+                        if (countPers.capPriv != null) {
                             // есть льгота, добавить информацию, если уже не была добавлена в этом периоде
                             if (!chrgCountAmountLocal.isCapPrivAdded()) {
                                 ChargePrep chargePrep = new ChargePrep();
@@ -376,16 +376,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     }
 
                     dayVol = tempVol;
-                    //area = kartArea;
-
-                    // для водоотведения и Х.В.для ГВС
-/*
-                    if (fkCalcTp.equals(17)) {
-                        volColdWater = tempVol;
-                    } else if (fkCalcTp.equals(18)) {
-                        volHotWater = tempVol;
-                    }
-*/
                 } else if (Utl.in(fkCalcTp, 19)) {
                     // Водоотведение без уровня соцнормы/свыше
                     // получить объем по нормативу в доле на 1 день
@@ -462,7 +452,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 } else if (Utl.in(fkCalcTp, 34)) {
                     // Повыш.коэфф Полыс
                     if (nabor.getUsl().getParentUsl() != null) {
-                            dayVol = calcStore.getPartDayMonth().multiply(naborNorm);
+                        dayVol = calcStore.getPartDayMonth().multiply(naborNorm);
                     } else {
                         throw new ErrorWhileChrg("ОШИБКА! По услуге usl.id=" + nabor.getUsl().getId() +
                                 " отсутствует PARENT_USL");
@@ -525,26 +515,26 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // было ли учтено кол-во проживающих? для устранения удвоения в стате по водоотведению
                     boolean isKprTaken = false;
                     //if (dayColdWaterVol.compareTo(BigDecimal.ZERO) != 0) {//note  ред. 05.04.19 закомментировал - Кис. попросили делать пустую строку, даже если нет объема, для статы
-                        uslPriceVolKart = buildVol(curDt, calcStore, nabor, null, null,
-                                kartMain, detailUslPrice, countPers, socStandart, isColdMeterExist,
-                                dayColdWaterVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
-                        // сгруппировать по лиц.счету, услуге, для распределения по вводу
-                        chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
-                        isKprTaken = true;
+                    uslPriceVolKart = buildVol(curDt, calcStore, nabor, null, null,
+                            kartMain, detailUslPrice, countPers, socStandart, isColdMeterExist,
+                            dayColdWaterVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
+                    // сгруппировать по лиц.счету, услуге, для распределения по вводу
+                    chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
+                    isKprTaken = true;
                     //}
                     //if (dayHotWaterVol.compareTo(BigDecimal.ZERO) != 0) {//note  ред. 05.04.19 закомментировал - Кис. попросили делать пустую строку, даже если нет объема, для статы
-                        if (isKprTaken) {
-                            // уже были учтены проживающие
-                            countPers.kpr =0;
-                            countPers.kprNorm = 0;
-                            countPers.kprOt = 0;
-                            countPers.kprWr = 0;
-                        }
-                        uslPriceVolKart = buildVol(curDt, calcStore, nabor, null, null,
-                                kartMain, detailUslPrice, countPers, socStandart, isHotMeterExist,
-                                dayHotWaterVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
-                        // сгруппировать по лиц.счету, услуге, для распределения по вводу
-                        chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
+                    if (isKprTaken) {
+                        // уже были учтены проживающие
+                        countPers.kpr = 0;
+                        countPers.kprNorm = 0;
+                        countPers.kprOt = 0;
+                        countPers.kprWr = 0;
+                    }
+                    uslPriceVolKart = buildVol(curDt, calcStore, nabor, null, null,
+                            kartMain, detailUslPrice, countPers, socStandart, isHotMeterExist,
+                            dayHotWaterVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
+                    // сгруппировать по лиц.счету, услуге, для распределения по вводу
+                    chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
                     //}
                 } else {
                     // прочие услуги
@@ -668,14 +658,14 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
      * @param nabor           - строка услуги
      * @param kartMain        - основной лиц.счет
      */
-    private CountPers getCountPersAmount(RequestConfigDirect reqConf, int parVarCntKpr, int parCapCalcKprTp,
+    private CountPers getCountPersAmount(int parVarCntKpr, int parCapCalcKprTp,
                                          Date curDt, Nabor nabor, Kart kartMain) {
         CountPers countPers;
         countPers = kartPrMng.getCountPersByDate(kartMain, nabor,
                 parVarCntKpr, parCapCalcKprTp, curDt);
 
         if (nabor.getKart().getParentKart() != null) {
-            // в дочернем лиц.счете
+            // в дочернем лиц.счете (привязка)
             // для определения расценки по родительскому (если указан по parentKart) или текущему лиц.счету
             CountPers countPersParent = kartPrMng.getCountPersByDate(nabor.getKart().getParentKart(), nabor,
                     parVarCntKpr, parCapCalcKprTp, curDt);
@@ -683,9 +673,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             countPers.isEmpty = countPersParent.isEmpty;
 
             // алгоритм взят из C_KART, строка 786
-            if (parVarCntKpr == 0 /*&&
-                    (reqConf.getGenDt().getTime() > Utl.getDateFromStr("01.02.2019").getTime() // после 01.02.19 - не учитывать тип счетов
-                            || Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_RSO"))*/
+            if (parVarCntKpr == 0
                     && countPers.kprNorm == 0
                     && countPers.kprOt == 0 && !kartMain.getStatus().getCd().equals("MUN")) {
                 // вариант Кис.
