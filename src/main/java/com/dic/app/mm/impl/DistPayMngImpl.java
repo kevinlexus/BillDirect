@@ -17,6 +17,8 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,6 +38,8 @@ public class DistPayMngImpl implements DistPayMng {
     private final SprProcPayDAO sprProcPayDAO;
     private final NaborDAO naborDAO;
     private final SaldoUslDAO saldoUslDAO;
+    @PersistenceContext
+    private EntityManager em;
 
     public DistPayMngImpl(SaldoMng saldoMng, ConfigApp configApp,
                           SprProcPayDAO sprProcPayDAO, NaborDAO naborDAO, SaldoUslDAO saldoUslDAO) {
@@ -86,6 +90,9 @@ public class DistPayMngImpl implements DistPayMng {
     public void distKwtpMg(KwtpMg kwtpMg) throws ErrorWhileDistPay {
         log.info("***** Распределение оплаты *****");
         try {
+            // очистить текущее распределение
+            kwtpMg.getKwtpDay().clear();
+
             Amount amount = buildAmount(kwtpMg);
             Org uk = amount.getKart().getUk();
             // общий способ распределения
@@ -105,14 +112,14 @@ public class DistPayMngImpl implements DistPayMng {
                             null, null, null,
                             false, true, null);
                 } else if (amount.getSumma().compareTo(amount.amntInSal) > 0) {
-                    log.info("3.0 Сумма оплаты > вх.деб.+кред.");
+                    log.info("3.0 Сумма оплаты > вх.деб.+кред. (переплата)");
                     boolean flag = false;
                     if (uk.getDistPayTp().equals(0)) {
                         flag = true;
                         log.info("3.1.1 Тип распределения - общий");
                     } else if (amount.getAmntInSal().compareTo(amount.getAmntChrgPrevPeriod()) > 0) {
                         flag = true;
-                        log.info("3.1.1 Тип распределения - сложный (Для УК 14,15) и вх.деб.+вх.кред. > долг.1 мес.");
+                        log.info("3.1.1 Тип распределения - для УК 14,15 при вх.деб.+вх.кред. > долг.1 мес.");
                     }
                     if (flag) {
                         log.info("3.1.2 Распределить по вх.деб.+кред. по списку закрытых орг, c ограничением по исх.сал.");
@@ -126,7 +133,7 @@ public class DistPayMngImpl implements DistPayMng {
                                 null, null, null,
                                 false, false, null);
                     } else {
-                        log.info("3.2.1 Тип распределения - сложный (Для УК 14,15) и вх.деб.+вх.кред. <= долг.1 мес.");
+                        log.info("3.2.1 Тип распределения - для УК 14,15 при вх.деб.+вх.кред. <= долг.1 мес.");
 
                         log.info("3.2.2 Распределить оплату по вх.деб.+кред. без услуги 003, c ограничением по исх.сал.");
                         distWithRestriction(amount, 0, true, true,
@@ -139,7 +146,7 @@ public class DistPayMngImpl implements DistPayMng {
                         }
                     }
                 } else {
-                    log.info("4.0 Сумма оплаты < долг");
+                    log.info("4.0 Сумма оплаты < долг (недоплата)");
                     final BigDecimal rangeBegin = new BigDecimal("0.01");
                     final BigDecimal rangeEnd = new BigDecimal("100");
                     boolean flag = false;
@@ -148,7 +155,7 @@ public class DistPayMngImpl implements DistPayMng {
                         log.info("4.1.1 Тип распределения - общий");
                     } else if (amount.getAmntInSal().subtract(amount.getSumma()).compareTo(rangeEnd) > 0) {
                         flag = true;
-                        log.info("4.1.1 Тип распределения - сложный (Для УК 14,15) и сумма недоплаты " +
+                        log.info("4.1.1 Тип распределения - для УК 14,15 при сумме недоплаты " +
                                 "> 100");
                     }
                     if (flag) {
@@ -163,7 +170,7 @@ public class DistPayMngImpl implements DistPayMng {
                                 null, null, null,
                                 false, true, null);
                     } else {
-                        log.info("4.2.1 Тип распределения - сложный (Для УК 14,15) и сумма недоплаты " +
+                        log.info("4.2.1 Тип распределения - для УК 14,15 при сумме недоплаты " +
                                 "<= 100");
                         log.info("4.2.2 Распределить оплату по вх.деб.+кред. без услуги 003, по списку закрытых орг, " +
                                 "c ограничением по исх.сал.");
@@ -183,15 +190,46 @@ public class DistPayMngImpl implements DistPayMng {
                         }
                     }
                 }
-
-
             } else {
                 log.info("2.0 Сумма оплаты < 0, снятие ранее принятой оплаты");
                 // сумма оплаты < 0 (снятие оплаты)
                 // TODO ????? должно выполняться в отдельной процедуре? (уже есть такое в PL/SQL, написано нормально
             }
+
+            // TODO сделать распределение пени!!!!
+
+            // сгруппировать распределение
+            List<SumUslOrgDTO> lstForKwtpDay = new ArrayList<>(20);
+            amount.getLstDistPayment().forEach(t ->
+                    saldoMng.groupByUslOrg(lstForKwtpDay, t));
+            // сохранить распределение в KWTP_DAY
+            lstForKwtpDay.forEach(t -> {
+                // оплата
+                KwtpDay kwtpDay = KwtpDay.KwtpDayBuilder.aKwtpDay()
+                        .withNink(kwtpMg.getNink())
+                        .withNkom(kwtpMg.getNkom())
+                        .withOper(kwtpMg.getOper())
+                        .withUsl(em.find(Usl.class, t.getUslId()))
+                        .withOrg(em.find(Org.class, t.getOrgId()))
+                        .withSumma(t.getSumma())
+                        .withDopl(kwtpMg.getDopl())
+                        .withDt(kwtpMg.getDt())
+                        .withDtInk(kwtpMg.getDtInk())
+                        .withKart(kwtpMg.getKart())
+                        .withKwtpMg(kwtpMg)
+                        .withTp(1).build();
+                // TODO пеня?????????
+                kwtpMg.getKwtpDay().add(kwtpDay);
+                em.persist(kwtpDay);
+            });
+
+            log.info("5.0 Итоговое, сгруппированное распределение в KWTP_DAY:");
+            kwtpMg.getKwtpDay().forEach(t ->
+                    log.info("tp={}, usl={}, org={}, summa={}",
+                            t.getTp(), t.getUsl().getId(), t.getOrg().getId(), t.getSumma())
+            );
         } catch (WrongParam wrongParam) {
-            throw new ErrorWhileDistPay("ОШИБКА! Произошла ошибка в процессе распределения оплаты!");
+            throw new ErrorWhileDistPay("Произошла ошибка в процессе распределения оплаты!");
         }
     }
 
@@ -222,8 +260,8 @@ public class DistPayMngImpl implements DistPayMng {
         // получить начисление за прошлый период
         List<SumUslOrgDTO> lstChrgPrevPeriod =
                 saldoMng.getOutSal(amount.getKart(), configApp.getPeriodBack(),
-                null, null,
-                false, true, false, true, true, true, null);
+                        null, null,
+                        false, true, false, true, true, true, null);
         // получить итог начисления за прошлый период
         amount.setAmntChrgPrevPeriod(lstChrgPrevPeriod
                 .stream().map(SumUslOrgDTO::getSumma)
@@ -299,7 +337,7 @@ public class DistPayMngImpl implements DistPayMng {
             List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
                     amount.getLstDistPayment(), amount.getLstDistPayment(),
                     false, true, false, false, false, false, null);
-            // фильтровать по положительным значениям???? note фильтровать точно???
+            // note фильтровать по положительным значениям????
             lstDistribBase = inSal.stream()
                     .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0
                     ).collect(Collectors.toList());
@@ -308,18 +346,12 @@ public class DistPayMngImpl implements DistPayMng {
             List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), configApp.getPeriodBack(),
                     amount.getLstDistPayment(), amount.getLstDistPayment(),
                     false, true, false, false, false, false, null);
-            // фильтровать по положительным значениям????
+            // note фильтровать по положительным значениям????
             lstDistribBase = inSal.stream()
                     .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0
                     ).collect(Collectors.toList());
-        } else { //todo проверить ветку!
-            // получить вх.деб.сал - оплата
-            List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), currPeriod, amount.getLstDistPayment(), null,
-                    true, false, false, false, false, true, null);
-            // фильтровать по положительным значениям
-            lstDistribBase = inSal.stream()
-                    .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0
-                    ).collect(Collectors.toList());
+        } else {
+            throw new WrongParam("Некорректный параметр tp=" + tp);
         }
         // исключить услуги
         if (lstExcludeUslId != null) {
@@ -458,7 +490,7 @@ public class DistPayMngImpl implements DistPayMng {
             log.info("usl={}, org={}, summa={}", includeOnlyUslId, nabor.getOrg().getId(), distSumma);
             log.info("итого распределено:{}, остаток:{}", distSumma, amount.getSumma());
         } else {
-            throw new ErrorWhileDistPay("ОШИБКА! При распределении не найдена запись в наборе услуг lsk="
+            throw new ErrorWhileDistPay("При распределении не найдена запись в наборе услуг lsk="
                     + amount.getKart().getLsk()
                     + "usl=" + includeOnlyUslId);
         }

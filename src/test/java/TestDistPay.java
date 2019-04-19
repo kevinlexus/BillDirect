@@ -221,7 +221,7 @@ public class TestDistPay {
 
         // Добавить платеж для распределения
         log.info("");
-        String strSumma = "231.45";
+        String strSumma = "100.45";
         log.info("Распределить сумму:{}", strSumma);
         String dopl2 = "201402";
         kwtp = testDataBuilder.buildKwtpForTest(kart, dopl2, "11.04.2014", null, 0,
