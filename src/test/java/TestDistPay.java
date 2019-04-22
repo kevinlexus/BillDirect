@@ -222,14 +222,17 @@ public class TestDistPay {
         // Добавить платеж для распределения
         log.info("");
         String strSumma = "100.45";
+        String strPenya = "25.87";
         log.info("Распределить сумму:{}", strSumma);
         String dopl2 = "201402";
         kwtp = testDataBuilder.buildKwtpForTest(kart, dopl2, "11.04.2014", null, 0,
-                "022", "12314", "001", strSumma, null);
-        kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl2, strSumma, "0");
+                "022", "12314", "001", strSumma, strPenya);
+        kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl2, strSumma, strPenya);
 
         // распределить
-        distPayMng.distKwtpMg(kwtpMg.getId());
+        distPayMng.distKwtpMg(kwtpMg.getId(), kwtpMg.getKart().getLsk(), strSumma, null,
+                kwtpMg.getDopl(), kwtpMg.getNink(), kwtpMg.getNkom(), kwtpMg.getOper(),
+                "11.04.2014", null, true);
     }
 
     @Test

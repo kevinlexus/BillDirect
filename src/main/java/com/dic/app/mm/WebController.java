@@ -1,6 +1,5 @@
 package com.dic.app.mm;
 
-import com.dic.app.RequestConfigDirect;
 import com.dic.bill.dao.OrgDAO;
 import com.dic.bill.dao.PrepErrDAO;
 import com.dic.bill.dao.SprGenItmDAO;
@@ -10,21 +9,15 @@ import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.*;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.Session;
 import org.hibernate.SessionFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.concurrent.ConcurrentMapCache;
 import org.springframework.context.ApplicationContext;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StopWatch;
 import org.springframework.web.bind.annotation.*;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -38,6 +31,8 @@ public class WebController implements CommonConstants {
 
     @PersistenceContext
     private EntityManager em;
+
+    private final GenChrgProcessMng genChrgProcessMng;
     private final NaborMng naborMng;
     private final MigrateMng migrateMng;
     private final ExecMng execMng;
@@ -51,7 +46,7 @@ public class WebController implements CommonConstants {
     public WebController(NaborMng naborMng, MigrateMng migrateMng, ExecMng execMng,
                          SprGenItmDAO sprGenItmDao, PrepErrDAO prepErrDao,
                          OrgDAO orgDAO, ConfigApp config, ApplicationContext ctx,
-                         DistPayMng distPayMng) {
+                         DistPayMng distPayMng, GenChrgProcessMng genChrgProcessMng) {
         this.naborMng = naborMng;
         this.migrateMng = migrateMng;
         this.execMng = execMng;
@@ -61,6 +56,7 @@ public class WebController implements CommonConstants {
         this.distPayMng = distPayMng;
         this.config = config;
         this.ctx = ctx;
+        this.genChrgProcessMng = genChrgProcessMng;
     }
 
 /*    LSK
@@ -83,27 +79,39 @@ FK_PDOC
 ANNUL
 
 */
+
+
     /**
      * Распределить платеж C_KWTP_MG
-     *
-     * @param kwtpMgId - C_KWTP_MG.ID
+     * @param kwtpMgId - ID записи C_KWTP_MG
+     * @param lsk       - лиц.счет
+     * @param strSumma  - сумма оплаты долга
+     * @param strPenya  - сумма оплаты пени
+     * @param dopl      - период оплаты
+     * @param nink      - № инкассации
+     * @param nkom      - № компьютера
+     * @param oper      - код операции
+     * @param strDtek   - дата платежа
+     * @param strDtInk - дата инкассации
      */
     @RequestMapping("/distKwtpMg")
     public String distKwtpMg(
             @RequestParam(value = "kwtpMgId") int kwtpMgId,
             @RequestParam(value = "lsk") String lsk,
-            @RequestParam(value = "summaStr") String summaStr,
-            @RequestParam(value = "penyaStr") String penyaStr,
+            @RequestParam(value = "strSumma") String strSumma,
+            @RequestParam(value = "strPenya") String strPenya,
             @RequestParam(value = "dopl") String dopl,
             @RequestParam(value = "nink") int nink,
             @RequestParam(value = "nkom") String nkom,
             @RequestParam(value = "oper") String oper,
-            @RequestParam(value = "dtekStr") String dtekStr,
-            @RequestParam(value = "datInkStr") String datInkStr
-        ) {
+            @RequestParam(value = "strDtek") String strDtek,
+            @RequestParam(value = "strDtInk") String strDtInk
+    ) {
         log.info("GOT /distKwtpMg with: kwtpMgId={}", kwtpMgId);
+
         try {
-            distPayMng.distKwtpMg(kwtpMgId);
+            distPayMng.distKwtpMg(kwtpMgId, lsk, strSumma, strPenya,
+                    dopl, nink, nkom, oper, strDtek, strDtInk, false);
         } catch (ErrorWhileDistPay errorWhileDistPay) {
             return "ERROR";
         }
@@ -134,12 +142,12 @@ ANNUL
             @RequestParam(value = "debugLvl", defaultValue = "0") int debugLvl,
             @RequestParam(value = "uslId", required = false) String uslId,
             @RequestParam(value = "reuId", required = false) String reuId,
-            @RequestParam(value = "genDt", defaultValue = "", required = false) String genDtStr,
+            @RequestParam(value = "genDt", defaultValue = "") String genDtStr,
             @RequestParam(value = "stop", defaultValue = "0", required = false) int stop
     ) {
         log.info("GOT /gen with: tp={}, debugLvl={}, genDt={}, reuId={}, houseId={}, vvodId={}, klskId={}, uslId={}, stop={}",
                 tp, debugLvl, genDtStr, reuId, houseId, vvodId, klskId, uslId, stop);
-        String retStatus = "ERROR";
+        String retStatus;
         if (stop == 1) {
             // Остановка всех процессов (отмена формирования например)
             config.getLock().stopAllProc(-1);
@@ -201,59 +209,9 @@ ANNUL
                 }
                 msg = msg.concat(", по услуге uslId=" + uslId);
             }
-            Date genDt = genDtStr != null ? Utl.getDateFromStr(genDtStr) : null;
-            // построить запрос
-            RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
-                    .withTp(tp)
-                    .withGenDt(genDt)
-                    .withUk(uk)
-                    .withHouse(house)
-                    .withVvod(vvod)
-                    .withKo(ko)
-                    .withUsl(usl)
-                    .withCurDt1(config.getCurDt1())
-                    .withCurDt2(config.getCurDt2())
-                    .withDebugLvl(debugLvl)
-                    .withRqn(config.incNextReqNum())
-                    .withIsMultiThreads(true)
-                    .withStopMark("processMng.genProcess")
-                    .build();
-            reqConf.prepareId();
-            StopWatch sw = new org.springframework.util.StopWatch();
-            sw.start("TIMING: " + reqConf.getTpName());
 
-            log.info("");
-            log.info("Задано: {} по {}", reqConf.getTpName(), msg);
-            log.info("");
-            // проверить переданные параметры
-            retStatus = reqConf.checkArguments();
-            if (retStatus == null) {
-                try {
-                    if (Utl.in(reqConf.getTp(), 0, 1, 2, 4)) {
-                        // расчет начисления, распределение объемов, расчет задолженности и пени
-                        reqConf.prepareChrgCountAmount();
-                        log.info("Будет обработано {} объектов", reqConf.getLstItems().size());
-                        ProcessMng processMng = ctx.getBean(ProcessMng.class);
-                        processMng.genProcessAll(reqConf);
-                    }
-                    if (Utl.in(reqConf.getTp(), 4)) {
-                        // по операции - начисление по одной услуге, для автоначисления
-                        // вернуть начисленный объем
-                        retStatus = "OK:" + reqConf.getChrgCountAmount().getResultVol().toString();
-                    } else {
-                        retStatus = "OK";
-                    }
-                } catch (Exception e) {
-                    retStatus = "ERROR! Ошибка при выполнении расчета!";
-                    log.error(Utl.getStackTraceString(e));
-//                } finally { WTF??? зачем здесь это? ред.28.03.19
-//                    config.getLock().unlockProc(reqConf.getRqn(), stopMark);
-                }
-            }
-            sw.stop();
-            System.out.println(sw.prettyPrint());
-            log.info("");
-            log.info("Выполнено: {} по {}", reqConf.getTpName(), msg);
+            Date genDt = genDtStr != null ? Utl.getDateFromStr(genDtStr) : null;
+            retStatus = genChrgProcessMng.genChrg(tp, debugLvl, genDt, house, vvod, ko, uk, usl);
         }
         log.info("Статус: retStatus = {}", retStatus);
         return retStatus;
