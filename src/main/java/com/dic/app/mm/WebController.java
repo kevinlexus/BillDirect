@@ -24,35 +24,91 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Контроллер WEB - запросов
+ */
 @RestController
 @Slf4j
 public class WebController implements CommonConstants {
 
     @PersistenceContext
     private EntityManager em;
-    @Autowired
-    private NaborMng naborMng;
-    @Autowired
-    private MigrateMng migrateMng;
-    @Autowired
-    private ExecMng execMng;
-    @Autowired
-    private SprGenItmDAO sprGenItmDao;
-    @Autowired
-    private PrepErrDAO prepErrDao;
-    @Autowired
-    private OrgDAO orgDAO;
-    //@Autowired
-    //private ProcessMng processMng;
-    @Autowired
-    private ConfigApp config;
-    @Autowired
-    private ApplicationContext ctx;
+    private final NaborMng naborMng;
+    private final MigrateMng migrateMng;
+    private final ExecMng execMng;
+    private final SprGenItmDAO sprGenItmDao;
+    private final PrepErrDAO prepErrDao;
+    private final OrgDAO orgDAO;
+    private final ConfigApp config;
+    private final ApplicationContext ctx;
+    private final DistPayMng distPayMng;
 
+    public WebController(NaborMng naborMng, MigrateMng migrateMng, ExecMng execMng,
+                         SprGenItmDAO sprGenItmDao, PrepErrDAO prepErrDao,
+                         OrgDAO orgDAO, ConfigApp config, ApplicationContext ctx,
+                         DistPayMng distPayMng) {
+        this.naborMng = naborMng;
+        this.migrateMng = migrateMng;
+        this.execMng = execMng;
+        this.sprGenItmDao = sprGenItmDao;
+        this.prepErrDao = prepErrDao;
+        this.orgDAO = orgDAO;
+        this.distPayMng = distPayMng;
+        this.config = config;
+        this.ctx = ctx;
+    }
+
+/*    LSK
+SUMMA
+PENYA
+OPER
+DOPL
+NINK
+NKOM
+DTEK
+NKVIT
+DAT_INK
+TS
+ID
+ISCORRECT
+NUM_DOC
+DAT_DOC
+FK_DOC
+FK_PDOC
+ANNUL
+
+*/
+    /**
+     * Распределить платеж C_KWTP_MG
+     *
+     * @param kwtpMgId - C_KWTP_MG.ID
+     */
+    @RequestMapping("/distKwtpMg")
+    public String distKwtpMg(
+            @RequestParam(value = "kwtpMgId") int kwtpMgId,
+            @RequestParam(value = "lsk") String lsk,
+            @RequestParam(value = "summaStr") String summaStr,
+            @RequestParam(value = "penyaStr") String penyaStr,
+            @RequestParam(value = "dopl") String dopl,
+            @RequestParam(value = "nink") int nink,
+            @RequestParam(value = "nkom") String nkom,
+            @RequestParam(value = "oper") String oper,
+            @RequestParam(value = "dtekStr") String dtekStr,
+            @RequestParam(value = "datInkStr") String datInkStr
+        ) {
+        log.info("GOT /distKwtpMg with: kwtpMgId={}", kwtpMgId);
+        try {
+            distPayMng.distKwtpMg(kwtpMgId);
+        } catch (ErrorWhileDistPay errorWhileDistPay) {
+            return "ERROR";
+        }
+        return "OK";
+    }
 
     /**
      * Расчет
@@ -102,28 +158,28 @@ public class WebController implements CommonConstants {
             Org uk = null;
             if (reuId != null) {
                 uk = orgDAO.getByReu(reuId);
-                if (uk==null) {
+                if (uk == null) {
                     retStatus = "ERROR! Задан некорректный reuId=" + reuId;
                     return retStatus;
                 }
                 msg = "УК reuId=" + reuId;
             } else if (houseId != 0) {
                 house = em.find(House.class, houseId);
-                if (house==null) {
+                if (house == null) {
                     retStatus = "ERROR! Задан некорректный houseId=" + houseId;
                     return retStatus;
                 }
                 msg = "дому houseId=" + houseId;
             } else if (vvodId != 0) {
                 vvod = em.find(Vvod.class, vvodId);
-                if (vvod==null) {
+                if (vvod == null) {
                     retStatus = "ERROR! Задан некорректный vvodId=" + vvodId;
                     return retStatus;
                 }
                 msg = "вводу vvodId=" + vvodId;
             } else if (klskId != 0) {
                 ko = em.find(Ko.class, klskId);
-                if (ko==null) {
+                if (ko == null) {
                     retStatus = "ERROR! Задан некорректный klskId=" + klskId;
                     return retStatus;
                 }
@@ -139,7 +195,7 @@ public class WebController implements CommonConstants {
             if (uslId != null) {
                 assert msg != null;
                 usl = em.find(Usl.class, uslId);
-                if (usl==null) {
+                if (usl == null) {
                     retStatus = "ERROR! Задан некорректный uslId=" + uslId;
                     return retStatus;
                 }
@@ -183,7 +239,7 @@ public class WebController implements CommonConstants {
                     if (Utl.in(reqConf.getTp(), 4)) {
                         // по операции - начисление по одной услуге, для автоначисления
                         // вернуть начисленный объем
-                        retStatus = "OK:"+reqConf.getChrgCountAmount().getResultVol().toString();
+                        retStatus = "OK:" + reqConf.getChrgCountAmount().getResultVol().toString();
                     } else {
                         retStatus = "OK";
                     }

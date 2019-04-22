@@ -16,6 +16,9 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -25,6 +28,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static junit.framework.TestCase.assertNotNull;
+import static junit.framework.TestCase.assertTrue;
 
 /**
  * Сервис распределения оплаты
@@ -85,9 +91,15 @@ public class DistPayMngImpl implements DistPayMng {
 
     /**
      * Распределить платеж (запись в C_KWTP_MG)
+     * @param kwtpMgId - ID записи C_KWTP_MG
      */
     @Override
-    public void distKwtpMg(KwtpMg kwtpMg) throws ErrorWhileDistPay {
+    @Transactional(
+            propagation = Propagation.REQUIRED,
+            rollbackFor = Exception.class) //
+    public void distKwtpMg(int kwtpMgId) throws ErrorWhileDistPay {
+        KwtpMg kwtpMg = em.find(KwtpMg.class, kwtpMgId);
+        assertNotNull(kwtpMg);
         saveKwtpDayLog(kwtpMg,"***** Распределение оплаты *****");
         try {
             // очистить текущее распределение
@@ -553,9 +565,15 @@ public class DistPayMngImpl implements DistPayMng {
      */
     private void saveKwtpDayLog(KwtpMg kwtpMg, String text, Object... t) {
         KwtpDayLog kwtpDayLog =
+                KwtpDayLog.KwtpDayLogBuilder.aKwtpDayLog()
+                        .withFkKwtpMg(kwtpMg.getId())
+                        .withText(text).build();
+/*
+        KwtpDayLog kwtpDayLog =
                 KwtpDayLog.KwtpMgLogBuilder.aKwtpMgLog()
                         .withKwtpMg(kwtpMg).withText(text).build();
-        kwtpMg.getKwtpMgLog().add(kwtpDayLog);
+*/
+        //kwtpMg.getKwtpMgLog().add(kwtpDayLog);
         em.persist(kwtpDayLog);
         log.info(text, t);
     }

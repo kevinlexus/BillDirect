@@ -229,7 +229,7 @@ public class TestDistPay {
         kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl2, strSumma, "0");
 
         // распределить
-        distPayMng.distKwtpMg(kwtpMg);
+        distPayMng.distKwtpMg(kwtpMg.getId());
     }
 
     @Test
