@@ -225,13 +225,15 @@ public class TestDistPay {
         String strPenya = "25.87";
         log.info("Распределить сумму:{}", strSumma);
         String dopl2 = "201402";
+/*
         kwtp = testDataBuilder.buildKwtpForTest(kart, dopl2, "11.04.2014", null, 0,
                 "022", "12314", "001", strSumma, strPenya);
         kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl2, strSumma, strPenya);
+*/
 
         // распределить
-        distPayMng.distKwtpMg(kwtpMg.getId(), kwtpMg.getKart().getLsk(), strSumma, null,
-                kwtpMg.getDopl(), kwtpMg.getNink(), kwtpMg.getNkom(), kwtpMg.getOper(),
+        distPayMng.distKwtpMg(1111111, kart.getLsk(), strSumma, strPenya,
+                dopl2, 0, "011", "001",
                 "11.04.2014", null, true);
     }
 

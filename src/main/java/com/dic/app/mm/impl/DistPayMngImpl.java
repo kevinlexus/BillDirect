@@ -194,7 +194,7 @@ public class DistPayMngImpl implements DistPayMng {
                                 false, Collections.singletonList("003"), true);
                         if (amount.getSumma().compareTo(BigDecimal.ZERO) > 0) {
                             saveKwtpDayLog(amount.getKwtpMgId(), "3.2.3 Остаток распределить на услугу usl=003 ");
-                            distExclusivelyBySingleUslId(amount, "003");
+                            distExclusivelyBySingleUslId(amount, "003", true);
                         }
                     }
                 } else {
@@ -237,8 +237,8 @@ public class DistPayMngImpl implements DistPayMng {
                                 true, true, true,
                                 false, true, null, true);
                         if (amount.getSumma().compareTo(BigDecimal.ZERO) > 0) {
-                            saveKwtpDayLog(amount.getKwtpMgId(), "4.2.4 Остаток распределить на услугу usl=003 ");
-                            distExclusivelyBySingleUslId(amount, "003");
+                            saveKwtpDayLog(amount.getKwtpMgId(), "4.2.4 Остаток распределить на услугу usl=003");
+                            distExclusivelyBySingleUslId(amount, "003", true);
                         }
                     }
                 }
@@ -250,16 +250,22 @@ public class DistPayMngImpl implements DistPayMng {
 
             if (amount.getPenya().compareTo(BigDecimal.ZERO) > 0) {
                 // распределение пени
-                saveKwtpDayLog(amount.getKwtpMgId(), "5.0 Сумма оплаты пени > 0");
+                saveKwtpDayLog(amount.getKwtpMgId(), "5.0 Сумма пени > 0");
                 saveKwtpDayLog(amount.getKwtpMgId(), "5.0.1 Распределить по уже имеющемуся распределению оплаты");
                 distWithRestriction(amount, 4, false, null,
                         null, null, null,
-                        false, false, null, true);
+                        false, false, null, false);
                 if (amount.getPenya().compareTo(BigDecimal.ZERO) > 0) {
                     saveKwtpDayLog(amount.getKwtpMgId(), "5.0.2 Остаток распределить по начислению");
                     distWithRestriction(amount, 5, false, null,
                             null, null, null,
-                            false, false, null, true);
+                            false, false, null, false);
+                    if (amount.getPenya().compareTo(BigDecimal.ZERO) > 0) {
+                        saveKwtpDayLog(amount.getKwtpMgId(), "5.0.3 Не распределено по начислению, " +
+                                "распределить на услугу usl=003");
+                        distExclusivelyBySingleUslId(amount, "003", false);
+
+                    }
                 }
 
             } else {
@@ -487,7 +493,9 @@ public class DistPayMngImpl implements DistPayMng {
                     amount.getKart().getLsk());
         }
         saveKwtpDayLog(amount.getKwtpMgId(), "Будет распределено по строкам:");
-        lstDistribBase.forEach(t -> saveKwtpDayLog(amount.getKwtpMgId(), "usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma()));
+        lstDistribBase.forEach(t ->
+                saveKwtpDayLog(amount.getKwtpMgId(), "usl={}, org={}, summa={}",
+                    t.getUslId(), t.getOrgId(), t.getSumma()));
         saveKwtpDayLog(amount.getKwtpMgId(), "итого:{}", amntSal);
 
         // распределить сумму по базе распределения
@@ -501,7 +509,7 @@ public class DistPayMngImpl implements DistPayMng {
             mapDistPay =
                     Utl.distBigDecimalByListIntoMap(amount.getPenya(), lstDistribBase, 2);
         }
-        // распечатать предварительное распределение оплаты
+        // распечатать предварительное распределение оплаты или сохранить, если не будет ограничения по сальдо
         BigDecimal distSumma = saveDistPay(amount, mapDistPay, !isRestrictByOutSal, isDistPay);
 
         if (isRestrictByOutSal) {
@@ -559,46 +567,58 @@ public class DistPayMngImpl implements DistPayMng {
 
                 // сохранить, распечатать распределение оплаты
                 distSumma = saveDistPay(amount, mapDistPay, true, isDistPay);
-
-                if (isDistPay) {
-                    amount.setSumma(amount.getSumma().add(distSumma.negate()));
-                    saveKwtpDayLog(amount.getKwtpMgId(), "итого распределено:{}, остаток:{}",
-                            distSumma, amount.getSumma());
-                } else {
-                    amount.setPenya(amount.getPenya().add(distSumma.negate()));
-                    saveKwtpDayLog(amount.getKwtpMgId(), "итого распределено:{}, остаток:{}",
-                            distSumma, amount.getPenya());
-                }
-
                 lstOutSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
                         amount.getLstDistPayment(), amount.getLstDistPayment(),
                         true, true, false, true,
                         true, true, null);
-                saveKwtpDayLog(amount.getKwtpMgId(), "После распределения оплаты: Исх.сальдо по лиц.счету lsk={}:",
-                        amount.getKart().getLsk());
+                if (isDistPay) {
+                    saveKwtpDayLog(amount.getKwtpMgId(), "После распределения оплаты: Исх.сальдо по лиц.счету lsk={}:",
+                            amount.getKart().getLsk());
+                }
                 lstOutSal.forEach(t -> saveKwtpDayLog(amount.getKwtpMgId(), "usl={}, org={}, summa={}",
                         t.getUslId(), t.getOrgId(), t.getSumma()));
-
             }
         }
+
+        // вычесть из итоговой суммы платежа
+        if (isDistPay) {
+            amount.setSumma(amount.getSumma().add(distSumma.negate()));
+            saveKwtpDayLog(amount.getKwtpMgId(), "итого распределено:{}, остаток:{}",
+                    distSumma, amount.getSumma());
+        } else {
+            amount.setPenya(amount.getPenya().add(distSumma.negate()));
+            saveKwtpDayLog(amount.getKwtpMgId(), "итого распределено:{}, остаток:{}",
+                    distSumma, amount.getPenya());
+        }
+
+
+
     }
 
     /**
      * Распределить платеж экслюзивно, на одну услугу
-     *
-     * @param amount           - итоги
+     *  @param amount           - итоги
      * @param includeOnlyUslId - список Id услуг, на которые распределить оплату, не зависимо от их сальдо
+     * @param isDistPay                - распределять оплату - да, пеню - нет
      */
     private void distExclusivelyBySingleUslId(Amount amount,
-                                              @SuppressWarnings("SameParameterValue") String includeOnlyUslId) throws ErrorWhileDistPay {
+                                              @SuppressWarnings("SameParameterValue") String includeOnlyUslId, boolean isDistPay) throws ErrorWhileDistPay {
         // Распределить эксклюзивно на одну услугу
         Nabor nabor = naborDAO.getByLskUsl(amount.getKart().getLsk(), includeOnlyUslId);
         if (nabor != null) {
             // сохранить для записи в KWTP_DAY
-            BigDecimal distSumma = amount.getSumma();
-            amount.getLstDistPayment().add(
-                    new SumUslOrgDTO(includeOnlyUslId, nabor.getOrg().getId(), distSumma));
-            amount.setSumma(amount.getSumma().add(distSumma.negate()));
+            BigDecimal distSumma;
+            if (isDistPay) {
+                distSumma = amount.getSumma();
+                amount.getLstDistPayment().add(
+                        new SumUslOrgDTO(includeOnlyUslId, nabor.getOrg().getId(), distSumma));
+                amount.setSumma(amount.getSumma().add(distSumma.negate()));
+            } else {
+                distSumma = amount.getPenya();
+                amount.getLstDistPenya().add(
+                        new SumUslOrgDTO(includeOnlyUslId, nabor.getOrg().getId(), distSumma));
+                amount.setPenya(amount.getPenya().add(distSumma.negate()));
+            }
             saveKwtpDayLog(amount.getKwtpMgId(), "Распределено фактически:");
             saveKwtpDayLog(amount.getKwtpMgId(), "usl={}, org={}, summa={}",
                     includeOnlyUslId, nabor.getOrg().getId(), distSumma);
