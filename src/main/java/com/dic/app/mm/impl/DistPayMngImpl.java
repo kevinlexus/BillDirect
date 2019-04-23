@@ -3,10 +3,12 @@ package com.dic.app.mm.impl;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.DistPayMng;
 import com.dic.app.mm.GenChrgProcessMng;
+import com.dic.app.mm.ReferenceMng;
 import com.dic.bill.dao.NaborDAO;
 import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dao.SprProcPayDAO;
 import com.dic.bill.dto.SumUslOrgDTO;
+import com.dic.bill.dto.UslOrg;
 import com.dic.bill.mm.SaldoMng;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.DistributableBigDecimal;
@@ -47,19 +49,22 @@ public class DistPayMngImpl implements DistPayMng {
     private final SprProcPayDAO sprProcPayDAO;
     private final NaborDAO naborDAO;
     private final SaldoUslDAO saldoUslDAO;
+    private final ReferenceMng referenceMng;
 
     @PersistenceContext
     private EntityManager em;
 
     public DistPayMngImpl(SaldoMng saldoMng, ConfigApp configApp,
                           SprProcPayDAO sprProcPayDAO, NaborDAO naborDAO, SaldoUslDAO saldoUslDAO,
-                          GenChrgProcessMng genChrgProcessMng) {
+                          GenChrgProcessMng genChrgProcessMng,
+                          ReferenceMng referenceMng) {
         this.saldoMng = saldoMng;
         this.configApp = configApp;
         this.sprProcPayDAO = sprProcPayDAO;
         this.naborDAO = naborDAO;
         this.saldoUslDAO = saldoUslDAO;
         this.genChrgProcessMng = genChrgProcessMng;
+        this.referenceMng = referenceMng;
     }
 
     /**
@@ -251,7 +256,7 @@ public class DistPayMngImpl implements DistPayMng {
             } else {
                 saveKwtpDayLog(amount, "2.0 Сумма оплаты < 0, снятие ранее принятой оплаты");
                 // сумма оплаты < 0 (снятие оплаты)
-                // note - проверить!!! ????? должно выполняться в отдельной процедуре? (уже есть такое в PL/SQL, написано нормально
+                throw new ErrorWhileDistPay("ОШИБКА! Сумма оплаты < 0, операция не доступна!");
             }
 
             if (amount.getPenya().compareTo(BigDecimal.ZERO) > 0) {
@@ -270,14 +275,35 @@ public class DistPayMngImpl implements DistPayMng {
                         saveKwtpDayLog(amount, "5.0.3 Не распределено по начислению, " +
                                 "распределить на услугу usl=003");
                         distExclusivelyBySingleUslId(amount, "003", false);
-
                     }
                 }
+                // выполнить редирект пени
+                List<SumUslOrgDTO> lstDistPenya = amount.getLstDistPenya();
+                lstDistPenya.forEach(t->{
+                    UslOrg uslOrg = new UslOrg(t.getUslId(), t.getOrgId());
+                    UslOrg uslOrgChanged =
+                            referenceMng.getUslOrgRedirect(uslOrg, amount.getKart(), 0);
+                    boolean isRedirected = false;
+                    if (!t.getUslId().equals(uslOrgChanged.getUslId())) {
+                        isRedirected = true;
+                        saveKwtpDayLog(amount, "5.1.0 Выполнено перенаправление пени: услуга " +
+                                "{}-->{}", t.getUslId(), uslOrgChanged.getUslId());
+                        t.setUslId(uslOrgChanged.getUslId());
+                    }
+                    if (!t.getOrgId().equals(uslOrgChanged.getOrgId())) {
+                        isRedirected = true;
+                        saveKwtpDayLog(amount, "5.1.1 Выполнено перенаправление пени: организация " +
+                                "{}-->{}", t.getOrgId(), uslOrgChanged.getOrgId());
+                        t.setOrgId(uslOrgChanged.getOrgId());
+                    }
+                    if (isRedirected) {
+                        saveKwtpDayLog(amount, "5.1.2 Перенаправлена сумма={}", t.getSumma());
+                    }
+                });
 
             } else {
                 // сумма пени < 0 (снятие оплаты)
-                // note вызвать ошибку!
-
+                throw new ErrorWhileDistPay("ОШИБКА! Сумма пени < 0, операция не доступна!");
             }
 
             // сгруппировать распределение оплаты
