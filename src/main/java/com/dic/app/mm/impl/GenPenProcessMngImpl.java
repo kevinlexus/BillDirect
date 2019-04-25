@@ -400,7 +400,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
             SumPenRec t = itr.next();
             String uslId = t.getUslId();
             Integer orgId = t.getOrgId();
-            UslOrg uo = refMng.getUslOrgRedirect(new UslOrg(t.getUslId(), t.getOrgId()), kart, 0);
+            UslOrg uo = refMng.getUslOrgRedirect(t.getUslId(), t.getOrgId(), kart, 0);
             if (!uo.getUslId().equals(uslId)
                     || !uo.getOrgId().equals(orgId)) {
                 // выполнить переброску, если услуга или организация - другие

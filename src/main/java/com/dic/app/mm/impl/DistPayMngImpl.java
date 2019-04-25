@@ -18,25 +18,19 @@ import com.ric.cmn.excp.WrongParam;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.config.BeanDefinition;
-import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
-import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import javax.persistence.Version;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static junit.framework.TestCase.assertNotNull;
-import static junit.framework.TestCase.assertTrue;
-
 /**
  * Сервис распределения оплаты
+ *
  * @version 1.00
  */
 @Slf4j
@@ -79,11 +73,13 @@ public class DistPayMngImpl implements DistPayMng {
         // id строки платежа по периодам
         int kwtpMgId;
         // № п.п. строки распределения в KWTP_DAY_LOG
-        int npp=1;
+        int npp = 1;
         // сумма оплаты
         private BigDecimal summa = BigDecimal.ZERO;
         // сумма оплаченной пени
         private BigDecimal penya = BigDecimal.ZERO;
+        // задолженность на момент распределения по периоду в C_GET_PAY строка 580
+        private BigDecimal debt = BigDecimal.ZERO;
         // период платежа
         String dopl;
         // инкассация
@@ -102,6 +98,8 @@ public class DistPayMngImpl implements DistPayMng {
         private List<SumUslOrgDTO> inSal;
         // итог по общ.сал.
         private BigDecimal amntInSal = BigDecimal.ZERO;
+        // итог задолженность периода C_KWTP_MG.DOPL
+        private BigDecimal amntDebtDopl = BigDecimal.ZERO;
         // итог по начислению предыдущего периода
         private BigDecimal amntChrgPrevPeriod = BigDecimal.ZERO;
 
@@ -117,17 +115,18 @@ public class DistPayMngImpl implements DistPayMng {
 
     /**
      * Распределить платеж (запись в C_KWTP_MG)
+     *
      * @param kwtpMgId - ID записи C_KWTP_MG
-     * @param lsk       - лиц.счет
-     * @param strSumma  - сумма оплаты долга
-     * @param strPenya  - сумма оплаты пени
-     * @param dopl      - период оплаты
-     * @param nink      - № инкассации
-     * @param nkom      - № компьютера
-     * @param oper      - код операции
-     * @param strDtek   - дата платежа
+     * @param lsk      - лиц.счет
+     * @param strSumma - сумма оплаты долга
+     * @param strPenya - сумма оплаты пени
+     * @param dopl     - период оплаты
+     * @param nink     - № инкассации
+     * @param nkom     - № компьютера
+     * @param oper     - код операции
+     * @param strDtek  - дата платежа
      * @param strDtInk - дата инкассации
-     * @param isTest - тестирование? (не будет вызвано начисление)
+     * @param isTest   - тестирование? (не будет вызвано начисление)
      */
     @Override
     @Transactional(
@@ -137,6 +136,7 @@ public class DistPayMngImpl implements DistPayMng {
                            String lsk,
                            String strSumma,
                            String strPenya,
+                           String strDebt,
                            String dopl,
                            int nink,
                            String nkom,
@@ -151,6 +151,7 @@ public class DistPayMngImpl implements DistPayMng {
                     lsk,
                     strSumma,
                     strPenya,
+                    strDebt,
                     dopl,
                     nink,
                     nkom,
@@ -213,7 +214,10 @@ public class DistPayMngImpl implements DistPayMng {
                     final BigDecimal rangeBegin = new BigDecimal("0.01");
                     final BigDecimal rangeEnd = new BigDecimal("100");
                     boolean flag = false;
-                    if (uk.getDistPayTp().equals(0)) {
+                    if (uk.getDistPayTp() == null) {
+                        throw new ErrorWhileDistPay("ОШИБКА! Не установлен тип распределения оплаты по организации id="
+                                + uk.getId());
+                    } else if (uk.getDistPayTp().equals(0)) {
                         flag = true;
                         saveKwtpDayLog(amount, "4.1.1 Тип распределения - общий");
                     } else if (amount.getAmntInSal().subtract(amount.getSumma()).compareTo(rangeEnd) > 0) {
@@ -253,7 +257,7 @@ public class DistPayMngImpl implements DistPayMng {
                         }
                     }
                 }
-            } else {
+            } else if (amount.getSumma().compareTo(BigDecimal.ZERO) < 0) {
                 saveKwtpDayLog(amount, "2.0 Сумма оплаты < 0, снятие ранее принятой оплаты");
                 // сумма оплаты < 0 (снятие оплаты)
                 throw new ErrorWhileDistPay("ОШИБКА! Сумма оплаты < 0, операция не доступна!");
@@ -279,10 +283,9 @@ public class DistPayMngImpl implements DistPayMng {
                 }
                 // выполнить редирект пени
                 List<SumUslOrgDTO> lstDistPenya = amount.getLstDistPenya();
-                lstDistPenya.forEach(t->{
-                    UslOrg uslOrg = new UslOrg(t.getUslId(), t.getOrgId());
+                lstDistPenya.forEach(t -> {
                     UslOrg uslOrgChanged =
-                            referenceMng.getUslOrgRedirect(uslOrg, amount.getKart(), 0);
+                            referenceMng.getUslOrgRedirect(t.getUslId(), t.getOrgId(), amount.getKart(), 0);
                     boolean isRedirected = false;
                     if (!t.getUslId().equals(uslOrgChanged.getUslId())) {
                         isRedirected = true;
@@ -301,7 +304,7 @@ public class DistPayMngImpl implements DistPayMng {
                     }
                 });
 
-            } else {
+            } else if (amount.getPenya().compareTo(BigDecimal.ZERO) < 0) {
                 // сумма пени < 0 (снятие оплаты)
                 throw new ErrorWhileDistPay("ОШИБКА! Сумма пени < 0, операция не доступна!");
             }
@@ -347,22 +350,23 @@ public class DistPayMngImpl implements DistPayMng {
 
     /**
      * Построить объект расчета
-     *
      */
-    private Amount buildAmount(int kwtpMgId, boolean isGenChrg, String lsk, String summaStr, String penyaStr, String dopl,
-                               int nink, String nkom, String oper, String dtekStr, String datInkStr) throws WrongParam {
+    private Amount buildAmount(int kwtpMgId, boolean isGenChrg, String lsk,
+                               String strSumma, String strPenya, String debt,
+                               String dopl, int nink, String nkom, String oper,
+                               String dtekStr, String datInkStr) throws WrongParam {
         Amount amount = new Amount();
         Kart kart = em.find(Kart.class, lsk);
         amount.setKart(kart);
-        amount.setSumma(summaStr!=null?new BigDecimal(summaStr):BigDecimal.ZERO);
-        amount.setPenya(penyaStr!=null?new BigDecimal(penyaStr):BigDecimal.ZERO);
+        amount.setSumma(strSumma != null ? new BigDecimal(strSumma) : BigDecimal.ZERO);
+        amount.setPenya(strPenya != null ? new BigDecimal(strPenya) : BigDecimal.ZERO);
         amount.setKwtpMgId(kwtpMgId);
         amount.setDopl(dopl);
         amount.setNink(nink);
         amount.setNkom(nkom);
         amount.setOper(oper);
         amount.setDtek(Utl.getDateFromStr(dtekStr));
-        amount.setDatInk(datInkStr!=null? Utl.getDateFromStr(datInkStr): null);
+        amount.setDatInk(datInkStr != null ? Utl.getDateFromStr(datInkStr) : null);
 
         saveKwtpDayLog(amount, "***** Распределение оплаты ver=1.00 *****");
         saveKwtpDayLog(amount, "1.0 C_KWTP_MG.ID={}, C_KWTP_MG.SUMMA={}, C_KWTP_MG.PENYA={}",
@@ -381,7 +385,9 @@ public class DistPayMngImpl implements DistPayMng {
         // итог по вх.сал.
         amount.setAmntInSal(amount.getInSal().stream().map(SumUslOrgDTO::getSumma)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
-        //saveKwtpDayLog(amount, "Итого вх.сал.={}", amount.getAmntInSal());
+
+        // получить задолженность
+
         // получить начисление за прошлый период
         List<SumUslOrgDTO> lstChrgPrevPeriod =
                 saldoMng.getOutSal(amount.getKart(), configApp.getPeriodBack(),
@@ -419,7 +425,8 @@ public class DistPayMngImpl implements DistPayMng {
 
     /**
      * Распределить платеж
-     *  @param amount                   - итоги
+     *
+     * @param amount                   - итоги
      * @param tp                       - тип 0-по вх.деб.сал.+кред.сал, 1- по начислению+перерасчет-оплата,
      *                                 2- по деб.сал-оплата, 3 -по начислению заданного периода
      *                                 4- по уже готовому распределению оплаты долга (распр.пени обычно)
@@ -530,7 +537,7 @@ public class DistPayMngImpl implements DistPayMng {
         saveKwtpDayLog(amount, "Будет распределено по строкам:");
         lstDistribBase.forEach(t ->
                 saveKwtpDayLog(amount, "usl={}, org={}, summa={}",
-                    t.getUslId(), t.getOrgId(), t.getSumma()));
+                        t.getUslId(), t.getOrgId(), t.getSumma()));
         saveKwtpDayLog(amount, "итого:{}", amntSal);
 
         // распределить сумму по базе распределения
@@ -627,14 +634,14 @@ public class DistPayMngImpl implements DistPayMng {
         }
 
 
-
     }
 
     /**
      * Распределить платеж экслюзивно, на одну услугу
+     *
      * @param amount           - итоги
      * @param includeOnlyUslId - список Id услуг, на которые распределить оплату, не зависимо от их сальдо
-     * @param isDistPay                - распределять оплату - да, пеню - нет
+     * @param isDistPay        - распределять оплату - да, пеню - нет
      */
     private void distExclusivelyBySingleUslId(Amount amount,
                                               @SuppressWarnings("SameParameterValue") String includeOnlyUslId, boolean isDistPay) throws ErrorWhileDistPay {
@@ -668,10 +675,11 @@ public class DistPayMngImpl implements DistPayMng {
 
     /**
      * Сохранить, суммировать и распечатать распределение
+     *
      * @param amount     - Итоги
      * @param mapDistPay - коллекция распределения
      * @param isSave     - сохранить распределение?
-     * @param isDistPay - распределить оплату - да, пеню - нет
+     * @param isDistPay  - распределить оплату - да, пеню - нет
      */
     private BigDecimal saveDistPay(Amount amount, Map<DistributableBigDecimal, BigDecimal> mapDistPay,
                                    boolean isSave, boolean isDistPay) {
@@ -740,7 +748,7 @@ public class DistPayMngImpl implements DistPayMng {
                         .withNpp(amount.getNpp())
                         .withFkKwtpMg(kwtpMgId)
                         .withText(Utl.getStrUsingTemplate(msg, t)).build();
-        amount.setNpp(amount.getNpp()+1);
+        amount.setNpp(amount.getNpp() + 1);
         em.persist(kwtpDayLog);
         log.info(msg, t);
     }

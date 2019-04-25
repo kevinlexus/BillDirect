@@ -33,22 +33,24 @@ public class ReferenceMngImpl implements ReferenceMng {
 
 	/**
 	 * Получить редирект пени
-	 * @param uslOrg - услуга + организация
+	 * @param uslId - Id услуги
+	 * @param orgId - Id организаци
 	 * @param kart - лицевой счет
 	 * @param tp - тип обработки 1-оплата, 0 - пеня
 	 */
 	@Override
-	@Cacheable(cacheNames="ReferenceMng.getUslOrgRedirect", key="{#uslOrg.getUslId(), #uslOrg.getOrgId(), #kart.getLsk(), #tp}" )
-	public UslOrg getUslOrgRedirect(UslOrg uslOrg, Kart kart, Integer tp) {
+	@Cacheable(cacheNames="ReferenceMng.getUslOrgRedirect",
+			key="{#uslId, #orgId, #kart.getLsk(), #tp}" )
+	public UslOrg getUslOrgRedirect(String uslId, Integer orgId, Kart kart, Integer tp) {
 		UslOrg uo = new UslOrg(null, null);
 		List<RedirPay> lst = redirPayDao.getRedirPayOrd(tp,
-				kart.getUk().getReu(), uslOrg.getUslId(), uslOrg.getOrgId()) .stream()
+				kart.getUk().getReu(), uslId, orgId) .stream()
 			.filter(t->  t.getUk()==null || t.getUk() // либо заполненный УК, либо пуст
 					.equals(kart.getUk()))
 			.filter(t-> t.getUslSrc()==null || t.getUslSrc().getId() // либо заполненный источник услуги, либо пуст
-					.equals(uslOrg.getUslId()))
+					.equals(uslId))
 			.filter(t-> t.getOrgSrc()==null || t.getOrgSrc().getId() // либо заполненный источник орг., либо пуст
-					.equals(uslOrg.getOrgId()))
+					.equals(orgId))
 			.collect(Collectors.toList());
 		for (RedirPay t : lst) {
 				if (t.getUslDst() != null) {
@@ -73,10 +75,10 @@ public class ReferenceMngImpl implements ReferenceMng {
 
 		// вернуть замены, если не найдены
 		if (uo.getUslId() == null) {
-			uo.setUslId(uslOrg.getUslId());
+			uo.setUslId(uslId);
 		}
 		if (uo.getOrgId() == null) {
-			uo.setOrgId(uslOrg.getOrgId());
+			uo.setOrgId(orgId);
 		}
 
 		return uo;

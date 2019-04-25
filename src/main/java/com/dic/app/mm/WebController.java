@@ -100,6 +100,7 @@ ANNUL
             @RequestParam(value = "lsk") String lsk,
             @RequestParam(value = "strSumma") String strSumma,
             @RequestParam(value = "strPenya") String strPenya,
+            @RequestParam(value = "strDebt") String strDebt,
             @RequestParam(value = "dopl") String dopl,
             @RequestParam(value = "nink") int nink,
             @RequestParam(value = "nkom") String nkom,
@@ -110,9 +111,10 @@ ANNUL
         log.info("GOT /distKwtpMg with: kwtpMgId={}", kwtpMgId);
 
         try {
-            distPayMng.distKwtpMg(kwtpMgId, lsk, strSumma, strPenya,
+            distPayMng.distKwtpMg(kwtpMgId, lsk, strSumma, strPenya, strDebt,
                     dopl, nink, nkom, oper, strDtek, strDtInk, false);
-        } catch (ErrorWhileDistPay errorWhileDistPay) {
+        } catch (ErrorWhileDistPay e) {
+            log.error(Utl.getStackTraceString(e));
             return "ERROR";
         }
         return "OK";

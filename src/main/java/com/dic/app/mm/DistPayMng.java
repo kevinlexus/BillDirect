@@ -8,6 +8,7 @@ public interface DistPayMng {
                     String lsk,
                     String strSumma,
                     String strPenya,
+                    String strDebt,
                     String dopl,
                     int nink,
                     String nkom,

@@ -5,6 +5,6 @@ import com.dic.bill.model.scott.Kart;
 
 public interface ReferenceMng {
 
-	UslOrg getUslOrgRedirect(UslOrg uslOrg, Kart kart, Integer tp);
+	UslOrg getUslOrgRedirect(String uslId, Integer orgId, Kart kart, Integer tp);
 
 }
