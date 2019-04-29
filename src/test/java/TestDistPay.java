@@ -1,6 +1,8 @@
 import com.dic.app.Config;
 import com.dic.app.mm.DistPayMng;
+import com.dic.bill.dao.AchargeDAO;
 import com.dic.bill.dao.SaldoUslDAO;
+import com.dic.bill.dao.UserDAO;
 import com.dic.bill.dto.SumUslOrgDTO;
 import com.dic.bill.mm.SaldoMng;
 import com.dic.bill.mm.TestDataBuilder;
@@ -40,7 +42,7 @@ public class TestDistPay {
     @Autowired
     private TestDataBuilder testDataBuilder;
     @Autowired
-    private SaldoUslDAO saldoUslDao;
+    private AchargeDAO achargeDAO;
     @Autowired
     private SaldoMng saldoMng;
     @Autowired
@@ -67,6 +69,7 @@ public class TestDistPay {
     @Transactional
     public void testDistPay() throws ErrorWhileDistPay, WrongParam {
         log.info("Test TestDistPay.testDistPay");
+
         // дом
         House house = new House();
         Ko houseKo = new Ko();
@@ -97,10 +100,20 @@ public class TestDistPay {
         testDataBuilder.buildSaldoUslForTest(kart, "003", 7, "201404", "200.50");
         testDataBuilder.buildSaldoUslForTest(kart, "005", 4, "201404", "22.53");
         testDataBuilder.buildSaldoUslForTest(kart, "004", 12, "201404", "0.11");
-        testDataBuilder.buildSaldoUslForTest(kart, "006", 8, "201404", "10.34");
+        testDataBuilder.buildSaldoUslForTest(kart, "006", 8, "201404", "1089.34");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 4, "201404", "3.79");
+        testDataBuilder.buildSaldoUslForTest(kart, "007", 3, "201404", "4.18");
+        testDataBuilder.buildSaldoUslForTest(kart, "005", 8, "201404", "100");
+
+/*
+        testDataBuilder.buildSaldoUslForTest(kart, "003", 7, "201404", "200.50");
+        testDataBuilder.buildSaldoUslForTest(kart, "005", 4, "201404", "22.53");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 12, "201404", "0.11");
+        testDataBuilder.buildSaldoUslForTest(kart, "006", 8, "201404", "-1089.34");
         testDataBuilder.buildSaldoUslForTest(kart, "004", 4, "201404", "3.79");
         testDataBuilder.buildSaldoUslForTest(kart, "007", 3, "201404", "4.18");
         testDataBuilder.buildSaldoUslForTest(kart, "005", 8, "201404", "-100");
+*/
 
         // Добавить текущее начисление
         testDataBuilder.addChargeForTest(kart, "029", "8.10");
@@ -223,6 +236,7 @@ public class TestDistPay {
         log.info("");
         String strSumma = "100.45";
         String strPenya = "25.87";
+        String strDebt = "90.87";
         log.info("Распределить сумму:{}", strSumma);
         String dopl2 = "201402";
 /*
@@ -232,7 +246,7 @@ public class TestDistPay {
 */
 
         // распределить
-        distPayMng.distKwtpMg(1111111, kart.getLsk(), strSumma, strPenya,
+        distPayMng.distKwtpMg(1111111, kart.getLsk(), strSumma, strPenya, strDebt,
                 dopl2, 0, "011", "001",
                 "11.04.2014", null, true);
     }

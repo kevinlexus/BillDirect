@@ -14,7 +14,7 @@ private List<MeterLogGraph> inside=new ArrayList<MeterLogGraph>(0);
 
 
 // JpaRepostiory DAO - Native Query
-public interface AchargeDAO extends JpaRepository<Acharge, Integer> {
+public interface AchargeDAO2 extends JpaRepository<Acharge, Integer> {
 
     /**
      * Получить сгруппированные записи начислений (полного начисления, без учета льгот),
