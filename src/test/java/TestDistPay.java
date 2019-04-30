@@ -2,8 +2,8 @@ import com.dic.app.Config;
 import com.dic.app.mm.DistPayMng;
 import com.dic.bill.dao.AchargeDAO;
 import com.dic.bill.dao.SaldoUslDAO;
-import com.dic.bill.dao.UserDAO;
 import com.dic.bill.dto.SumUslOrgDTO;
+import com.dic.bill.dto.SumUslOrgRec;
 import com.dic.bill.mm.SaldoMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
@@ -46,6 +46,8 @@ public class TestDistPay {
     @Autowired
     private SaldoMng saldoMng;
     @Autowired
+    private SaldoUslDAO saldoUslDAO;
+    @Autowired
     private DistPayMng distPayMng;
 
     @PersistenceContext
@@ -59,6 +61,29 @@ public class TestDistPay {
         }
         String check = Preconditions.checkNotNull(some);
         log.info("check:{}", check);
+    }
+
+    @Test
+    @Rollback()
+    @Transactional
+    public void testGetPinSalXitog3ByLsk() throws ErrorWhileDistPay, WrongParam {
+        log.info("Test saldoUslDAO.getPinSalXitog3ByLsk");
+        List<SumUslOrgRec> lst = saldoUslDAO.getPinSalXitog3ByLsk("00000202", "201403");
+        lst.forEach(t->{
+            log.info("usl={}, org={}, summa={}",t.getUslId(), t.getOrgId(), t.getSumma());
+        });
+    }
+
+    @Test
+    @Rollback()
+    @Transactional
+    public void testGetCreditSaldoUslWhereDebitExists() throws ErrorWhileDistPay, WrongParam {
+        log.info("Test saldoUslDAO.getPinSalXitog3ByLsk");
+        List<SaldoUsl> lst = saldoUslDAO.getCreditSaldoUslWhereDebitExists("201405");
+        lst.forEach(t->{
+            log.info("lsk={}, usl={}, org={}, summa={}",
+                    t.getKart().getLsk(), t.getUsl().getId(), t.getOrg().getId(), t.getSumma());
+        });
     }
 
     /**
@@ -97,6 +122,7 @@ public class TestDistPay {
         testDataBuilder.buildSaldoUslForTest(kart, "004", 1, "201403", "-14.25");
 
         // текущий период
+/*
         testDataBuilder.buildSaldoUslForTest(kart, "003", 7, "201404", "200.50");
         testDataBuilder.buildSaldoUslForTest(kart, "005", 4, "201404", "22.53");
         testDataBuilder.buildSaldoUslForTest(kart, "004", 12, "201404", "0.11");
@@ -104,8 +130,8 @@ public class TestDistPay {
         testDataBuilder.buildSaldoUslForTest(kart, "004", 4, "201404", "3.79");
         testDataBuilder.buildSaldoUslForTest(kart, "007", 3, "201404", "4.18");
         testDataBuilder.buildSaldoUslForTest(kart, "005", 8, "201404", "100");
+*/
 
-/*
         testDataBuilder.buildSaldoUslForTest(kart, "003", 7, "201404", "200.50");
         testDataBuilder.buildSaldoUslForTest(kart, "005", 4, "201404", "22.53");
         testDataBuilder.buildSaldoUslForTest(kart, "004", 12, "201404", "0.11");
@@ -113,7 +139,6 @@ public class TestDistPay {
         testDataBuilder.buildSaldoUslForTest(kart, "004", 4, "201404", "3.79");
         testDataBuilder.buildSaldoUslForTest(kart, "007", 3, "201404", "4.18");
         testDataBuilder.buildSaldoUslForTest(kart, "005", 8, "201404", "-100");
-*/
 
         // Добавить текущее начисление
         testDataBuilder.addChargeForTest(kart, "029", "8.10");
