@@ -309,11 +309,11 @@ public class DistPayMngImpl implements DistPayMng {
             // сгруппировать распределение оплаты
             List<SumUslOrgDTO> lstForKwtpDayPay = new ArrayList<>(20);
             amount.getLstDistPayment().forEach(t ->
-                    saldoMng.groupByUslOrg(lstForKwtpDayPay, t));
+                    saldoMng.groupByLstUslOrg(lstForKwtpDayPay, t));
             // сгруппировать распределение пени
             List<SumUslOrgDTO> lstForKwtpDayPenya = new ArrayList<>(20);
             amount.getLstDistPenya().forEach(t ->
-                    saldoMng.groupByUslOrg(lstForKwtpDayPenya, t));
+                    saldoMng.groupByLstUslOrg(lstForKwtpDayPenya, t));
             Map<Integer, List<SumUslOrgDTO>> mapForKwtpDay = new HashMap<>();
             mapForKwtpDay.put(1, lstForKwtpDayPay);
             mapForKwtpDay.put(0, lstForKwtpDayPenya);

@@ -78,8 +78,8 @@ public class TestDistPay {
     @Rollback()
     @Transactional
     public void testGetCreditSaldoUslWhereDebitExists() throws ErrorWhileDistPay, WrongParam {
-        log.info("Test saldoUslDAO.getPinSalXitog3ByLsk");
-        List<SaldoUsl> lst = saldoUslDAO.getCreditSaldoUslWhereDebitExists("201405");
+        log.info("Test saldoUslDAO.getSaldoUslWhereCreditAndDebitExists");
+        List<SaldoUsl> lst = saldoUslDAO.getSaldoUslWhereCreditAndDebitExists("201405");
         lst.forEach(t->{
             log.info("lsk={}, usl={}, org={}, summa={}",
                     t.getKart().getLsk(), t.getUsl().getId(), t.getOrg().getId(), t.getSumma());
