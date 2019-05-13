@@ -1,5 +1,6 @@
 package com.dic.app.mm.impl;
 
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -190,9 +191,14 @@ public class ComprTblImpl implements ComprTbl {
 		log.trace("Л.с.:{}, key={} проверяемый.период:{}", this.lsk, key, period);
 		Integer lastUsedMg2 = lstPeriodPrep.get(lastUsed);
 		// Период -1 от проверяемого
-		Integer chkPeriod = Integer.valueOf(Utl.addMonths(String.valueOf(period),-1));
+		Integer chkPeriod = null;
+		try {
+			chkPeriod = Integer.valueOf(Utl.addMonths(String.valueOf(period),-1));
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
 
-    	if (lastUsed == null) {
+		if (lastUsed == null) {
     		// последнего массива нет, сохраняем как новый
     		lastUsed = period;
     		log.trace("Л.с.:{}, key={} последнего периода нет, сохранили:{}", this.lsk, key, period);

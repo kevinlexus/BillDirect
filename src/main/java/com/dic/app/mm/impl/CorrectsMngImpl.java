@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
+import java.text.ParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -56,7 +57,13 @@ public class CorrectsMngImpl implements CorrectsMng {
         // пользователь
         Tuser user = tuserDAO.getByCd("GEN");
         // первое число месяца
-        Date dt = Utl.getDateFromPeriod(period);
+        Date dt = null;
+        try {
+            dt = Utl.getDateFromPeriod(period);
+        } catch (ParseException e) {
+            log.error(Utl.getStackTraceString(e));
+            throw new WrongParam("ERROR! Некорректный период");
+        }
         if (lstSal.size() > 0) {
             ChangeDoc changeDoc = ChangeDoc.ChangeDocBuilder.aChangeDoc()
                     .withDt(dt).withMg2(period).withMgchange(period)
@@ -122,16 +129,18 @@ public class CorrectsMngImpl implements CorrectsMng {
                                 .collect(Collectors.toList());
 
                         log.info("корректировки по кредиту:");
+                        Date finalDt = dt;
                         lstCorrCred.forEach(t -> {
                             log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
                             // проводки в T_CORRECTS_PAYMENTS, с другим знаком
-                            saveCorrects(period, user, dt, changeDoc, kart, t.getUslId(), t.getOrgId(), t.getSumma().negate());
+                            saveCorrects(period, user, finalDt, changeDoc, kart, t.getUslId(), t.getOrgId(), t.getSumma().negate());
                         });
                         log.info("корректировки по дебету:");
+                        Date finalDt1 = dt;
                         lstCorrDeb.forEach(t -> {
                             log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
                             // проводки в T_CORRECTS_PAYMENTS, с другим знаком
-                            saveCorrects(period, user, dt, changeDoc, kart, t.getUslId(), t.getOrgId(), t.getSumma().negate());
+                            saveCorrects(period, user, finalDt1, changeDoc, kart, t.getUslId(), t.getOrgId(), t.getSumma().negate());
                         });
 
                         // сгруппировать с сальдо:

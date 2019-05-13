@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -147,7 +148,7 @@ ANNUL
             @RequestParam(value = "reuId", required = false) String reuId,
             @RequestParam(value = "genDt", defaultValue = "") String genDtStr,
             @RequestParam(value = "stop", defaultValue = "0", required = false) int stop
-    ) {
+    ) throws ParseException {
         log.info("GOT /gen with: tp={}, debugLvl={}, genDt={}, reuId={}, houseId={}, vvodId={}, klskId={}, uslId={}, stop={}",
                 tp, debugLvl, genDtStr, reuId, houseId, vvodId, klskId, uslId, stop);
         String retStatus;
@@ -369,7 +370,7 @@ ANNUL
 
     @RequestMapping("/checkCache")
     @ResponseBody
-    public String checkCache() {
+    public String checkCache() throws ParseException {
         log.info("check1={}",
                 naborMng.getCached("bla1", null, Utl.getDateFromStr("01.01.2019")));
         log.info("check2={}",
