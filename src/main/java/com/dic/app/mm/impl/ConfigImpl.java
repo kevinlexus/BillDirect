@@ -4,12 +4,14 @@ import com.dic.app.mm.ConfigApp;
 import com.dic.bill.Lock;
 import com.dic.bill.model.scott.Param;
 import com.ric.cmn.Utl;
+import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.text.ParseException;
 import java.util.*;
 
 /**
@@ -70,7 +72,12 @@ public class ConfigImpl implements ConfigApp {
 
         // получить даты начала и окончания периода
         assert param != null;
-        Date dt = Utl.getDateFromPeriod(param.getPeriod().concat("01"));
+        Date dt = null;
+        try {
+            dt = Utl.getDateFromPeriod(param.getPeriod().concat("01"));
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
         Date dt1 = Utl.getFirstDate(dt);
         Date dt2 = Utl.getLastDate(dt1);
 
@@ -90,12 +97,22 @@ public class ConfigImpl implements ConfigApp {
 
     @Override
     public String getPeriodNext() {
-        return Utl.addMonths(Utl.getPeriodFromDate(getCalendarCurrentPeriod().get(0).getTime()), 1);
+        try {
+            return Utl.addMonths(Utl.getPeriodFromDate(getCalendarCurrentPeriod().get(0).getTime()), 1);
+        } catch (ParseException e) {
+            log.error(Utl.getStackTraceString(e));
+            return null;
+        }
     }
 
     @Override
     public String getPeriodBack() {
-        return Utl.addMonths(Utl.getPeriodFromDate(getCalendarCurrentPeriod().get(0).getTime()), -1);
+        try {
+            return Utl.addMonths(Utl.getPeriodFromDate(getCalendarCurrentPeriod().get(0).getTime()), -1);
+        } catch (ParseException e) {
+            log.error(Utl.getStackTraceString(e));
+            return null;
+        }
     }
 
     /**

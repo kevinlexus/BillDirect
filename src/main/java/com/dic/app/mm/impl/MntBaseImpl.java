@@ -1,5 +1,6 @@
 package com.dic.app.mm.impl;
 
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.IntSummaryStatistics;
 import java.util.LinkedList;
@@ -232,7 +233,11 @@ public class MntBaseImpl implements MntBase {
 		param = paramDao.findAll().stream().findFirst().orElse(null);
 		curPeriod = Integer.valueOf(param.getPeriod());
     	// Период -2 от текущего (минус два месяца, так как сжимаем только архивный и сравниваем его с доархивным)
-    	backPeriod = Integer.valueOf(Utl.addMonths(String.valueOf(curPeriod), -2));
+		try {
+			backPeriod = Integer.valueOf(Utl.addMonths(String.valueOf(curPeriod), -2));
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
 		log.trace("Текущий период={}", curPeriod);
 		log.trace("Период -2 от текущего={}", backPeriod);
 		try {

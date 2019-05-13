@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
+import java.text.ParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -396,9 +397,13 @@ public class DistPayMngImpl implements DistPayMng {
         amount.setNink(nink);
         amount.setNkom(nkom);
         amount.setOper(oper);
-        amount.setDtek(Utl.getDateFromStr(dtekStr));
-        //amount.setDatInk(datInkStr != null && datInkStr.length() > 0 ? Utl.getDateFromStr(datInkStr) : null);
-        amount.setDatInk(datInkStr != null ? Utl.getDateFromStr(datInkStr) : null);
+        try {
+            amount.setDtek(Utl.getDateFromStr(dtekStr));
+            amount.setDatInk(datInkStr != null ? Utl.getDateFromStr(datInkStr) : null);
+        } catch (ParseException e) {
+            log.error(Utl.getStackTraceString(e));
+            throw new WrongParam("ERROR! Некорректный период!");
+        }
 
         saveKwtpDayLog(amount, "***** Распределение оплаты ver=1.01 *****");
         saveKwtpDayLog(amount, "1.0 C_KWTP_MG.ID={}, C_KWTP_MG.SUMMA={}, C_KWTP_MG.PENYA={}",

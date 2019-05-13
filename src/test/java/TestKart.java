@@ -28,6 +28,7 @@ import org.springframework.util.StopWatch;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
+import java.text.ParseException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -132,12 +133,17 @@ public class TestKart {
         log.info("Test genChrgProcessMngGenChrgHouse Start!");
         // конфиг запроса
         RequestConfigDirect reqConf =
-                RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
-                        .withRqn(config.incNextReqNum()) // уникальный номер запроса
-                        .withGenDt(Utl.getDateFromStr("11.04.2014"))
-                        .withTp(2) // тип операции - распределение объема
-                        .withIsMultiThreads(false) // для Unit - теста однопоточно!
-                        .build();
+                null;
+        try {
+            reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
+                    .withRqn(config.incNextReqNum()) // уникальный номер запроса
+                    .withGenDt(Utl.getDateFromStr("11.04.2014"))
+                    .withTp(2) // тип операции - распределение объема
+                    .withIsMultiThreads(false) // для Unit - теста однопоточно!
+                    .build();
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
 
         // дом
         House house = new House();
@@ -267,10 +273,18 @@ public class TestKart {
 
     @Test
     public void testCache() {
-        log.info("check1={}",
-        naborMng.getCached("bla1", 2, Utl.getDateFromStr("01.01.2019")));
-        log.info("check2={}",
-        naborMng.getCached("bla1", 2, Utl.getDateFromStr("01.01.2019")));
+        try {
+            log.info("check1={}",
+            naborMng.getCached("bla1", 2, Utl.getDateFromStr("01.01.2019")));
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        try {
+            log.info("check2={}",
+            naborMng.getCached("bla1", 2, Utl.getDateFromStr("01.01.2019")));
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
     }
 
 }

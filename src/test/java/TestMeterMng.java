@@ -21,6 +21,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.xml.datatype.XMLGregorianCalendar;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -56,7 +57,12 @@ public class TestMeterMng {
 	public void isFindMeterDataByGuidTs() throws Exception {
 		class LocalMeterData implements MeterData {
 			public Date getTs() {
-				return Utl.getDateFromStr("30.03.2014");
+				try {
+					return Utl.getDateFromStr("30.03.2014");
+				} catch (ParseException e) {
+					e.printStackTrace();
+				}
+				return null;
 			}
 
 			public String getGuid() {
