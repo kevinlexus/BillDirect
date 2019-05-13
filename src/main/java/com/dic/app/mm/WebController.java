@@ -108,7 +108,7 @@ ANNUL
             @RequestParam(value = "strDtek") String strDtek,
             @RequestParam(value = "strDtInk") String strDtInk
     ) {
-        log.info("GOT /distKwtpMg with: kwtpMgId={}, lsk={}, strSumma={}," +
+        log.info("GOT /distKwtpMg with: kwtpMgId={}, lsk={}, strSumma={}, " +
                 "strPenya={}, strDebt={}, dopl={}, nink={}, nkom={}, oper={}, strDtek={}, strDtInk={}",
                 kwtpMgId, lsk, strSumma, strPenya, strDebt, dopl, nink, nkom, oper, strDtek, strDtInk);
         try {

@@ -384,19 +384,20 @@ public class DistPayMngImpl implements DistPayMng {
         Amount amount = new Amount();
         Kart kart = em.find(Kart.class, lsk);
         amount.setKart(kart);
-        amount.setSumma(strSumma != null && strSumma.length() != 0 ? new BigDecimal(strSumma) : BigDecimal.ZERO);
-        amount.setPenya(strPenya != null && strPenya.length() != 0 ? new BigDecimal(strPenya) : BigDecimal.ZERO);
+        amount.setSumma(strSumma != null && strSumma.length() > 0 ? new BigDecimal(strSumma) : BigDecimal.ZERO);
+        amount.setPenya(strPenya != null && strPenya.length() > 0 ? new BigDecimal(strPenya) : BigDecimal.ZERO);
         // сохранить суммы для контроля распределения
         amount.setSummaControl(amount.getSumma());
         amount.setPenyaControl(amount.getPenya());
 
-        amount.setAmntDebtDopl(strDebt != null && strDebt.length() != 0 ? new BigDecimal(strDebt) : BigDecimal.ZERO);
+        amount.setAmntDebtDopl(strDebt != null && strDebt.length() > 0 ? new BigDecimal(strDebt) : BigDecimal.ZERO);
         amount.setKwtpMgId(kwtpMgId);
         amount.setDopl(dopl);
         amount.setNink(nink);
         amount.setNkom(nkom);
         amount.setOper(oper);
         amount.setDtek(Utl.getDateFromStr(dtekStr));
+        //amount.setDatInk(datInkStr != null && datInkStr.length() > 0 ? Utl.getDateFromStr(datInkStr) : null);
         amount.setDatInk(datInkStr != null ? Utl.getDateFromStr(datInkStr) : null);
 
         saveKwtpDayLog(amount, "***** Распределение оплаты ver=1.01 *****");
