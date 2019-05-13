@@ -1,14 +1,9 @@
 import com.dic.app.Config;
 import com.dic.app.mm.CorrectsMng;
-import com.dic.bill.dao.MeterDAO;
-import com.dic.bill.dto.MeterData;
-import com.dic.bill.mm.MeterMng;
 import com.dic.bill.mm.TestDataBuilder;
-import com.dic.bill.model.exs.Eolink;
 import com.dic.bill.model.scott.House;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.Ko;
-import com.dic.bill.model.scott.Meter;
 import com.ric.cmn.Utl;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
@@ -23,11 +18,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import javax.xml.datatype.XMLGregorianCalendar;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
 
 import static org.junit.Assert.assertTrue;
 
@@ -57,7 +48,7 @@ public class TestCorrectsMng {
 	@Test
 	@Rollback(true)
 	public void testCorrPayByCreditSalExceptSomeUsl() throws Exception {
-		log.info("Test correctsMng.corrPayByCreditSalExceptSomeUsl");
+		log.info("Test correctsMng.corrPayByCreditSal");
 
 		// дом
 		House house = new House();
@@ -78,7 +69,7 @@ public class TestCorrectsMng {
 		Kart kart = em.find(Kart.class, lsk);
 
 		// Добавить сальдо
-		testDataBuilder.buildSaldoUslForTest(kart, "003", 7, "201404", "10.62");
+		testDataBuilder.buildSaldoUslForTest(kart, "003", 7, "201404", "-10.62");
 		testDataBuilder.buildSaldoUslForTest(kart, "003", 3, "201404", "105.78");
 		testDataBuilder.buildSaldoUslForTest(kart, "005", 3, "201404", "552.17");
 		testDataBuilder.buildSaldoUslForTest(kart, "004", 3, "201404", "22.83");
@@ -90,7 +81,7 @@ public class TestCorrectsMng {
 		testDataBuilder.buildSaldoUslForTest(kart, "006", 2, "201404", "-180.55");
 		testDataBuilder.buildSaldoUslForTest(kart, "006", 3, "201404", "-158.99");
 
-		correctsMng.corrPayByCreditSalExceptSomeUsl();
+		correctsMng.corrPayByCreditSal(1, Utl.getDateFromStr("01.04.2014"));
 
 		log.info("-----------------End");
 	}

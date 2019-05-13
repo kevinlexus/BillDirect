@@ -1,6 +1,7 @@
 package com.dic.app.mm.impl;
 
-import com.dic.app.mm.*;
+import com.dic.app.mm.ConfigApp;
+import com.dic.app.mm.CorrectsMng;
 import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dao.TuserDAO;
 import com.dic.bill.dto.SumUslOrgDTO;
@@ -15,7 +16,6 @@ import org.springframework.stereotype.Service;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
-import java.text.ParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -46,148 +46,195 @@ public class CorrectsMngImpl implements CorrectsMng {
 
     /**
      * Корректировка взаимозачета сальдо, исключая некоторые услуги
+     *
+     * @param var - вариант проводки (0- распр.кредит по дебету по выбранным орг. Кис. выполняется после 15 числа
+     *            1 - распр.кредит по 003 орг - выполняется 31 числа или позже, до перехода)
+     * @param dt  - дата корректировки
      */
     @Override
-    public void corrPayByCreditSalExceptSomeUsl() throws WrongParam {
+    public void corrPayByCreditSal(int var, Date dt) throws WrongParam {
+        log.info("Корректировка сальдо. ver=1.00,  вариант={}, дата={}", var, dt);
+
         // текущий период
         String period = configApp.getPeriod();
-        // сальдо, в тех лиц.сч., в которых есть еще и дебетовое
-        List<SaldoUsl> lstSal = new ArrayList<>(
-                saldoUslDAO.getSaldoUslWhereCreditAndDebitExists(period));
         // пользователь
         Tuser user = tuserDAO.getByCd("GEN");
-        // первое число месяца
-        Date dt = null;
-        try {
-            dt = Utl.getDateFromPeriod(period);
-        } catch (ParseException e) {
-            log.error(Utl.getStackTraceString(e));
-            throw new WrongParam("ERROR! Некорректный период");
-        }
-        if (lstSal.size() > 0) {
-            ChangeDoc changeDoc = ChangeDoc.ChangeDocBuilder.aChangeDoc()
-                    .withDt(dt).withMg2(period).withMgchange(period)
-                    .withUser(user).build();
-            em.persist(changeDoc);
 
-            // проводки
-            ArrayList<SumUslOrgDTO> lstCorrects = new ArrayList<SumUslOrgDTO>();
+        if (var == 0) {
+            // распр.кредит по дебету по выбранным орг. Кис. выполняется после 15 числа
+            // сальдо, в тех лиц.сч., в которых есть еще и дебетовое
+            List<SaldoUsl> lstSal = new ArrayList<>(
+                    saldoUslDAO.getSaldoUslWhereCreditAndDebitExists(period));
+            if (lstSal.size() > 0) {
+                ChangeDoc changeDoc = ChangeDoc.ChangeDocBuilder.aChangeDoc()
+                        .withDt(dt).withMg2(period).withMgchange(period)
+                        .withCdTp("JavaCorrPayByCreditSal-1")
+                        .withText("Корректировка кредит сальдо при наличии дебетового")
+                        .withUser(user).build();
+                em.persist(changeDoc);
 
+                // уникальный список лиц.счетов
+                List<Kart> lstKart = lstSal.stream().map(SaldoUsl::getKart).distinct().collect(Collectors.toList());
+                for (Kart kart : lstKart) {
+                    // сальдо по данному лиц.сч.
+                    List<SumUslOrgDTO> lstSalKart = lstSal.stream().filter(t -> t.getKart().equals(kart))
+                            .map(t -> new SumUslOrgDTO(t.getUsl().getId(), t.getOrg().getId(), t.getSumma()))
+                            .collect(Collectors.toList());
+
+                    // организации с кредитовым сальдо, по которым есть так же дебетовое сальдо по другим услугам
+                    List<Integer> lstOrgId = lstSalKart.stream()
+                            .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) < 0
+                                    && lstSalKart.stream().filter(d -> d.getSumma().compareTo(BigDecimal.ZERO) > 0)
+                                    .anyMatch(d -> d.getOrgId().equals(t.getOrgId()))
+                            )
+                            .map(SumUslOrgDTO::getOrgId)
+                            .collect(Collectors.toList());
+
+                    log.info("сальдо до корректировок:");
+                    lstSalKart.forEach(t -> log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma()));
+                    log.info("итого:{}", lstSalKart.stream().map(SumUslOrgDTO::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add));
+
+                    for (Integer orgId : lstOrgId) {
+                        log.info("организация orgId={}:", orgId);
+                        // кред.сальдо по данной орг * -1
+                        List<SumUslOrgDTO> lstCredOrg = lstSalKart.stream()
+                                .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) < 0
+                                        && t.getOrgId().equals(orgId)
+                                )
+                                .map(t -> new SumUslOrgDTO(t.getUslId(), t.getOrgId(), t.getSumma().negate()))
+                                .collect(Collectors.toList());
+
+                        // деб.сальдо по данной орг
+                        List<SumUslOrgDTO> lstDebOrg = lstSalKart.stream()
+                                .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0
+                                        && t.getOrgId().equals(orgId))
+                                .map(t -> new SumUslOrgDTO(t.getUslId(), t.getOrgId(), t.getSumma()))
+                                .collect(Collectors.toList());
+                        if (lstDebOrg.size() > 0) {
+                            distCredByDeb(period, user, dt, changeDoc, kart, lstSalKart, lstCredOrg, lstDebOrg);
+                        }
+                    }
+
+                    log.info("сальдо учётом 1-ой корректировки:");
+                    lstSalKart.forEach(t -> log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma()));
+                    log.info("итого:{}", lstSalKart.stream().map(SumUslOrgDTO::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add));
+
+                    // кред.сальдо * -1
+                    List<SumUslOrgDTO> lstCred = lstSalKart.stream()
+                            .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) < 0)
+                            .map(t -> new SumUslOrgDTO(t.getUslId(), t.getOrgId(), t.getSumma().negate()))
+                            .collect(Collectors.toList());
+                    if (lstCred.size() > 0) {
+                        // получить дебетовое сальдо
+                        List<SumUslOrgDTO> lstDeb = lstSalKart.stream()
+                                .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0)
+                                .map(t -> new SumUslOrgDTO(t.getUslId(), t.getOrgId(), t.getSumma()))
+                                .collect(Collectors.toList());
+                        if (lstDeb.size() > 0) {
+                            distCredByDeb(period, user, dt, changeDoc, kart, lstSalKart, lstCred, lstDeb);
+                        }
+                    }
+
+                    log.info("сальдо учётом 2-ой корректировки:");
+                    lstSalKart.forEach(t -> log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma()));
+                    log.info("итого:{}", lstSalKart.stream().map(SumUslOrgDTO::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add));
+                }
+            }
+        } else if (var == 1) {
+            // распр.кредит по 003 орг - выполняется 31 числа или позже, до перехода)
+            // сальдо, в тех лиц.сч., в которых по кредитовому сальдо по услуге 003 есть еще и дебетовое по другим услугам
+            List<SaldoUsl> lstSal = new ArrayList<>(
+                    saldoUslDAO.getSaldoUslWhereCreditAndDebitExistsByUsl("003", period));
             // уникальный список лиц.счетов
             List<Kart> lstKart = lstSal.stream().map(SaldoUsl::getKart).distinct().collect(Collectors.toList());
             for (Kart kart : lstKart) {
+                log.info("сальдо до корректировок:");
                 // сальдо по данному лиц.сч.
                 List<SumUslOrgDTO> lstSalKart = lstSal.stream().filter(t -> t.getKart().equals(kart))
                         .map(t -> new SumUslOrgDTO(t.getUsl().getId(), t.getOrg().getId(), t.getSumma()))
                         .collect(Collectors.toList());
+                ChangeDoc changeDoc = ChangeDoc.ChangeDocBuilder.aChangeDoc()
+                        .withDt(dt).withMg2(period).withMgchange(period)
+                        .withCdTp("JavaCorrPayByCreditSal-2")
+                        .withText("Корректировка кредит сальдо по 003 услуге, при наличии дебетового по другим услугам")
+                        .withUser(user).build();
+                em.persist(changeDoc);
 
-                // организации с кредитовым сальдо, по которым есть так же дебетовое сальдо по другим услугам
-                List<Integer> lstOrgId = lstSalKart.stream()
-                        .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) < 0
-                                && lstSalKart.stream().filter(d -> d.getSumma().compareTo(BigDecimal.ZERO) > 0)
-                                .anyMatch(d -> d.getOrgId().equals(t.getOrgId()))
-                        )
-                        .map(SumUslOrgDTO::getOrgId)
+                lstSalKart.forEach(t -> log.info("usl={}, org={}, summa={}",
+                        t.getUslId(), t.getOrgId(), t.getSumma()));
+                log.info("итого:{}", lstSalKart.stream()
+                        .map(SumUslOrgDTO::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add));
+
+                // кред.сальдо * -1 по услуге 003
+                List<SumUslOrgDTO> lstCred = lstSalKart.stream()
+                        .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) < 0 && t.getUslId().equals("003"))
+                        .map(t -> new SumUslOrgDTO(t.getUslId(), t.getOrgId(), t.getSumma().negate()))
                         .collect(Collectors.toList());
 
-                log.info("сальдо до корректировок:");
-                lstSalKart.forEach(t -> {
-                    log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
-                });
-
-                for (Integer orgId : lstOrgId) {
-                    log.info("организация orgId={}:", orgId);
-                    // кред.сальдо по данной орг * -1
-                    List<SumUslOrgDTO> lstCredOrg = lstSalKart.stream()
-                            .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) < 0
-                                    && t.getOrgId().equals(orgId)
-                            )
-                            .map(t -> new SumUslOrgDTO(t.getUslId(), t.getOrgId(), t.getSumma().negate()))
-                            .collect(Collectors.toList());
-
-                    // деб.сальдо по данной орг
-                    List<SumUslOrgDTO> lstDebOrg = lstSalKart.stream()
-                            .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0
-                                    && t.getOrgId().equals(orgId))
-                            .map(t -> new SumUslOrgDTO(t.getUslId(), t.getOrgId(), t.getSumma()))
-                            .collect(Collectors.toList());
-                    if (lstDebOrg.size() > 0) {
-                        // распределить кредит по дебету, получить проводки
-                        HashMap<Integer, Map<DistributableBigDecimal, BigDecimal>> mapCorr =
-                                Utl.distListByListIntoMap(lstCredOrg, lstDebOrg, 2);
-
-                        // поменять знак у корректировки снятия с кредитового сальдо
-                        List<SumUslOrgDTO> lstCorrCred = mapCorr.get(0).entrySet().stream()
-                                .map(k -> new SumUslOrgDTO(
-                                        ((SumUslOrgDTO) k.getKey()).getUslId(),
-                                        ((SumUslOrgDTO) k.getKey()).getOrgId(), k.getValue()))
-                                .collect(Collectors.toList());
-                        List<SumUslOrgDTO> lstCorrDeb = mapCorr.get(1).entrySet().stream()
-                                .map(k -> new SumUslOrgDTO(
-                                        ((SumUslOrgDTO) k.getKey()).getUslId(),
-                                        ((SumUslOrgDTO) k.getKey()).getOrgId(), k.getValue().negate()))
-                                .collect(Collectors.toList());
-
-                        log.info("корректировки по кредиту:");
-                        Date finalDt = dt;
-                        lstCorrCred.forEach(t -> {
-                            log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
-                            // проводки в T_CORRECTS_PAYMENTS, с другим знаком
-                            saveCorrects(period, user, finalDt, changeDoc, kart, t.getUslId(), t.getOrgId(), t.getSumma().negate());
-                        });
-                        log.info("корректировки по дебету:");
-                        Date finalDt1 = dt;
-                        lstCorrDeb.forEach(t -> {
-                            log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
-                            // проводки в T_CORRECTS_PAYMENTS, с другим знаком
-                            saveCorrects(period, user, finalDt1, changeDoc, kart, t.getUslId(), t.getOrgId(), t.getSumma().negate());
-                        });
-
-                        // сгруппировать с сальдо:
-                        // корректировку по кредиту
-                        saldoMng.groupByLstUslOrg(lstSalKart, lstCorrCred);
-                        // корректировку по дебету
-                        saldoMng.groupByLstUslOrg(lstSalKart, lstCorrDeb);
-                    }
+                // получить дебетовое сальдо
+                List<SumUslOrgDTO> lstDeb = lstSalKart.stream()
+                        .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0)
+                        .map(t -> new SumUslOrgDTO(t.getUslId(), t.getOrgId(), t.getSumma()))
+                        .collect(Collectors.toList());
+                if (lstDeb.size() > 0) {
+                    distCredByDeb(period, user, dt, changeDoc, kart, lstSalKart, lstCred, lstDeb);
                 }
-
-                log.info("сальдо учётом корректировок:");
-                lstSalKart.forEach(t -> {
-                    log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
-                });
-
-                /*
-                // корректировки снятия с кредит сальдо.
-                mapCorr.get(0).forEach((key, value) -> {
-                    SumUslOrgDTO sumUslOrgDTO = (SumUslOrgDTO) key;
-                    CorrectPay corrPay = CorrectPay.CorrectPayBuilder.aCorrectPay()
-                            .withChangeDoc(changeDoc)
-                            .withDopl(period).withDt(dt).withKart(kart).withMg(period)
-                            .withUsl(em.find(Usl.class, sumUslOrgDTO.getUslId()))
-                            .withOrg(em.find(Org.class, sumUslOrgDTO.getOrgId()))
-                            .withSumma(value.negate())
-                            .withUser(user)
-                            .build();
-                    em.persist(corrPay);
-                });
-
-                // корректировки постановки на деб.сальдо
-                mapCorr.get(1).forEach((key, value) -> {
-                    SumUslOrgDTO sumUslOrgDTO = (SumUslOrgDTO) key;
-                    CorrectPay corrPay = CorrectPay.CorrectPayBuilder.aCorrectPay()
-                            .withChangeDoc(changeDoc)
-                            .withDopl(period).withDt(dt).withKart(kart).withMg(period)
-                            .withUsl(em.find(Usl.class, sumUslOrgDTO.getUslId()))
-                            .withOrg(em.find(Org.class, sumUslOrgDTO.getOrgId()))
-                            .withSumma(value)
-                            .withUser(user)
-                            .build();
-                    em.persist(corrPay);
-                });
-
-                */
+                log.info("сальдо учётом корректировки:");
+                lstSalKart.forEach(t -> log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma()));
+                log.info("итого:{}", lstSalKart.stream().map(SumUslOrgDTO::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add));
             }
         }
+    }
+
+    /**
+     * Распределить кредит по дебету, создать проводки
+     *
+     * @param period     - текущий период
+     * @param user       - пользователь, которым провести корректировки
+     * @param dt         - дата корректировок
+     * @param changeDoc  - документ
+     * @param kart       - лиц.счет
+     * @param lstSalKart - сальдо по лиц.счету
+     * @param lstCred    - кредитовое сальдо
+     * @param lstDeb     - дебетовое сальдо
+     */
+    private void distCredByDeb(String period, Tuser user, Date dt, ChangeDoc changeDoc,
+                               Kart kart, List<SumUslOrgDTO> lstSalKart,
+                               List<SumUslOrgDTO> lstCred, List<SumUslOrgDTO> lstDeb) throws WrongParam {
+        // распределить кредит по дебету, получить проводки
+        HashMap<Integer, Map<DistributableBigDecimal, BigDecimal>> mapCorr =
+                Utl.distListByListIntoMap(lstCred, lstDeb, 2);
+
+        // поменять знак у корректировки снятия с кредитового сальдо
+        List<SumUslOrgDTO> lstCorrCred = mapCorr.get(0).entrySet().stream()
+                .map(k -> new SumUslOrgDTO(
+                        ((SumUslOrgDTO) k.getKey()).getUslId(),
+                        ((SumUslOrgDTO) k.getKey()).getOrgId(), k.getValue()))
+                .collect(Collectors.toList());
+        List<SumUslOrgDTO> lstCorrDeb = mapCorr.get(1).entrySet().stream()
+                .map(k -> new SumUslOrgDTO(
+                        ((SumUslOrgDTO) k.getKey()).getUslId(),
+                        ((SumUslOrgDTO) k.getKey()).getOrgId(), k.getValue().negate()))
+                .collect(Collectors.toList());
+
+        log.info("корректировки по кредиту:");
+        lstCorrCred.forEach(t -> {
+            log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
+            // проводки в T_CORRECTS_PAYMENTS, с другим знаком
+            saveCorrects(period, user, dt, changeDoc, kart, t.getUslId(), t.getOrgId(), t.getSumma().negate());
+        });
+        log.info("корректировки по дебету:");
+        lstCorrDeb.forEach(t -> {
+            log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
+            // проводки в T_CORRECTS_PAYMENTS, с другим знаком
+            saveCorrects(period, user, dt, changeDoc, kart, t.getUslId(), t.getOrgId(), t.getSumma().negate());
+        });
+
+        // сгруппировать с сальдо:
+        // корректировку по кредиту
+        saldoMng.groupByLstUslOrg(lstSalKart, lstCorrCred);
+        // корректировку по дебету
+        saldoMng.groupByLstUslOrg(lstSalKart, lstCorrDeb);
     }
 
     /**
