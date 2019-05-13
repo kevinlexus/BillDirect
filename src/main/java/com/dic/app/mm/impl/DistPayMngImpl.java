@@ -281,7 +281,7 @@ public class DistPayMngImpl implements DistPayMng {
                             // прочие типы счетов
                             saveKwtpDayLog(amount, "5.1.0 Сумма пени не была распределена, распределить на первую услугу в наборе");
                             distExclusivelyByFirstUslId(amount, true);
-                            if (amount.isExistSumma()) {
+                            if (amount.isExistPenya()) {
                                 // если всё же осталась нераспределенная сумма, то отправить на 003 усл и УК
                                 saveKwtpDayLog(amount, "5.1.1 Сумма пени не была распределена, распределить на услугу usl=003");
                                 distExclusivelyBySingleUslIdUk(amount, "003", false);
