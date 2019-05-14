@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 /**
  * Сервис распределения оплаты
  *
- * @version 1.01
+ * @version 1.03
  */
 @Slf4j
 @Service
@@ -248,6 +248,29 @@ public class DistPayMngImpl implements DistPayMng {
                     }
                 }
 
+                // выполнить редирект оплаты
+                List<SumUslOrgDTO> lstDistPay = amount.getLstDistPayment();
+                lstDistPay.forEach(t -> {
+                    UslOrg uslOrgChanged =
+                            referenceMng.getUslOrgRedirect(t.getUslId(), t.getOrgId(), amount.getKart(), 1);
+                    boolean isRedirected = false;
+                    if (!t.getUslId().equals(uslOrgChanged.getUslId())) {
+                        isRedirected = true;
+                        saveKwtpDayLog(amount, "4.4.0 Выполнено перенаправление оплаты: услуга " +
+                                "{}-->{}", t.getUslId(), uslOrgChanged.getUslId());
+                        t.setUslId(uslOrgChanged.getUslId());
+                    }
+                    if (!t.getOrgId().equals(uslOrgChanged.getOrgId())) {
+                        isRedirected = true;
+                        saveKwtpDayLog(amount, "4.4.1 Выполнено перенаправление оплаты: организация " +
+                                "{}-->{}", t.getOrgId(), uslOrgChanged.getOrgId());
+                        t.setOrgId(uslOrgChanged.getOrgId());
+                    }
+                    if (isRedirected) {
+                        saveKwtpDayLog(amount, "4.4.2 Перенаправлена сумма={}", t.getSumma());
+                    }
+                });
+
             } else if (amount.getSumma().compareTo(BigDecimal.ZERO) < 0) {
                 saveKwtpDayLog(amount, "2.0 Сумма оплаты < 0, снятие ранее принятой оплаты");
                 // сумма оплаты < 0 (снятие оплаты)
@@ -399,13 +422,13 @@ public class DistPayMngImpl implements DistPayMng {
         amount.setOper(oper);
         try {
             amount.setDtek(Utl.getDateFromStr(dtekStr));
-            amount.setDatInk(datInkStr != null ? Utl.getDateFromStr(datInkStr) : null);
+            amount.setDatInk(datInkStr != null && datInkStr.length() !=0? Utl.getDateFromStr(datInkStr) : null);
         } catch (ParseException e) {
             log.error(Utl.getStackTraceString(e));
             throw new WrongParam("ERROR! Некорректный период!");
         }
 
-        saveKwtpDayLog(amount, "***** Распределение оплаты ver=1.01 *****");
+        saveKwtpDayLog(amount, "***** Распределение оплаты ver=1.03 *****");
         saveKwtpDayLog(amount, "1.0 C_KWTP_MG.ID={}, C_KWTP_MG.SUMMA={}, C_KWTP_MG.PENYA={}",
                 amount.getKwtpMgId(), amount.getSumma(), amount.getPenya());
         saveKwtpDayLog(amount, "УК: {}", amount.getKart().getUk().getReu());

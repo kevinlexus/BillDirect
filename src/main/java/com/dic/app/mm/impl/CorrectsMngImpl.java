@@ -2,6 +2,8 @@ package com.dic.app.mm.impl;
 
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.CorrectsMng;
+import com.dic.bill.dao.ChangeDocDAO;
+import com.dic.bill.dao.CorrectPayDAO;
 import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dao.TuserDAO;
 import com.dic.bill.dto.SumUslOrgDTO;
@@ -32,16 +34,21 @@ public class CorrectsMngImpl implements CorrectsMng {
     final private SaldoUslDAO saldoUslDAO;
     final private TuserDAO tuserDAO;
     final private ConfigApp configApp;
-
+    final private CorrectPayDAO correctPayDAO;
+    final private ChangeDocDAO changeDocDAO;
     @PersistenceContext
     private EntityManager em;
 
     public CorrectsMngImpl(SaldoMng saldoMng, SaldoUslDAO saldoUslDAO,
-                           TuserDAO tuserDAO, ConfigApp configApp) {
+                           TuserDAO tuserDAO, ConfigApp configApp,
+                           CorrectPayDAO correctPayDAO,
+                           ChangeDocDAO changeDocDAO) {
         this.saldoMng = saldoMng;
         this.saldoUslDAO = saldoUslDAO;
         this.tuserDAO = tuserDAO;
         this.configApp = configApp;
+        this.correctPayDAO = correctPayDAO;
+        this.changeDocDAO = changeDocDAO;
     }
 
     /**
@@ -59,6 +66,15 @@ public class CorrectsMngImpl implements CorrectsMng {
         String period = configApp.getPeriod();
         // пользователь
         Tuser user = tuserDAO.getByCd("GEN");
+        String cdTp = null;
+        if (var == 0) {
+            cdTp = "JavaCorrPayByCreditSal-1";
+        } else if (var == 1) {
+            cdTp = "JavaCorrPayByCreditSal-2";
+        }
+        // удалить предыдущую корректировку
+        changeDocDAO.deleteChangeDocByCdTp(cdTp);
+        correctPayDAO.deleteCorrectPayByChangeDoc(cdTp);
 
         if (var == 0) {
             // распр.кредит по дебету по выбранным орг. Кис. выполняется после 15 числа
@@ -66,10 +82,11 @@ public class CorrectsMngImpl implements CorrectsMng {
             List<SaldoUsl> lstSal = new ArrayList<>(
                     saldoUslDAO.getSaldoUslWhereCreditAndDebitExists(period));
             if (lstSal.size() > 0) {
+                // создать документ по корректировке
                 ChangeDoc changeDoc = ChangeDoc.ChangeDocBuilder.aChangeDoc()
                         .withDt(dt).withMg2(period).withMgchange(period)
-                        .withCdTp("JavaCorrPayByCreditSal-1")
-                        .withText("Корректировка кредит сальдо при наличии дебетового")
+                        .withCdTp(cdTp)
+                        .withText("Корректировка кредитового сальдо при наличии дебетового")
                         .withUser(user).build();
                 em.persist(changeDoc);
 
@@ -115,7 +132,7 @@ public class CorrectsMngImpl implements CorrectsMng {
                         }
                     }
 
-                    log.info("сальдо учётом 1-ой корректировки:");
+                    log.info("сальдо с учётом 1-ой корректировки:");
                     lstSalKart.forEach(t -> log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma()));
                     log.info("итого:{}", lstSalKart.stream().map(SumUslOrgDTO::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add));
 
@@ -135,7 +152,7 @@ public class CorrectsMngImpl implements CorrectsMng {
                         }
                     }
 
-                    log.info("сальдо учётом 2-ой корректировки:");
+                    log.info("сальдо с учётом 2-ой корректировки:");
                     lstSalKart.forEach(t -> log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma()));
                     log.info("итого:{}", lstSalKart.stream().map(SumUslOrgDTO::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add));
                 }
@@ -144,7 +161,7 @@ public class CorrectsMngImpl implements CorrectsMng {
             // распр.кредит по 003 орг - выполняется 31 числа или позже, до перехода)
             // сальдо, в тех лиц.сч., в которых по кредитовому сальдо по услуге 003 есть еще и дебетовое по другим услугам
             List<SaldoUsl> lstSal = new ArrayList<>(
-                    saldoUslDAO.getSaldoUslWhereCreditAndDebitExistsByUsl("003", period));
+                    saldoUslDAO.getSaldoUslWhereCreditAndDebitExistsWoPayByUsl("003", period));
             // уникальный список лиц.счетов
             List<Kart> lstKart = lstSal.stream().map(SaldoUsl::getKart).distinct().collect(Collectors.toList());
             for (Kart kart : lstKart) {
@@ -153,10 +170,12 @@ public class CorrectsMngImpl implements CorrectsMng {
                 List<SumUslOrgDTO> lstSalKart = lstSal.stream().filter(t -> t.getKart().equals(kart))
                         .map(t -> new SumUslOrgDTO(t.getUsl().getId(), t.getOrg().getId(), t.getSumma()))
                         .collect(Collectors.toList());
+                // создать документ по корректировке
                 ChangeDoc changeDoc = ChangeDoc.ChangeDocBuilder.aChangeDoc()
                         .withDt(dt).withMg2(period).withMgchange(period)
-                        .withCdTp("JavaCorrPayByCreditSal-2")
-                        .withText("Корректировка кредит сальдо по 003 услуге, при наличии дебетового по другим услугам")
+                        .withCdTp(cdTp)
+                        .withText("Корректировка кредитового сальдо по 003 услуге, при наличии дебетового по другим " +
+                                "услугам и при отсутствии оплаты")
                         .withUser(user).build();
                 em.persist(changeDoc);
 
@@ -179,7 +198,7 @@ public class CorrectsMngImpl implements CorrectsMng {
                 if (lstDeb.size() > 0) {
                     distCredByDeb(period, user, dt, changeDoc, kart, lstSalKart, lstCred, lstDeb);
                 }
-                log.info("сальдо учётом корректировки:");
+                log.info("сальдо с учётом корректировки:");
                 lstSalKart.forEach(t -> log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma()));
                 log.info("итого:{}", lstSalKart.stream().map(SumUslOrgDTO::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add));
             }

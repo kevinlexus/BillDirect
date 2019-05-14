@@ -7,7 +7,9 @@ import com.dic.bill.mm.NaborMng;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
-import com.ric.cmn.excp.*;
+import com.ric.cmn.excp.ErrorWhileDistDeb;
+import com.ric.cmn.excp.ErrorWhileDistPay;
+import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.SessionFactory;
 import org.springframework.boot.SpringApplication;
@@ -43,11 +45,13 @@ public class WebController implements CommonConstants {
     private final ConfigApp config;
     private final ApplicationContext ctx;
     private final DistPayMng distPayMng;
+    private final CorrectsMng correctsMng;
 
     public WebController(NaborMng naborMng, MigrateMng migrateMng, ExecMng execMng,
                          SprGenItmDAO sprGenItmDao, PrepErrDAO prepErrDao,
                          OrgDAO orgDAO, ConfigApp config, ApplicationContext ctx,
-                         DistPayMng distPayMng, GenChrgProcessMng genChrgProcessMng) {
+                         DistPayMng distPayMng, GenChrgProcessMng genChrgProcessMng,
+                         CorrectsMng correctsMng) {
         this.naborMng = naborMng;
         this.migrateMng = migrateMng;
         this.execMng = execMng;
@@ -58,41 +62,43 @@ public class WebController implements CommonConstants {
         this.config = config;
         this.ctx = ctx;
         this.genChrgProcessMng = genChrgProcessMng;
+        this.correctsMng = correctsMng;
     }
 
-/*    LSK
-SUMMA
-PENYA
-OPER
-DOPL
-NINK
-NKOM
-DTEK
-NKVIT
-DAT_INK
-TS
-ID
-ISCORRECT
-NUM_DOC
-DAT_DOC
-FK_DOC
-FK_PDOC
-ANNUL
-
-*/
-
+    /**
+     * Корректировочная проводка по сальдо
+     *
+     * @param var   - вариант проводки (0- распр.кредит по дебету по выбранным орг. Кис. выполняется после 15 числа
+     *              1 - распр.кредит по 003 орг - выполняется 31 числа или позже, до перехода)
+     * @param strDt - дата корректировки (T_CORRECTS_PAYMENTS.DAT)
+     */
+    @RequestMapping("/correct")
+    public String correct(
+            @RequestParam(value = "var") int var,
+            @RequestParam(value = "strDt") String strDt) {
+        log.info("GOT /correct with: var={}, strDt={}",
+                var, strDt);
+        try {
+            correctsMng.corrPayByCreditSal(var, Utl.getDateFromStr(strDt));
+        } catch (ParseException | WrongParam e) {
+            log.error(Utl.getStackTraceString(e));
+            return "ERROR";
+        }
+        return "OK";
+    }
 
     /**
      * Распределить платеж C_KWTP_MG
+     *
      * @param kwtpMgId - ID записи C_KWTP_MG
-     * @param lsk       - лиц.счет
-     * @param strSumma  - сумма оплаты долга
-     * @param strPenya  - сумма оплаты пени
-     * @param dopl      - период оплаты
-     * @param nink      - № инкассации
-     * @param nkom      - № компьютера
-     * @param oper      - код операции
-     * @param strDtek   - дата платежа
+     * @param lsk      - лиц.счет
+     * @param strSumma - сумма оплаты долга
+     * @param strPenya - сумма оплаты пени
+     * @param dopl     - период оплаты
+     * @param nink     - № инкассации
+     * @param nkom     - № компьютера
+     * @param oper     - код операции
+     * @param strDtek  - дата платежа
      * @param strDtInk - дата инкассации
      */
     @RequestMapping("/distKwtpMg")
@@ -110,7 +116,7 @@ ANNUL
             @RequestParam(value = "strDtInk") String strDtInk
     ) {
         log.info("GOT /distKwtpMg with: kwtpMgId={}, lsk={}, strSumma={}, " +
-                "strPenya={}, strDebt={}, dopl={}, nink={}, nkom={}, oper={}, strDtek={}, strDtInk={}",
+                        "strPenya={}, strDebt={}, dopl={}, nink={}, nkom={}, oper={}, strDtek={}, strDtInk={}",
                 kwtpMgId, lsk, strSumma, strPenya, strDebt, dopl, nink, nkom, oper, strDtek, strDtInk);
         try {
             distPayMng.distKwtpMg(kwtpMgId, lsk, strSumma, strPenya, strDebt,
@@ -148,7 +154,7 @@ ANNUL
             @RequestParam(value = "reuId", required = false) String reuId,
             @RequestParam(value = "genDt", defaultValue = "") String genDtStr,
             @RequestParam(value = "stop", defaultValue = "0", required = false) int stop
-    ) throws ParseException {
+    ) {
         log.info("GOT /gen with: tp={}, debugLvl={}, genDt={}, reuId={}, houseId={}, vvodId={}, klskId={}, uslId={}, stop={}",
                 tp, debugLvl, genDtStr, reuId, houseId, vvodId, klskId, uslId, stop);
         String retStatus;
@@ -214,8 +220,14 @@ ANNUL
                 msg = msg.concat(", по услуге uslId=" + uslId);
             }
 
-            Date genDt = genDtStr != null ? Utl.getDateFromStr(genDtStr) : null;
-            retStatus = genChrgProcessMng.genChrg(tp, debugLvl, genDt, house, vvod, ko, uk, usl);
+            Date genDt = null;
+            try {
+                genDt = genDtStr != null ? Utl.getDateFromStr(genDtStr) : null;
+                retStatus = genChrgProcessMng.genChrg(tp, debugLvl, genDt, house, vvod, ko, uk, usl);
+            } catch (ParseException e) {
+                log.error(Utl.getStackTraceString(e));
+                retStatus = "ERROR! Некорректная дата genDtStr="+genDtStr;
+            }
         }
         log.info("Статус: retStatus = {}", retStatus);
         return retStatus;
