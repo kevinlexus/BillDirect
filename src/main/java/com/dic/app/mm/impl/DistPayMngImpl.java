@@ -433,8 +433,8 @@ public class DistPayMngImpl implements DistPayMng {
         }
 
         saveKwtpDayLog(amount, "***** Распределение оплаты ver=1.03 *****");
-        saveKwtpDayLog(amount, "1.0 C_KWTP_MG.ID={}, C_KWTP_MG.SUMMA={}, C_KWTP_MG.PENYA={}",
-                amount.getKwtpMgId(), amount.getSumma(), amount.getPenya());
+        saveKwtpDayLog(amount, "1.0 C_KWTP_MG.ID={}, C_KWTP_MG.SUMMA={}, C_KWTP_MG.PENYA={}, Дата-время={}",
+                amount.getKwtpMgId(), amount.getSumma(), amount.getPenya(), new Date());
         saveKwtpDayLog(amount, "УК: {}", amount.getKart().getUk().getReu());
         saveKwtpDayLog(amount, "Тип счета: {}", amount.getKart().getTp().getName());
         saveKwtpDayLog(amount, "Долг за период: {}", amount.getAmntDebtDopl());
