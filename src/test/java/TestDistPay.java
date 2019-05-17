@@ -116,10 +116,14 @@ public class TestDistPay {
 
         // Добавить сальдо
         // прошлый период
-        testDataBuilder.buildSaldoUslForTest(kart, "003", 7, "201403", "10.62");
-        testDataBuilder.buildSaldoUslForTest(kart, "004", 8, "201403", "552.17");
-        testDataBuilder.buildSaldoUslForTest(kart, "004", 9, "201403", "-211.88");
-        testDataBuilder.buildSaldoUslForTest(kart, "004", 1, "201403", "-14.25");
+        testDataBuilder.buildSaldoUslForTest(kart, "003", 7, "201403", "71.48");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 8, "201403", "0.02");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 9, "201403", "3.17");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 1, "201403", "775.25");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 2, "201403", "77.37");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 3, "201403", "9.57");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 4, "201403", "-0.01");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 5, "201403", "0.01");
 
         // текущий период
 /*
@@ -132,13 +136,14 @@ public class TestDistPay {
         testDataBuilder.buildSaldoUslForTest(kart, "005", 8, "201404", "100");
 */
 
-        testDataBuilder.buildSaldoUslForTest(kart, "003", 7, "201404", "200.50");
-        testDataBuilder.buildSaldoUslForTest(kart, "005", 4, "201404", "22.53");
-        testDataBuilder.buildSaldoUslForTest(kart, "004", 12, "201404", "0.11");
-        testDataBuilder.buildSaldoUslForTest(kart, "006", 8, "201404", "-1089.34");
-        testDataBuilder.buildSaldoUslForTest(kart, "004", 4, "201404", "3.79");
-        testDataBuilder.buildSaldoUslForTest(kart, "007", 3, "201404", "4.18");
-        testDataBuilder.buildSaldoUslForTest(kart, "005", 8, "201404", "-100");
+        testDataBuilder.buildSaldoUslForTest(kart, "003", 7, "201404", "71.48");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 8, "201404", "0.02");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 9, "201404", "3.17");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 1, "201404", "775.25");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 2, "201404", "77.37");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 3, "201404", "9.57");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 4, "201404", "-0.01");
+        testDataBuilder.buildSaldoUslForTest(kart, "004", 5, "201404", "0.01");
 
         // Добавить текущее начисление
         testDataBuilder.addChargeForTest(kart, "029", "8.10");
@@ -259,7 +264,7 @@ public class TestDistPay {
 
         // Добавить платеж для распределения
         log.info("");
-        String strSumma = "100.45";
+        String strSumma = "936.86";
         String strPenya = "25.87";
         String strDebt = "90.87";
         log.info("Распределить сумму:{}", strSumma);

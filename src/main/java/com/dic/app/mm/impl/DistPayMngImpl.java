@@ -160,15 +160,19 @@ public class DistPayMngImpl implements DistPayMng {
                         }
                     } else {
                         saveKwtpDayLog(amount, "3.2.1 Тип распределения - для УК 14,15 при вх.деб.+вх.кред. <= долг.1 мес.");
+                        saveKwtpDayLog(amount, "3.2.2 Распределить оплату на услугу 003");
+                        distExclusivelyBySingleUslIdUk(amount, "003", true);
+                        if (amount.isExistSumma()) {
+                            saveKwtpDayLog(amount, "3.2.3 Остаток распределить на услугу usl=003 и УК");
+                            distExclusivelyBySingleUslIdUk(amount, "003", true);
+                        }
+/*
                         saveKwtpDayLog(amount, "3.2.2 Распределить оплату по вх.деб.+кред. без услуги 003, c ограничением по исх.сал.");
                         distWithRestriction(amount, 0, true, true,
                                 true, true,
                                 true, false,
                                 false, Collections.singletonList("003"), true);
-                        if (amount.isExistSumma()) {
-                            saveKwtpDayLog(amount, "3.2.3 Остаток распределить на услугу usl=003 и УК");
-                            distExclusivelyBySingleUslIdUk(amount, "003", true);
-                        }
+*/
                     }
                 } else {
                     saveKwtpDayLog(amount, "4.0 Сумма оплаты < долг (недоплата)");
