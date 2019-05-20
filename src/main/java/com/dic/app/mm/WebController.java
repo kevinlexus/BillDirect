@@ -1,8 +1,10 @@
 package com.dic.app.mm;
 
+import com.dic.app.mm.impl.DistPayMngImpl;
 import com.dic.bill.dao.OrgDAO;
 import com.dic.bill.dao.PrepErrDAO;
 import com.dic.bill.dao.SprGenItmDAO;
+import com.dic.bill.dto.KwtpMgRec;
 import com.dic.bill.mm.NaborMng;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.CommonConstants;
@@ -45,12 +47,15 @@ public class WebController implements CommonConstants {
     private final ConfigApp config;
     private final ApplicationContext ctx;
     private final DistPayMng distPayMng;
+    private final DistPayQueueMng distPayQueueMng;
     private final CorrectsMng correctsMng;
 
     public WebController(NaborMng naborMng, MigrateMng migrateMng, ExecMng execMng,
                          SprGenItmDAO sprGenItmDao, PrepErrDAO prepErrDao,
                          OrgDAO orgDAO, ConfigApp config, ApplicationContext ctx,
-                         DistPayMng distPayMng, GenChrgProcessMng genChrgProcessMng,
+                         DistPayMng distPayMng,
+                         DistPayQueueMng distPayQueueMng,
+                         GenChrgProcessMng genChrgProcessMng,
                          CorrectsMng correctsMng) {
         this.naborMng = naborMng;
         this.migrateMng = migrateMng;
@@ -59,6 +64,7 @@ public class WebController implements CommonConstants {
         this.prepErrDao = prepErrDao;
         this.orgDAO = orgDAO;
         this.distPayMng = distPayMng;
+        this.distPayQueueMng = distPayQueueMng;
         this.config = config;
         this.ctx = ctx;
         this.genChrgProcessMng = genChrgProcessMng;
@@ -118,13 +124,8 @@ public class WebController implements CommonConstants {
         log.info("GOT /distKwtpMg with: kwtpMgId={}, lsk={}, strSumma={}, " +
                         "strPenya={}, strDebt={}, dopl={}, nink={}, nkom={}, oper={}, strDtek={}, strDtInk={}",
                 kwtpMgId, lsk, strSumma, strPenya, strDebt, dopl, nink, nkom, oper, strDtek, strDtInk);
-        try {
-            distPayMng.distKwtpMg(kwtpMgId, lsk, strSumma, strPenya, strDebt,
-                    dopl, nink, nkom, oper, strDtek, strDtInk, false);
-        } catch (ErrorWhileDistPay e) {
-            log.error(Utl.getStackTraceString(e));
-            return "ERROR";
-        }
+            distPayQueueMng.queueKwtpMg(new KwtpMgRec(kwtpMgId, lsk, strSumma, strPenya, strDebt,
+                    dopl, nink, nkom, oper, strDtek, strDtInk, false));
         return "OK";
     }
 

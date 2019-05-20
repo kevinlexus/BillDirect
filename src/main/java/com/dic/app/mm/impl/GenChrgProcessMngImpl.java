@@ -65,15 +65,16 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
     /**
      * Начисление - вызов из WebController
+     *
      * @param tp       - тип выполнения 0-начисление, 1-задолженность и пеня, 2 - распределение объемов по вводу,
      *                 4 - начисление по одной услуге, для автоначисления
      * @param debugLvl - уровень отладки
-     * @param genDt - дата формирования
-     * @param house - дом
-     * @param vvod - ввод
-     * @param ko - объект Ко
-     * @param uk - УК
-     * @param usl - услуга
+     * @param genDt    - дата формирования
+     * @param house    - дом
+     * @param vvod     - ввод
+     * @param ko       - объект Ко
+     * @param uk       - УК
+     * @param usl      - услуга
      */
     @Override
     @Transactional(
@@ -434,28 +435,34 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // Х.В., Г.В., без уровня соцнормы/свыше, электроэнергия
                     // получить объем по нормативу в доле на 1 день
                     // узнать, работал ли хоть один счетчик в данном дне
-                    isMeterExist = meterMng.isExistAnyMeter(lstMeterVol, factUslVol.getId(), curDt);
-                    if (reqConf.getTp() == 4) {
-                        // начисление по выбранной услуге, по нормативу, для автоначисления
-                        isMeterExist = false;
-                    }
-
-                    // получить соцнорму
-                    socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
-                    if (isMeterExist) {
-                        // получить объем по счетчику в пропорции на 1 день его работы
-                        UslMeterDateVol partVolMeter = lstDayMeterVol.stream()
-                                .filter(t -> t.usl.equals(nabor.getUsl().getMeterUslVol()) && t.dt.equals(curDt))
-                                .findFirst().orElse(null);
-                        if (partVolMeter != null) {
-                            tempVol = partVolMeter.vol;
+                    if (Utl.in(fkCalcTp, 17, 31) || (Utl.in(fkCalcTp, 18) &&
+                            (!Utl.nvl(kartMain.getIsKran1(), false) ||
+                                    Utl.between(curDt, sprParamMng.getD1("MONTH_HEAT1"),// кран из системы отопления -
+                                            sprParamMng.getD1("MONTH_HEAT2")) // начислять только в отопительный период
+                            ))) {
+                        isMeterExist = meterMng.isExistAnyMeter(lstMeterVol, factUslVol.getId(), curDt);
+                        if (reqConf.getTp() == 4) {
+                            // начисление по выбранной услуге, по нормативу, для автоначисления
+                            isMeterExist = false;
                         }
-                    } else {
-                        // норматив в пропорции на 1 день месяца
-                        tempVol = socStandart.vol.multiply(calcStore.getPartDayMonth());
-                    }
 
-                    dayVol = tempVol;
+                        // получить соцнорму
+                        socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
+                        if (isMeterExist) {
+                            // получить объем по счетчику в пропорции на 1 день его работы
+                            UslMeterDateVol partVolMeter = lstDayMeterVol.stream()
+                                    .filter(t -> t.usl.equals(nabor.getUsl().getMeterUslVol()) && t.dt.equals(curDt))
+                                    .findFirst().orElse(null);
+                            if (partVolMeter != null) {
+                                tempVol = partVolMeter.vol;
+                            }
+                        } else {
+                            // норматив в пропорции на 1 день месяца
+                            tempVol = socStandart.vol.multiply(calcStore.getPartDayMonth());
+                        }
+
+                        dayVol = tempVol;
+                    }
                 } else if (Utl.in(fkCalcTp, 19)) {
                     // Водоотведение без уровня соцнормы/свыше
                     // получить объем по нормативу в доле на 1 день

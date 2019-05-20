@@ -4,13 +4,16 @@ import com.dic.app.mm.ConfigApp;
 import com.dic.bill.Lock;
 import com.dic.bill.model.scott.Param;
 import com.ric.cmn.Utl;
-import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.SpringApplication;
+import org.springframework.context.ApplicationContext;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.io.File;
 import java.text.ParseException;
 import java.util.*;
 
@@ -24,6 +27,7 @@ import java.util.*;
 @Slf4j
 public class ConfigImpl implements ConfigApp {
 
+    private final ApplicationContext ctx;
     @PersistenceContext
     private EntityManager em;
 
@@ -35,6 +39,10 @@ public class ConfigImpl implements ConfigApp {
 
     // блокировщик выполнения процессов
     private Lock lock;
+
+    public ConfigImpl(ApplicationContext ctx) {
+        this.ctx = ctx;
+    }
 
     @PostConstruct
     private void setUp() {
@@ -160,6 +168,5 @@ public class ConfigImpl implements ConfigApp {
     public void incProgress() {
         progress++;
     }
-
 
 }

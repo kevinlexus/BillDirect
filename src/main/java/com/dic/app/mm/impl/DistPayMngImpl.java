@@ -8,6 +8,7 @@ import com.dic.bill.dao.NaborDAO;
 import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dao.SprProcPayDAO;
 import com.dic.bill.dto.Amount;
+import com.dic.bill.dto.KwtpMgRec;
 import com.dic.bill.dto.SumUslOrgDTO;
 import com.dic.bill.dto.UslOrg;
 import com.dic.bill.mm.SaldoMng;
@@ -16,6 +17,7 @@ import com.ric.cmn.DistributableBigDecimal;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileDistPay;
 import com.ric.cmn.excp.WrongParam;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -60,6 +62,7 @@ public class DistPayMngImpl implements DistPayMng {
         this.genChrgProcessMng = genChrgProcessMng;
         this.referenceMng = referenceMng;
     }
+
 
     /**
      * Распределить платеж (запись в C_KWTP_MG)
@@ -434,7 +437,8 @@ public class DistPayMngImpl implements DistPayMng {
 
         saveKwtpDayLog(amount, "***** Распределение оплаты ver=1.03 *****");
         saveKwtpDayLog(amount, "1.0 C_KWTP_MG.ID={}, C_KWTP_MG.SUMMA={}, C_KWTP_MG.PENYA={}, Дата-время={}",
-                amount.getKwtpMgId(), amount.getSumma(), amount.getPenya(), new Date());
+                amount.getKwtpMgId(), amount.getSumma(), amount.getPenya(),
+                Utl.getStrFromDate(new Date(), "dd.MM.yyyy HH:mm:ss"));
         saveKwtpDayLog(amount, "УК: {}", amount.getKart().getUk().getReu());
         saveKwtpDayLog(amount, "Тип счета: {}", amount.getKart().getTp().getName());
         saveKwtpDayLog(amount, "Долг за период: {}", amount.getAmntDebtDopl());
