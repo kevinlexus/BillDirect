@@ -330,7 +330,7 @@ public class WebController implements CommonConstants {
      */
     @RequestMapping("/terminateApp")
     public void terminateApp() {
-        log.info("ВНИМАНИЕ! ЗАПРОШЕНА ОСТАНОВКА ПРИЛОЖЕНИЯ!");
+        log.info("ВНИМАНИЕ! ЗАПРОШЕНА ОСТАНОВКА ПРИЛОЖЕНИЯ! - КЕМ-ТО СОЗДАН ФАЙЛ c:\\Progs\\BillDirect\\stop");
         SpringApplication.exit(ctx, () -> 0);
     }
 
