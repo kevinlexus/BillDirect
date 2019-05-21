@@ -81,7 +81,7 @@ public class TestCorrectsMng {
 		testDataBuilder.buildSaldoUslForTest(kart, "006", 2, "201404", "-180.55");
 		testDataBuilder.buildSaldoUslForTest(kart, "006", 3, "201404", "-158.99");
 
-		correctsMng.corrPayByCreditSal(1, Utl.getDateFromStr("01.04.2014"));
+		correctsMng.corrPayByCreditSal(1, Utl.getDateFromStr("01.04.2014"), "'001','002','003'");
 
 		log.info("-----------------End");
 	}

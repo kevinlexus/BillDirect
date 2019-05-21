@@ -59,11 +59,12 @@ public class CorrectsMngImpl implements CorrectsMng {
      * @param var - вариант проводки (1- распр.кредит по дебету по выбранным орг. Кис. выполняется после 15 числа
      *            2 - распр.кредит по 003 орг - выполняется 31 числа или позже, до перехода)
      * @param dt  - дата корректировки
+     * @param uk  - список УК через запятую, разделено апострофами, например '001', '003', '016'
      */
     @Override
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
-    public void corrPayByCreditSal(int var, Date dt) throws WrongParam {
-        log.info("Корректировка сальдо. ver=1.00,  вариант={}, дата={}", var, dt);
+    public void corrPayByCreditSal(int var, Date dt, String uk) throws WrongParam {
+        log.info("Корректировка сальдо. ver=1.00, вариант={}, дата={}, uk={}", var, dt, uk);
 
         // текущий период
         String period = configApp.getPeriod();
@@ -75,28 +76,30 @@ public class CorrectsMngImpl implements CorrectsMng {
         } else if (var == 2) {
             cdTp = "JavaCorrPayByCreditSal-2";
         }
-        // удалить предыдущую корректировку
-        correctPayDAO.deleteCorrectPayByChangeDoc(cdTp);
-        changeDocDAO.deleteChangeDocByCdTp(cdTp);
+        // удалить предыдущую корректировку -  не надо удалять - удаляется в Direct, в окне корректировок
+        //correctPayDAO.deleteCorrectPayByChangeDoc(cdTp);
+        //changeDocDAO.deleteChangeDocByCdTp(cdTp);
 
         if (var == 1) {
             // распр.кредит по дебету по выбранным орг. Кис. выполняется после 15 числа
             // сальдо, в тех лиц.сч., в которых есть еще и дебетовое
             HashMap<Kart, List<SumUslOrgDTO>> mapSal = new HashMap<Kart, List<SumUslOrgDTO>>();
-            saldoUslDAO.getSaldoUslWhereCreditAndDebitExists(period).forEach(t -> {
-                        List<SumUslOrgDTO> sal = mapSal.get(t.getKart());
-                        if (sal == null) {
-                            mapSal.put(t.getKart(),
-                                    new ArrayList<>(
-                                            Collections.singletonList(
-                                                    new SumUslOrgDTO(
-                                                            t.getUsl().getId(), t.getOrg().getId(), t.getSumma())))
-                            );
-                        } else {
-                            sal.add(new SumUslOrgDTO(t.getUsl().getId(), t.getOrg().getId(), t.getSumma()));
-                        }
-                    }
-            );
+            saldoUslDAO.getSaldoUslWhereCreditAndDebitExists(period).stream()
+                    .filter(t -> uk.contains("'" + t.getKart().getUk().getReu() + "'")) // фильтр по списку УК
+                    .forEach(t -> {
+                                List<SumUslOrgDTO> sal = mapSal.get(t.getKart());
+                                if (sal == null) {
+                                    mapSal.put(t.getKart(),
+                                            new ArrayList<>(
+                                                    Collections.singletonList(
+                                                            new SumUslOrgDTO(
+                                                                    t.getUsl().getId(), t.getOrg().getId(), t.getSumma())))
+                                    );
+                                } else {
+                                    sal.add(new SumUslOrgDTO(t.getUsl().getId(), t.getOrg().getId(), t.getSumma()));
+                                }
+                            }
+                    );
 
             //List<SaldoUsl> lstSal = new ArrayList<>(
             //        saldoUslDAO.getSaldoUslWhereCreditAndDebitExists(period));
@@ -106,7 +109,7 @@ public class CorrectsMngImpl implements CorrectsMng {
                 ChangeDoc changeDoc = ChangeDoc.ChangeDocBuilder.aChangeDoc()
                         .withDt(dt).withMg2(period).withMgchange(period)
                         .withCdTp(cdTp)
-                        .withText("Корректировка кредитового сальдо при наличии дебетового")
+                        .withText("Корректировка кредитового сальдо при наличии дебетового по УК:" + uk)
                         .withUser(user).build();
                 em.persist(changeDoc);
                 log.info("документ по корректировке сохранен с id={}", changeDoc.getId());
@@ -179,27 +182,29 @@ public class CorrectsMngImpl implements CorrectsMng {
             // распр.кредит по 003 орг - выполняется 31 числа или позже, до перехода)
             // сальдо, в тех лиц.сч., в которых по кредитовому сальдо по услуге 003 есть еще и дебетовое по другим услугам
             HashMap<Kart, List<SumUslOrgDTO>> mapSal = new HashMap<Kart, List<SumUslOrgDTO>>();
-            saldoUslDAO.getSaldoUslWhereCreditAndDebitExistsWoPayByUsl("003", period).forEach(t -> {
-                        List<SumUslOrgDTO> sal = mapSal.get(t.getKart());
-                        if (sal == null) {
-                            mapSal.put(t.getKart(),
-                                    new ArrayList<>(
-                                            Collections.singletonList(
-                                                    new SumUslOrgDTO(
-                                                            t.getUsl().getId(), t.getOrg().getId(), t.getSumma())))
-                            );
-                        } else {
-                            sal.add(new SumUslOrgDTO(t.getUsl().getId(), t.getOrg().getId(), t.getSumma()));
-                        }
-                    }
-            );
+            saldoUslDAO.getSaldoUslWhereCreditAndDebitExistsWoPayByUsl("003", period).stream()
+                    .filter(t -> uk.contains("'" + t.getKart().getUk().getReu() + "'")) // фильтр по списку УК
+                    .forEach(t -> {
+                                List<SumUslOrgDTO> sal = mapSal.get(t.getKart());
+                                if (sal == null) {
+                                    mapSal.put(t.getKart(),
+                                            new ArrayList<>(
+                                                    Collections.singletonList(
+                                                            new SumUslOrgDTO(
+                                                                    t.getUsl().getId(), t.getOrg().getId(), t.getSumma())))
+                                    );
+                                } else {
+                                    sal.add(new SumUslOrgDTO(t.getUsl().getId(), t.getOrg().getId(), t.getSumma()));
+                                }
+                            }
+                    );
             if (mapSal.size() > 0) {
                 // создать документ по корректировке
                 ChangeDoc changeDoc = ChangeDoc.ChangeDocBuilder.aChangeDoc()
                         .withDt(dt).withMg2(period).withMgchange(period)
                         .withCdTp(cdTp)
                         .withText("Корректировка кредитового сальдо по 003 услуге, при наличии дебетового по другим " +
-                                "услугам и при отсутствии оплаты")
+                                "услугам и при отсутствии оплаты по УК:" + uk)
                         .withUser(user).build();
                 em.persist(changeDoc);
                 log.info("документ по корректировке сохранен с id={}", changeDoc.getId());

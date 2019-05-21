@@ -81,11 +81,12 @@ public class WebController implements CommonConstants {
     @RequestMapping("/correct")
     public String correct(
             @RequestParam(value = "var") int var,
-            @RequestParam(value = "strDt") String strDt) {
-        log.info("GOT /correct with: var={}, strDt={}",
-                var, strDt);
+            @RequestParam(value = "strDt") String strDt,
+            @RequestParam(value = "uk") String uk) {
+        log.info("GOT /correct with: var={}, strDt={}, uk={}",
+                var, strDt, uk);
         try {
-            correctsMng.corrPayByCreditSal(var, Utl.getDateFromStr(strDt));
+            correctsMng.corrPayByCreditSal(var, Utl.getDateFromStr(strDt), uk);
         } catch (ParseException | WrongParam e) {
             log.error(Utl.getStackTraceString(e));
             return "ERROR";
