@@ -68,6 +68,8 @@ public class CorrectsMngImpl implements CorrectsMng {
 
         // текущий период
         String period = configApp.getPeriod();
+        // период +1 месяц
+        String periodNext = configApp.getPeriodNext();
         // пользователь
         Tuser user = tuserDAO.getByCd("GEN");
         String cdTp = null;
@@ -84,7 +86,7 @@ public class CorrectsMngImpl implements CorrectsMng {
             // распр.кредит по дебету по выбранным орг. Кис. выполняется после 15 числа
             // сальдо, в тех лиц.сч., в которых есть еще и дебетовое
             HashMap<Kart, List<SumUslOrgDTO>> mapSal = new HashMap<Kart, List<SumUslOrgDTO>>();
-            saldoUslDAO.getSaldoUslWhereCreditAndDebitExists(period).stream()
+            saldoUslDAO.getSaldoUslWhereCreditAndDebitExists(periodNext).stream()
                     .filter(t -> uk.contains("'" + t.getKart().getUk().getReu() + "'")) // фильтр по списку УК
                     .forEach(t -> {
                                 List<SumUslOrgDTO> sal = mapSal.get(t.getKart());
@@ -182,7 +184,7 @@ public class CorrectsMngImpl implements CorrectsMng {
             // распр.кредит по 003 орг - выполняется 31 числа или позже, до перехода)
             // сальдо, в тех лиц.сч., в которых по кредитовому сальдо по услуге 003 есть еще и дебетовое по другим услугам
             HashMap<Kart, List<SumUslOrgDTO>> mapSal = new HashMap<Kart, List<SumUslOrgDTO>>();
-            saldoUslDAO.getSaldoUslWhereCreditAndDebitExistsWoPayByUsl("003", period).stream()
+            saldoUslDAO.getSaldoUslWhereCreditAndDebitExistsWoPayByUsl("003", periodNext).stream()
                     .filter(t -> uk.contains("'" + t.getKart().getUk().getReu() + "'")) // фильтр по списку УК
                     .forEach(t -> {
                                 List<SumUslOrgDTO> sal = mapSal.get(t.getKart());

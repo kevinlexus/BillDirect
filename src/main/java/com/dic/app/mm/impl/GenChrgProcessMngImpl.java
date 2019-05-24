@@ -772,7 +772,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             if (countPers.kprNorm == 0) {
                 if (parVarCntKpr == 0) {
                     // Киселёвск
-                    if (!kartMain.getStatus().getCd().equals("MUN")) {
+                    // ред. 24.05.2019
+                    /* Алёна: Сделать начисление на 1 собственника по услугам 140, 016,012,014,
+                        если квартира 0 и муниц.(у нас на 0 квартиры, на приват. начисляется сейчас).
+                       Например адрес Багратиона 42-500, муниц.кв. с 0 прожив.
+                       Начисление по данным услугам не ведется.*/
+/*                    if (!kartMain.getStatus().getCd().equals("MUN")) {
                         // не муницип. помещение
                         if (nabor.getUsl().getFkCalcTp().equals(49)) {
                             // услуга по обращению с ТКО
@@ -780,7 +785,17 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             countPers.kprNorm = 1;
                         } else if (countPers.kprOt == 0) {
                             countPers.kprNorm = 1;
-                        }
+                        } */
+
+                    if (nabor.getUsl().getFkCalcTp().equals(49)) {
+                        // услуга по обращению с ТКО
+                        countPers.kpr = 1;
+                        countPers.kprNorm = 1;
+                    } else if (Utl.in(nabor.getUsl().getFkCalcTp(),17,18,19)) {
+                        // х.в. г.в. водоотв.
+                        countPers.kprNorm = 1;
+                    } else if (countPers.kprOt == 0) {
+                        countPers.kprNorm = 1;
                     }
                 } else if (parVarCntKpr == 1 && countPers.kprOt == 0) {
                     // Полысаево
