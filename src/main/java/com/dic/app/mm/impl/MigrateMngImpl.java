@@ -107,7 +107,6 @@ public class MigrateMngImpl implements MigrateMng {
 	 * @param lsk - лицевой счет
 	 * @param periodBack - как правило предыдущий период, относительно текущего
 	 * @param period - текущий период
-	 * @throws ErrorWhileDistDeb
 	 */
 	@Async
 	@Override
@@ -120,7 +119,7 @@ public class MigrateMngImpl implements MigrateMng {
 
 		// получить исходящее сальдо предыдущего периода
 		List<SumDebUslMgRec> lstSal = migUtlMng.getSal(lsk, period);
-		log.info("Итого Сальдо={}", lstSal.stream().map(t-> t.getSumma()).reduce(BigDecimal.ZERO, BigDecimal::add));
+		log.info("Итого Сальдо={}", lstSal.stream().map(SumDebUslMgRec::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add));
 
 
 		// получить начисление по услугам и орг., по всем необходимым периодам задолжности
@@ -148,9 +147,8 @@ public class MigrateMngImpl implements MigrateMng {
 
 			// распределить сперва все положительные или отрицательные числа
 			// зависит от типа задолженности
-			int sign = debTp;
-			log.info("*** РАСПРЕДЕЛИТЬ долги одного знака, по sign={}", sign);
-			boolean res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, true, dbgLvl);
+			log.info("*** РАСПРЕДЕЛИТЬ долги одного знака, по sign={}", debTp);
+			boolean res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, debTp, true, dbgLvl);
 			if (dbgLvl.equals(1)) {
 				// распечатать начисление
 				log.info("*** НАЧИСЛЕНИЕ:");
@@ -160,9 +158,9 @@ public class MigrateMngImpl implements MigrateMng {
 			if (!res) {
 				// не удалось распределить, распределить принудительно
 				// добавив нужный период в строку с весом 1.00 руб, в начисления
-				migUtlMng.addSurrogateChrg(lstDeb, lstSal, lstChrg, sign);
+				migUtlMng.addSurrogateChrg(lstDeb, lstSal, lstChrg, debTp);
 				// вызвать еще раз распределение, не устанавливая веса
-				res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, sign, false, dbgLvl);
+				res = distSalByDeb(lstDeb, lstSal, lstChrg, lstDebResult, debTp, false, dbgLvl);
 			}
 
 			if (dbgLvl.equals(1)) {
@@ -302,8 +300,6 @@ public class MigrateMngImpl implements MigrateMng {
 
 	/**
 	 * Сложить дебет и кредит
-	 * @param lstDebResult
-	 * @return
 	 */
 	private void groupResult(List<SumDebUslMgRec> lstDebResult) {
 		// найти положительные, сложить с отрицательными
@@ -349,7 +345,6 @@ public class MigrateMngImpl implements MigrateMng {
 	 * @param lstDebResult - результат
 	 * @param sign - знак распределения
 	 * @param isSetWeigths - повторно установить веса?
-	 * @return
 	 */
 	private boolean distSalByDeb(List<SumDebMgRec> lstDeb, List<SumDebUslMgRec> lstSal, List<SumDebUslMgRec> lstChrg,
 			List<SumDebUslMgRec> lstDebResult, int sign, boolean isSetWeigths, Integer dbgLvl) {

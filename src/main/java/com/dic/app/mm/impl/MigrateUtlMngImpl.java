@@ -432,23 +432,20 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 		// кол-во положительных чисел
 		long positive = lstDeb.stream()
 			.filter(t-> t.getSign().equals(1))
-			.map(t-> t.getSumma())
+			.map(SumDebMgRec::getSumma)
 			.count();
 		// кол-во отрицательных чисел
 		long negative = lstDeb.stream()
 				.filter(t-> t.getSign().equals(-1))
-				.map(t-> t.getSumma())
+				.map(SumDebMgRec::getSumma)
 				.count();
-		int tp = -1;
+		int tp = 0; // 0 - задолженности и переплаты, 1 - только задолженности, -1 - только переплаты
 		if (positive > 0L && negative == 0L) {
 			// только задолженности
 			tp = 1;
 		} else if (positive == 0L && negative > 0L) {
 			// только переплаты
 			tp = -1;
-		} else if (positive > 0L && negative > 0L) {
-			// задолженности и переплаты (смешанное)
-			tp = 0;
 		}
 		return tp;
 	}
