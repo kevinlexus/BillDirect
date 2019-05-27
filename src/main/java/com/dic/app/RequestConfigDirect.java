@@ -2,10 +2,7 @@ package com.dic.app;
 
 import com.dic.app.mm.ConfigApp;
 import com.dic.bill.SpringContext;
-import com.dic.bill.dao.KartDAO;
-import com.dic.bill.dao.PenDtDAO;
-import com.dic.bill.dao.PenRefDAO;
-import com.dic.bill.dao.VvodDAO;
+import com.dic.bill.dao.*;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.ChrgCountAmount;
 import com.dic.bill.model.scott.*;
@@ -37,6 +34,7 @@ public class RequestConfigDirect implements Cloneable {
     int rqn;
     // тип выполнения 0-начисление, 3 - начисление для распределения по вводу, 1 - задолженность и пеня, 2 - распределение объемов по вводу,
     // 4 - начисление по одной услуге, для автоначисления - по нормативу
+    // 5 - миграция долгов
     int tp = 0;
     // уровень отладки
     int debugLvl = 0;
@@ -51,7 +49,7 @@ public class RequestConfigDirect implements Cloneable {
     boolean isMultiThreads = false;
     // кол-во потоков
     int cntThreads = 1;
-    final int CNT_THREADS_FOR_COMMON_TASKS = 15; // если сделать больше 10 то виснет на домашнем компе... почему??? ред.21.03.2019
+    final int CNT_THREADS_FOR_COMMON_TASKS = 15;
     // кол-во потоков для начисления по распределению объемов
     final int CNT_THREADS_FOR_CHARGE_FOR_DIST_VOLS = 20;
     // объекты формирования:
@@ -63,6 +61,11 @@ public class RequestConfigDirect implements Cloneable {
     Vvod vvod = null;
     // помещение
     Ko ko = null;
+
+    // начальный и конечный лиц.счет
+    String lskFrom;
+    String lskTo;
+
     // выбранный тип объекта формирования
     private int tpSel;
     // блокировать для выполнения длительного процесса?
@@ -78,6 +81,9 @@ public class RequestConfigDirect implements Cloneable {
 
     // список Id объектов формирования
     List<Long> lstItems;
+
+    // список String объектов формирования
+    List<String> lstStrItems;
 
     // хранилище справочников
     CalcStore calcStore;
@@ -102,6 +108,8 @@ public class RequestConfigDirect implements Cloneable {
                 return "Начисление для распределения объемов";
             case 4:
                 return "Начисление по одной услуге, для автоначисления";
+            case 5:
+                return "Миграция долгов";
         }
         return null;
     }
@@ -130,12 +138,9 @@ public class RequestConfigDirect implements Cloneable {
                 break;
             }
         }
-        switch (this.tp) {
-            case 4: {
-                if (this.usl == null) {
-                    return "ERROR! не заполнена услуга (uslId) для расчета!";
-                }
-                break;
+        if (this.tp == 4) {
+            if (this.usl == null) {
+                return "ERROR! не заполнена услуга (uslId) для расчета!";
             }
         }
 
@@ -235,6 +240,13 @@ public class RequestConfigDirect implements Cloneable {
                         .stream().map(BigDecimal::longValue).collect(Collectors.toList());
                 cntThreads = CNT_THREADS_FOR_COMMON_TASKS;
             }
+        } else if (tp == 5) {
+            // миграция долгов
+            ConfigApp config = SpringContext.getBean(ConfigApp.class);
+            SaldoUslDAO saldoUslDao = SpringContext.getBean(SaldoUslDAO.class);
+            cntThreads = CNT_THREADS_FOR_COMMON_TASKS;
+            lstStrItems = saldoUslDao.getAllWithNonZeroDeb(lskFrom, lskTo,
+                    config.getPeriodBack());
         }
     }
 
@@ -251,7 +263,6 @@ public class RequestConfigDirect implements Cloneable {
      *
      * @param genDt - дата формирования
      * @param tp    - тип операции
-     * @return
      */
     private CalcStore buildCalcStore(Date genDt, int tp) {
         ConfigApp config = SpringContext.getBean(ConfigApp.class);
@@ -291,6 +302,17 @@ public class RequestConfigDirect implements Cloneable {
         return item;
     }
 
+    // получить следующий String идентификатор, для расчета в потоках
+    public synchronized String getNextStrItem() {
+        Iterator<String> itr = lstStrItems.iterator();
+        String item = null;
+        if (itr.hasNext()) {
+            item = itr.next();
+            itr.remove();
+        }
+        return item;
+    }
+
     public static final class RequestConfigDirectBuilder {
         // Id запроса
         int rqn;
@@ -315,19 +337,19 @@ public class RequestConfigDirect implements Cloneable {
         Vvod vvod = null;
         // помещение
         Ko ko = null;
+
+        // начальный и конечный лиц.счет
+        String lskFrom;
+        String lskTo;
+
         // услуга
         Usl usl = null;
         // список Id объектов формирования
         List<Long> lstItems;
         // хранилище справочников
         CalcStore calcStore;
-        // выбранный тип объекта формирования
-        private int tpSel;
         // маркер остановки формирования
         String stopMark;
-
-        // хранилище объемов по вводу (дому) (для ОДН и прочих нужд)
-        private ChrgCountAmount chrgCountAmount;
 
         private RequestConfigDirectBuilder() {
         }
@@ -396,6 +418,16 @@ public class RequestConfigDirect implements Cloneable {
             return this;
         }
 
+        public RequestConfigDirectBuilder withLskFrom(String lskFrom) {
+            this.lskFrom = lskFrom;
+            return this;
+        }
+
+        public RequestConfigDirectBuilder withLskTo(String lskTo) {
+            this.lskTo = lskTo;
+            return this;
+        }
+
         public RequestConfigDirectBuilder withStopMark(String stopMark) {
             this.stopMark = stopMark;
             return this;
@@ -414,7 +446,9 @@ public class RequestConfigDirect implements Cloneable {
             requestConfigDirect.setHouse(house);
             requestConfigDirect.setVvod(vvod);
             requestConfigDirect.setKo(ko);
-            requestConfigDirect.setTpSel(tpSel);
+            requestConfigDirect.setLskFrom(lskFrom);
+            requestConfigDirect.setLskTo(lskTo);
+
             requestConfigDirect.setUsl(usl);
             requestConfigDirect.setLstItems(lstItems);
             requestConfigDirect.setCalcStore(calcStore);

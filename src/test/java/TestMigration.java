@@ -33,15 +33,17 @@ public class TestMigration {
 	@Autowired
     private ConfigApp config;
 
+/*
     @Test
     @Rollback(false)
     public void mainTestMigration() throws ErrorWhileDistDeb {
 		log.info("Test start, period={}", config.getPeriod());
 
-		migrateMng.migrateAll("00000086", "00000086", 1); //.migrateDeb("00000085", 201403, 201404);
+		//migrateMng.migrateAll("00000086", "00000086", 1);
 
 		log.info("Test end");
 	}
+*/
 
 
 }

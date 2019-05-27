@@ -40,36 +40,23 @@ import java.util.concurrent.Future;
 @Scope("prototype")
 public class ProcessMngImpl implements ProcessMng, CommonConstants {
 
-    @Autowired
-    private ConfigApp config;
-    @Autowired
-    private PenDtDAO penDtDao;
-    @Autowired
-    private PenRefDAO penRefDao;
-    @Autowired
-    private KartDAO kartDao;
-    @Autowired
-    private KartMng kartMng;
-    @Autowired
-    private ThreadMng<Long> threadMng;
-    @Autowired
-    private GenPenProcessMng genPenProcessMng;
-    @Autowired
-    private GenChrgProcessMng genChrgProcessMng;
-
+    private final ConfigApp config;
+    private final ThreadMng<Long> threadMng;
+    private final GenChrgProcessMng genChrgProcessMng;
+    private final MigrateMng migrateMng;
     private final DistVolMng distVolMng;
 
-    @Autowired
-    private VvodDAO vvodDAO;
-
-    @Autowired
-    private ApplicationContext ctx;
     @PersistenceContext
     private EntityManager em;
 
     @Autowired
-    public ProcessMngImpl(@Lazy DistVolMng distVolMng) {
+    public ProcessMngImpl(@Lazy DistVolMng distVolMng, ConfigApp config, ThreadMng<Long> threadMng,
+                          GenChrgProcessMng genChrgProcessMng, MigrateMng migrateMng) {
         this.distVolMng = distVolMng;
+        this.config = config;
+        this.threadMng = threadMng;
+        this.genChrgProcessMng = genChrgProcessMng;
+        this.migrateMng = migrateMng;
     }
 
     /**
@@ -207,10 +194,34 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                     }
                     if (reqConf.getTp() == 2) {
                         throw new ErrorWhileGen("ОШИБКА! Произошла ошибка в потоке " + reqConf.getTpName()
-                                +", объект vvodId="+id);
+                                + ", объект vvodId=" + id);
                     } else {
                         throw new ErrorWhileGen("ОШИБКА! Произошла ошибка в потоке " + reqConf.getTpName()
-                                +", объект klskId="+id);
+                                + ", объект klskId=" + id);
+                    }
+                }
+                break;
+            }
+            case 5: {
+                // миграция долгов
+                // перебрать все объекты для расчета
+                String id = null;
+                long i = 0;
+                while (true) {
+                    id = reqConf.getNextStrItem();
+                    if (id != null) {
+                        if (reqConf.isLockForLongLastingProcess() && config.getLock().isStopped(reqConf.getStopMark())) {
+                            log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
+                            break;
+                        }
+                        migrateMng.migrateDeb(id, Integer.valueOf(config.getPeriodBack()),
+                                Integer.valueOf(config.getPeriod()), reqConf.getDebugLvl());
+                        log.info("****** Поток {}, {}, обработано {} объектов  ******",
+                                Thread.currentThread().getName(), reqConf.getTpName(), i);
+                        i++;
+                    } else {
+                        // перебраны все id, выход
+                        break;
                     }
                 }
                 break;

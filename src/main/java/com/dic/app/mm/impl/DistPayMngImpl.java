@@ -222,11 +222,11 @@ public class DistPayMngImpl implements DistPayMng {
                                 true, true,
                                 false, Collections.singletonList("003"), true);
                         if (amount.isExistSumma()) {
-                            saveKwtpDayLog(amount, "4.2.3 Распределить по вх.деб.+кред. остальные услуги, кроме списка закрытых орг. " +
+                            saveKwtpDayLog(amount, "4.2.3 Распределить по вх.деб.+кред. остальные услуги, кроме списка закрытых орг. и без услуги 003" +
                                     "с ограничением по исх.сальдо");
                             distWithRestriction(amount, 0, true, true,
                                     true, true, true,
-                                    false, true, null, true);
+                                    false, true, Collections.singletonList("003"), true);
                         }
                         if (amount.isExistSumma()) {
                             if (amount.getSumma().compareTo(BigDecimal.ZERO) > 0) {

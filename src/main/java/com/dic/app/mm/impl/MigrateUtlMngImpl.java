@@ -379,12 +379,12 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 		}
 		// итого
 		BigDecimal amnt =
-				lstChrg.stream().map(t->t.getSumma()).reduce(BigDecimal.ZERO, BigDecimal::add);
+				lstChrg.stream().map(SumDebUslMgRec::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
 		// установить коэфф сумм по отношению к итогу и удалить суррогатные строки
 		itr = lstChrg.iterator();
 		while (itr.hasNext()) {
 			SumDebUslMgRec t = itr.next();
-			Double proc = t.getSumma().doubleValue() / amnt.doubleValue() * 10;
+			double proc = t.getSumma().doubleValue() / amnt.doubleValue() * 10;
 			// округлить и если меньше 0, то принять как 0.01 руб.
 			BigDecimal procD = new BigDecimal(proc);
 			procD = procD.setScale(2, RoundingMode.HALF_UP);
@@ -488,6 +488,7 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 				String uslId, Integer orgId, BigDecimal summa, int sign) {
 		// записать в результат
 		// найти запись результата
+		//log.info("записать результат долга lstDebResult.size={}",lstDebResult.size());
 		SumDebUslMgRec foundResult = lstDebResult.stream()
 				.filter(d -> d.getMg().equals(period))
 				.filter(d -> d.getUslId().equals(uslId))

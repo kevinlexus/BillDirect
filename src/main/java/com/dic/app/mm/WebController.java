@@ -11,6 +11,7 @@ import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileDistDeb;
 import com.ric.cmn.excp.ErrorWhileDistPay;
+import com.ric.cmn.excp.ErrorWhileGen;
 import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.SessionFactory;
@@ -125,8 +126,8 @@ public class WebController implements CommonConstants {
         log.info("GOT /distKwtpMg with: kwtpMgId={}, lsk={}, strSumma={}, " +
                         "strPenya={}, strDebt={}, dopl={}, nink={}, nkom={}, oper={}, strDtek={}, strDtInk={}",
                 kwtpMgId, lsk, strSumma, strPenya, strDebt, dopl, nink, nkom, oper, strDtek, strDtInk);
-            distPayQueueMng.queueKwtpMg(new KwtpMgRec(kwtpMgId, lsk, strSumma, strPenya, strDebt,
-                    dopl, nink, nkom, oper, strDtek, strDtInk, false));
+        distPayQueueMng.queueKwtpMg(new KwtpMgRec(kwtpMgId, lsk, strSumma, strPenya, strDebt,
+                dopl, nink, nkom, oper, strDtek, strDtInk, false));
         return "OK";
     }
 
@@ -228,7 +229,7 @@ public class WebController implements CommonConstants {
                 retStatus = genChrgProcessMng.genChrg(tp, debugLvl, genDt, house, vvod, ko, uk, usl);
             } catch (ParseException e) {
                 log.error(Utl.getStackTraceString(e));
-                retStatus = "ERROR! Некорректная дата genDtStr="+genDtStr;
+                retStatus = "ERROR! Некорректная дата genDtStr=" + genDtStr;
             }
         }
         log.info("Статус: retStatus = {}", retStatus);
@@ -367,13 +368,12 @@ public class WebController implements CommonConstants {
 
         try {
             migrateMng.migrateAll(lskFrom, lskTo, dbgLvl);
-        } catch (ErrorWhileDistDeb e) {
-            log.error("Прошла ошибка, в процессе миграции данных по задолженностям");
-            log.error(Utl.getStackTraceString(e));
+        } catch (ErrorWhileGen errorWhileGen) {
+            log.error(Utl.getStackTraceString(errorWhileGen));
+            return "ERROR";
         }
 
         return "OK";
-
     }
 
     private boolean checkValidKey(String key) {
