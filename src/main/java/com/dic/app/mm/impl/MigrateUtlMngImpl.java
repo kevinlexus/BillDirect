@@ -10,6 +10,8 @@ import java.util.stream.Collectors;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
+import com.dic.bill.dao.PenyaDAO;
+import com.dic.bill.model.scott.Penya;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +38,8 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
     private EntityManager em;
 	@Autowired
 	private SaldoUslDAO saldoUslDao;
+	@Autowired
+	private PenyaDAO penyaDAO;
 
 
 
@@ -67,7 +71,7 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 
 	/**
 	 * Распечатать сальдо
-	 * @param lstDeb
+	 * @param lstSal
 	 */
 	@Override
 	public void printSal(List<SumDebUslMgRec> lstSal) {
@@ -80,7 +84,7 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 
 	/**
 	 * Распечатать результат долгов
-	 * @param lstDeb
+	 * @param lstSal
 	 */
 	@Override
 	public void printDebResult(
@@ -228,8 +232,7 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
  	 * проверить наличие нераспределённых сумм в сальдо
 	 * @param lstSal
 	 * @param lstDeb
-	 * @param cntSal
-	 * @param cntDeb
+	 * @param cnt
 	 * @return
 	 */
 	@Override
@@ -458,13 +461,15 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 	 */
 	@Override
 	public List<SumDebMgRec> getDeb(String lsk, Integer period) {
-		// получить отсортированный список задолженностей по периодам (по предыдущему периоду)
-		List<SumRecMg> lst =
-				saldoUslDao.getVchargePayByLsk(lsk, period);
+		// получить отсортированный список свернутых (переплаты учтены в будущих периодах) задолженностей
+		// по периодам (по предыдущему периоду)
+		List<Penya> lst = penyaDAO.getByLsk(lsk);
+				//saldoUslDao.getVchargePayByLsk(lsk, period);
+
 		List<SumDebMgRec> lstDeb = new ArrayList<SumDebMgRec>();
 		lst.forEach(t-> {
 			lstDeb.add(SumDebMgRec.builder()
-					.withMg(t.getMg())
+					.withMg(Integer.valueOf(t.getMg1()))
 					.withSumma(t.getSumma().abs()) // абсолютное значение
 					.withSign(t.getSumma().compareTo(BigDecimal.ZERO))
 					.build()

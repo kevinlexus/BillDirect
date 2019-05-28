@@ -67,6 +67,8 @@ public class MigrateMngImpl implements MigrateMng {
     public void migrateAll(String lskFrom, String lskTo, Integer dbgLvl) throws ErrorWhileGen {
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО миграции задолженности в новые структуры");
+        log.info("ВНИМАНИЕ! ПРЕДВАРИТЕЛЬНО ПОДГОТОВИТЬ C_PENYA В ИТОГОВОМ ФОРМИРОВАНИИ,");
+        log.info("ТАК КАК НУЖНЫ СВЕРНУТЫЕ ДОЛГИ (ПЕРЕПЛАТА УЧТЕНА В БУДУЩИХ ПЕРИОДАХ");
         // построить запрос
         RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
                 .withTp(5)
