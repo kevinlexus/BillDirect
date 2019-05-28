@@ -10,7 +10,9 @@ import java.util.stream.Collectors;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
+import com.dic.bill.dao.ApenyaDAO;
 import com.dic.bill.dao.PenyaDAO;
+import com.dic.bill.model.scott.Apenya;
 import com.dic.bill.model.scott.Penya;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -39,7 +41,7 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 	@Autowired
 	private SaldoUslDAO saldoUslDao;
 	@Autowired
-	private PenyaDAO penyaDAO;
+	private ApenyaDAO apenyaDAO;
 
 
 
@@ -84,7 +86,6 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 
 	/**
 	 * Распечатать результат долгов
-	 * @param lstSal
 	 */
 	@Override
 	public void printDebResult(
@@ -463,7 +464,7 @@ public class MigrateUtlMngImpl implements MigrateUtlMng {
 	public List<SumDebMgRec> getDeb(String lsk, Integer period) {
 		// получить отсортированный список свернутых (переплаты учтены в будущих периодах) задолженностей
 		// по периодам (по предыдущему периоду)
-		List<Penya> lst = penyaDAO.getByLsk(lsk);
+		List<Apenya> lst = apenyaDAO.getByLsk(lsk, String.valueOf(period));
 				//saldoUslDao.getVchargePayByLsk(lsk, period);
 
 		List<SumDebMgRec> lstDeb = new ArrayList<SumDebMgRec>();

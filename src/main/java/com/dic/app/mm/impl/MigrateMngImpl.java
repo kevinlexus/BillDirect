@@ -67,8 +67,8 @@ public class MigrateMngImpl implements MigrateMng {
     public void migrateAll(String lskFrom, String lskTo, Integer dbgLvl) throws ErrorWhileGen {
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО миграции задолженности в новые структуры");
-        log.info("ВНИМАНИЕ! ПРЕДВАРИТЕЛЬНО ПОДГОТОВИТЬ C_PENYA В ИТОГОВОМ ФОРМИРОВАНИИ,");
-        log.info("ТАК КАК НУЖНЫ СВЕРНУТЫЕ ДОЛГИ (ПЕРЕПЛАТА УЧТЕНА В БУДУЩИХ ПЕРИОДАХ");
+        log.info("ВНИМАНИЕ! используется A_PENYA предыдущего периода");
+        log.info("формировать ничего не надо!");
         // построить запрос
         RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
                 .withTp(5)
@@ -88,32 +88,6 @@ public class MigrateMngImpl implements MigrateMng {
 
         sw.stop();
         System.out.println(sw.prettyPrint());
-
-        // получить список лицевых счетов
-/*
-        List<String> lstItem;
-        lstItem = saldoUslDao.getAllWithNonZeroDeb(lskFrom, lskTo,
-                config.getPeriodBack());
-*/
-
-        // будет выполнено позже, в создании потока
-        PrepThread<String> reverse = (item, proc) -> {
-            // сервис миграции задолженностей
-            MigrateMng migrateMng = ctx.getBean(MigrateMng.class);
-            return migrateMng.migrateDeb(item,
-                    Integer.parseInt(config.getPeriodBack()),
-                    Integer.parseInt(config.getPeriod()),
-                    dbgLvl);
-        };
-
-        // вызвать в потоках
-      /*  try {
-            threadMng.invokeThreads(reverse, 15, lstItem, false, 0, null);
-        } catch (InterruptedException | ExecutionException | WrongParam | ErrorWhileChrg | ErrorWhileGen e) {
-            log.error(Utl.getStackTraceString(e));
-            throw new ErrorWhileDistDeb("ОШИБКА во время миграции задолженности!");
-        }
-*/
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
         log.info("ОКОНЧАНИЕ миграции задолженности - Общее время выполнения={}", totalTime);
@@ -128,10 +102,9 @@ public class MigrateMngImpl implements MigrateMng {
      * @param periodBack - как правило предыдущий период, относительно текущего
      * @param period     - текущий период
      */
-    @Async
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
-    public Future<CommonResult> migrateDeb(String lsk, Integer periodBack, Integer period, Integer dbgLvl) {
+    public void migrateDeb(String lsk, Integer periodBack, Integer period, Integer dbgLvl) {
 
         log.info("НАЧАЛО РАСПРЕДЕЛЕНИЯ лиц.счета={}", lsk);
         // получить задолженность
@@ -306,8 +279,7 @@ public class MigrateMngImpl implements MigrateMng {
 
         log.info("ОКОНЧАНИЕ РАСПРЕДЕЛЕНИЯ лиц.счета={}", lsk);
         log.info("");
-        CommonResult res = new CommonResult(0, 1111111111);
-        return new AsyncResult<>(res);
+        CommonResult res = new CommonResult(0, 0);
     }
 
     /**

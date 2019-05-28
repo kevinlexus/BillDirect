@@ -206,23 +206,29 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                 // миграция долгов
                 // перебрать все объекты для расчета
                 String id = null;
-                long i = 0;
-                while (true) {
-                    id = reqConf.getNextStrItem();
-                    if (id != null) {
-                        if (reqConf.isLockForLongLastingProcess() && config.getLock().isStopped(reqConf.getStopMark())) {
-                            log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
+                try {
+                    long i = 0;
+                    while (true) {
+                        id = reqConf.getNextStrItem();
+                        if (id != null) {
+                            if (reqConf.isLockForLongLastingProcess() && config.getLock().isStopped(reqConf.getStopMark())) {
+                                log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
+                                break;
+                            }
+                            migrateMng.migrateDeb(id, Integer.valueOf(config.getPeriodBack()),
+                                    Integer.valueOf(config.getPeriod()), reqConf.getDebugLvl());
+                            log.info("****** Поток {}, {}, обработано {} объектов ******",
+                                    Thread.currentThread().getName(), reqConf.getTpName(), i);
+                            i++;
+                        } else {
+                            // перебраны все id, выход
                             break;
                         }
-                        migrateMng.migrateDeb(id, Integer.valueOf(config.getPeriodBack()),
-                                Integer.valueOf(config.getPeriod()), reqConf.getDebugLvl());
-                        log.info("****** Поток {}, {}, обработано {} объектов  ******",
-                                Thread.currentThread().getName(), reqConf.getTpName(), i);
-                        i++;
-                    } else {
-                        // перебраны все id, выход
-                        break;
                     }
+                } catch (Exception e) {
+                    log.error(Utl.getStackTraceString(e));
+                        throw new ErrorWhileGen("ОШИБКА! Произошла ошибка в потоке " + reqConf.getTpName()
+                                + ", объект lsk=" + id);
                 }
                 break;
             }
