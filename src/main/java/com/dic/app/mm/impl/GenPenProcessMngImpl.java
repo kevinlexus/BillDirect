@@ -63,13 +63,14 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      * Рассчет задолженности и пени по всем лиц.счетам помещения
      *
      * @param calcStore - хранилище объемов, справочников
+     * @param isCalcPen - рассчитывать пеню?
      * @param klskId    - klskId помещения
      */
     @Override
-    public void genDebitPen(CalcStore calcStore, long klskId) {
+    public void genDebitPen(CalcStore calcStore, boolean isCalcPen, long klskId) {
         Ko ko = em.find(Ko.class, klskId);
         for (Kart kart : ko.getKart()) {
-            genDebitPen(calcStore, kart);
+            genDebitPen(calcStore, isCalcPen, kart);
         }
     }
 
@@ -77,9 +78,10 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      * Рассчет задолженности и пени по лиц.счету
      *
      * @param calcStore - хранилище справочников
+     * @param isCalcPen - рассчитывать пеню?
      * @param kart      - лиц.счет
      */
-    private void genDebitPen(CalcStore calcStore, Kart kart) {
+    private void genDebitPen(CalcStore calcStore, boolean isCalcPen, Kart kart) {
         Integer period = calcStore.getPeriod();
         Integer periodBack = calcStore.getPeriodBack();
         // ЗАГРУЗИТЬ все финансовые операции по лиц.счету
@@ -109,11 +111,11 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         List<UslOrg> lstUslOrg = localStore.getUniqUslOrg();
 
         // обработать каждый элемент услуга+организация
-        List<SumDebRec> lst = lstUslOrg.parallelStream()
+        List<SumDebRec> lst = lstUslOrg.stream()
                 .flatMap(t -> {
                     try {
-                        // РАСЧЕТ задолжности и пени по услуге
-                        return debitThrMng.genDebitUsl(kart, t, calcStore, localStore).stream();
+                        // РАСЧЕТ задолженности и пени по услуге
+                        return debitThrMng.genDebitUsl(kart, t, calcStore, localStore, isCalcPen).stream();
                     } catch (ErrorWhileChrgPen e) {
                         log.error(Utl.getStackTraceString(e));
                         throw new RuntimeException("ОШИБКА в процессе начисления пени по лc.=" + kart.getLsk());
@@ -121,43 +123,54 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
                 })
                 .collect(Collectors.toList());
 
-        // найти совокупные задолженности каждого дня, обнулить пеню, в тех днях, где задолженность = 0
-        // по дням
-        Calendar c = Calendar.getInstance();
-        for (c.setTime(calcStore.getCurDt1()); !c.getTime().after(calcStore.getGenDt()); c.add(Calendar.DATE, 1)) {
-            Date curDt = c.getTime();
-            // суммировать по дате
-            BigDecimal debForPen = lst.stream().filter(t -> t.getDt().equals(curDt))
-                    .map(SumDebRec::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
-            if (debForPen.compareTo(BigDecimal.ZERO) <= 0) {
-                // нет долгов, занулить пеню по всей дате
-                lst.stream().filter(t -> t.getDt().equals(curDt)).forEach(t -> t.setPenyaChrg(BigDecimal.ZERO));
-            }
-        }
-
-        // СГРУППИРОВАТЬ ПЕНЮ ПО ПЕРИОДАМ
         List<SumPenRec> lstGrp;
-        try {
-            lstGrp = getGroupingPenDeb(lst);
-        } catch (ErrorWhileChrgPen e) {
-            log.error(Utl.getStackTraceString(e));
-            throw new RuntimeException("ОШИБКА во время итоговой группировки пени по периодам, лc.=" + kart.getLsk());
+        if (isCalcPen) {
+            // найти совокупные задолженности каждого дня, обнулить пеню, в тех днях, где задолженность = 0
+            // по дням
+            Calendar c = Calendar.getInstance();
+            for (c.setTime(calcStore.getCurDt1()); !c.getTime().after(calcStore.getGenDt()); c.add(Calendar.DATE, 1)) {
+                Date curDt = c.getTime();
+                // суммировать по дате
+                BigDecimal debForPen = lst.stream().filter(t -> t.getDt().equals(curDt))
+                        .map(SumDebRec::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
+                if (debForPen.compareTo(BigDecimal.ZERO) <= 0) {
+                    // нет долгов, занулить пеню по всей дате
+                    lst.stream().filter(t -> t.getDt().equals(curDt)).forEach(t -> t.setPenyaChrg(BigDecimal.ZERO));
+                }
+            }
+
+            // СГРУППИРОВАТЬ ПЕНЮ ПО ПЕРИОДАМ
+            try {
+                lstGrp = getGroupingPenDeb(lst, isCalcPen);
+            } catch (ErrorWhileChrgPen e) {
+                log.error(Utl.getStackTraceString(e));
+                throw new RuntimeException("ОШИБКА во время итоговой группировки пени по периодам, лc.=" + kart.getLsk());
+            }
+
+            // перенаправить пеню на услугу и организацию по справочнику REDIR_PAY
+            redirectPen(kart, lstGrp);
+
+            // удалить записи текущего периода, если они были созданы
+            penDao.delByLskPeriod(kart.getLsk(), period);
+            penDao.updByLskPeriod(kart.getLsk(), period, periodBack);
+
+        } else {
+            try {
+                lstGrp = getGroupingPenDeb(lst, isCalcPen);
+            } catch (ErrorWhileChrgPen e) {
+                log.error(Utl.getStackTraceString(e));
+                throw new RuntimeException("ОШИБКА во время итоговой группировки пени по периодам, лc.=" + kart.getLsk());
+            }
+
         }
-
-        // перенаправить пеню на услугу и организацию по справочнику REDIR_PAY
-        redirectPen(kart, lstGrp);
-
-        // удалить записи текущего периода, если они были созданы
-        debDao.delByLskPeriod(kart.getLsk(), period);
-        penDao.delByLskPeriod(kart.getLsk(), period);
         // обновить mgTo записей, если они были расширены до текущего периода
+        debDao.delByLskPeriod(kart.getLsk(), period);
         debDao.updByLskPeriod(kart.getLsk(), period, periodBack);
-        penDao.updByLskPeriod(kart.getLsk(), period, periodBack);
 
-        // получить задолженность, по которой рассчитывается пеня, по всем услугам
+        // получить задолженность, по которой расчитывается пеня, по всем услугам
         for (SumPenRec t : lstGrp) {
-            // рассчитать исходящее сальдо по пене, сохранить расчет
-            save(calcStore, kart, localStore, t);
+            // рассчитать исходящее сальдо по пене, сохранить расчет, задолженность
+            save(calcStore, kart, localStore, t, isCalcPen);
         }
     }
 
@@ -167,45 +180,31 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      * @param calcStore  - хранилище справочников
      * @param kart       - лиц.счет
      * @param localStore - локальное хранилище финансовых операций по лиц.счету
-     * @param t          - расчитанная строка
+     * @param sumPenRec  - расчитанная строка
+     * @param isCalcPen  - учитывать пеню
      */
-    private void save(CalcStore calcStore, Kart kart, CalcStoreLocal localStore, SumPenRec t) {
-        // округлить начисленную пеню
-        BigDecimal penChrgRound = t.getPenyaChrg().setScale(2, RoundingMode.HALF_UP);
-        // исх.сальдо по пене
-        BigDecimal penyaOut = t.getPenyaIn().add(penChrgRound).add(t.getPenyaCorr() // прибавить корректировки
-        ).subtract(t.getPenyaPay()                   // отнять оплату
-        );
+    private void save(CalcStore calcStore, Kart kart, CalcStoreLocal localStore, SumPenRec sumPenRec, boolean isCalcPen) {
         // флаг создания новой записи
         boolean isCreate = false;
-        if (calcStore.getDebugLvl().equals(1)) {
-            log.info("uslId={}, orgId={}, период={}, долг={}, свернутый долг={}, "
-                            + "пеня вх.={}, пеня тек.={} руб., корр.пени={}, пеня исх.={}, дней просрочки(на дату расчета)={}",
-                    t.getUslId(), t.getOrgId(), t.getMg(),
-                    t.getDebOut(), t.getDebRolled(), t.getPenyaIn(),
-                    t.getPenyaChrg(), t.getPenyaCorr(), penyaOut,
-                    t.getDays());
-        }
-
         // найти запись долгов предыдущего периода
         SumDebPenRec foundDeb = localStore.getLstDebFlow().stream()
-                .filter(d -> d.getUslId().equals(t.getUslId()))
-                .filter(d -> d.getOrgId().equals(t.getOrgId()))
-                .filter(d -> d.getMg().equals(t.getMg()))
+                .filter(d -> d.getUslId().equals(sumPenRec.getUslId()))
+                .filter(d -> d.getOrgId().equals(sumPenRec.getOrgId()))
+                .filter(d -> d.getMg().equals(sumPenRec.getMg()))
                 .findFirst().orElse(null);
         if (foundDeb == null) {
             // не найдена, создать новую запись
             isCreate = true;
         } else {
             // найдена, проверить равенство по полям
-            if (Utl.isEqual(t.getDebIn(), foundDeb.getDebIn())
-                    && Utl.isEqual(t.getDebOut(), foundDeb.getDebOut())
-                    && Utl.isEqual(t.getDebRolled(), foundDeb.getDebRolled())
-                    && Utl.isEqual(t.getChrg(), foundDeb.getChrg())
-                    && Utl.isEqual(t.getChng(), foundDeb.getChng())
-                    && Utl.isEqual(t.getDebPay(), foundDeb.getDebPay())
-                    && Utl.isEqual(t.getPayCorr(), foundDeb.getPayCorr())
-                    ) {
+            if (Utl.isEqual(sumPenRec.getDebIn(), foundDeb.getDebIn())
+                    && Utl.isEqual(sumPenRec.getDebOut(), foundDeb.getDebOut())
+                    && Utl.isEqual(sumPenRec.getDebRolled(), foundDeb.getDebRolled())
+                    && Utl.isEqual(sumPenRec.getChrg(), foundDeb.getChrg())
+                    && Utl.isEqual(sumPenRec.getChng(), foundDeb.getChng())
+                    && Utl.isEqual(sumPenRec.getDebPay(), foundDeb.getDebPay())
+                    && Utl.isEqual(sumPenRec.getPayCorr(), foundDeb.getPayCorr())
+            ) {
                 // равны, расширить период
                 //log.info("найти id={}", foundDeb.getId());
                 Deb deb = em.find(Deb.class, foundDeb.getId());
@@ -218,120 +217,137 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         }
         if (isCreate) {
             // создать запись нового периода
-            if (t.getDebIn().compareTo(BigDecimal.ZERO) != 0
-                    || t.getDebOut().compareTo(BigDecimal.ZERO) != 0
-                    || t.getDebRolled().compareTo(BigDecimal.ZERO) != 0
-                    || t.getChrg().compareTo(BigDecimal.ZERO) != 0
-                    || t.getChng().compareTo(BigDecimal.ZERO) != 0
-                    || t.getDebPay().compareTo(BigDecimal.ZERO) != 0
-                    || t.getPayCorr().compareTo(BigDecimal.ZERO) != 0
-                    ) {
+            if (sumPenRec.getDebIn().compareTo(BigDecimal.ZERO) != 0
+                    || sumPenRec.getDebOut().compareTo(BigDecimal.ZERO) != 0
+                    || sumPenRec.getDebRolled().compareTo(BigDecimal.ZERO) != 0
+                    || sumPenRec.getChrg().compareTo(BigDecimal.ZERO) != 0
+                    || sumPenRec.getChng().compareTo(BigDecimal.ZERO) != 0
+                    || sumPenRec.getDebPay().compareTo(BigDecimal.ZERO) != 0
+                    || sumPenRec.getPayCorr().compareTo(BigDecimal.ZERO) != 0
+            ) {
                 // если хотя бы одно поле != 0
-                Usl usl = em.find(Usl.class, t.getUslId());
+                Usl usl = em.find(Usl.class, sumPenRec.getUslId());
                 if (usl == null) {
                     // так как внутри потока, то только RuntimeException
                     throw new RuntimeException("Ошибка при сохранении записей долгов,"
                             + " некорректные данные в таблице SCOTT.DEB!"
-                            + " Не найдена услуга с кодом usl=" + t.getUslId());
+                            + " Не найдена услуга с кодом usl=" + sumPenRec.getUslId());
                 }
-                Org org = em.find(Org.class, t.getOrgId());
+                Org org = em.find(Org.class, sumPenRec.getOrgId());
                 if (org == null) {
                     // так как внутри потока, то только RuntimeException
                     throw new RuntimeException("Ошибка при сохранении записей долгов,"
                             + " некорректные данные в таблице SCOTT.DEB!"
-                            + " Не найдена организация с кодом org=" + t.getOrgId());
+                            + " Не найдена организация с кодом org=" + sumPenRec.getOrgId());
                 }
                 Deb deb = Deb.builder()
                         .withUsl(usl)
                         .withOrg(org)
-                        .withDebIn(t.getDebIn())
-                        .withDebOut(t.getDebOut())
-                        .withDebRolled(t.getDebRolled())
-                        .withChrg(t.getChrg())
-                        .withChng(t.getChng())
-                        .withDebPay(t.getDebPay())
-                        .withPayCorr(t.getPayCorr())
+                        .withDebIn(sumPenRec.getDebIn())
+                        .withDebOut(sumPenRec.getDebOut())
+                        .withDebRolled(sumPenRec.getDebRolled())
+                        .withChrg(sumPenRec.getChrg())
+                        .withChng(sumPenRec.getChng())
+                        .withDebPay(sumPenRec.getDebPay())
+                        .withPayCorr(sumPenRec.getPayCorr())
                         .withKart(kart)
                         .withMgFrom(calcStore.getPeriod())
                         .withMgTo(calcStore.getPeriod())
-                        .withMg(t.getMg())
+                        .withMg(sumPenRec.getMg())
                         .build();
                 em.persist(deb);
             }
         }
-        // сбросить флаг создания новой записи
-        isCreate = false;
 
-        // найти запись пени предыдущего периода
-        SumDebPenRec foundPen = localStore.getLstDebPenFlow().stream()
-                .filter(d -> d.getUslId().equals(t.getUslId()))
-                .filter(d -> d.getOrgId().equals(t.getOrgId()))
-                .filter(d -> d.getMg().equals(t.getMg()))
-                .findFirst().orElse(null);
-        if (foundPen == null) {
-            // не найдена, создать новую запись
-            isCreate = true;
-        } else {
-            // найдена, проверить равенство по полям
-            if (Utl.isEqual(t.getPenyaIn(), foundPen.getPenIn())
-                    && Utl.isEqual(penyaOut, foundPen.getPenOut())
-                    && Utl.isEqual(penChrgRound, foundPen.getPenChrg())
-                    && Utl.isEqual(t.getPenyaCorr(), foundPen.getPenCorr())
-                    && Utl.isEqual(t.getPenyaPay(), foundPen.getPenPay())
-                    && Utl.isEqual(t.getDays(), foundPen.getDays())
-                    ) {
-                // равны, расширить период
-                Pen pen = em.find(Pen.class, foundPen.getId());
-                pen.setMgTo(calcStore.getPeriod());
-            } else {
-                // не равны, создать запись нового периода
-                isCreate = true;
+        if (isCalcPen) {
+            // округлить начисленную пеню
+            BigDecimal penChrgRound = sumPenRec.getPenyaChrg().setScale(2, RoundingMode.HALF_UP);
+            // исх.сальдо по пене
+            BigDecimal penyaOut = sumPenRec.getPenyaIn().add(penChrgRound)
+                    .add(sumPenRec.getPenyaCorr())     // прибавить корректировки
+                    .subtract(sumPenRec.getPenyaPay()  // отнять оплату
+                    );
+            if (calcStore.getDebugLvl().equals(1)) {
+                log.info("uslId={}, orgId={}, период={}, долг={}, свернутый долг={}, "
+                                + "пеня вх.={}, пеня тек.={} руб., корр.пени={}, пеня исх.={}, дней просрочки(на дату расчета)={}",
+                        sumPenRec.getUslId(), sumPenRec.getOrgId(), sumPenRec.getMg(),
+                        sumPenRec.getDebOut(), sumPenRec.getDebRolled(), sumPenRec.getPenyaIn(),
+                        sumPenRec.getPenyaChrg(), sumPenRec.getPenyaCorr(), penyaOut,
+                        sumPenRec.getDays());
             }
 
-        }
+            // сбросить флаг создания новой записи
+            isCreate = false;
 
-        if (isCreate) {
+            // найти запись пени предыдущего периода
+            SumDebPenRec foundPen = localStore.getLstDebPenFlow().stream()
+                    .filter(d -> d.getUslId().equals(sumPenRec.getUslId()))
+                    .filter(d -> d.getOrgId().equals(sumPenRec.getOrgId()))
+                    .filter(d -> d.getMg().equals(sumPenRec.getMg()))
+                    .findFirst().orElse(null);
+            if (foundPen == null) {
+                // не найдена, создать новую запись
+                isCreate = true;
+            } else {
+                // найдена, проверить равенство по полям
+                if (Utl.isEqual(sumPenRec.getPenyaIn(), foundPen.getPenIn())
+                        && Utl.isEqual(penyaOut, foundPen.getPenOut())
+                        && Utl.isEqual(penChrgRound, foundPen.getPenChrg())
+                        && Utl.isEqual(sumPenRec.getPenyaCorr(), foundPen.getPenCorr())
+                        && Utl.isEqual(sumPenRec.getPenyaPay(), foundPen.getPenPay())
+                        && Utl.isEqual(sumPenRec.getDays(), foundPen.getDays())
+                ) {
+                    // равны, расширить период
+                    Pen pen = em.find(Pen.class, foundPen.getId());
+                    pen.setMgTo(calcStore.getPeriod());
+                } else {
+                    // не равны, создать запись нового периода
+                    isCreate = true;
+                }
 
-            // создать запись нового периода
-            if (t.getPenyaIn().compareTo(BigDecimal.ZERO) != 0
-                    || penyaOut.compareTo(BigDecimal.ZERO) != 0
-                    || penChrgRound.compareTo(BigDecimal.ZERO) != 0
-                    || t.getPenyaCorr().compareTo(BigDecimal.ZERO) != 0
-                    || t.getPenyaPay().compareTo(BigDecimal.ZERO) != 0
+            }
+
+            if (isCreate) {
+                // создать запись нового периода
+                if (sumPenRec.getPenyaIn().compareTo(BigDecimal.ZERO) != 0
+                        || penyaOut.compareTo(BigDecimal.ZERO) != 0
+                        || penChrgRound.compareTo(BigDecimal.ZERO) != 0
+                        || sumPenRec.getPenyaCorr().compareTo(BigDecimal.ZERO) != 0
+                        || sumPenRec.getPenyaPay().compareTo(BigDecimal.ZERO) != 0
                     //|| !t.getDays().equals(0)
-                    || t.getPenyaCorr().compareTo(BigDecimal.ZERO) != 0
-                    ) {
-                // если хотя бы одно поле != 0
-                Usl usl = em.find(Usl.class, t.getUslId());
-                if (usl == null) {
-                    // так как внутри потока, то только RuntimeException
-                    throw new RuntimeException("Ошибка при сохранении записей пени,"
-                            + " некорректные данные в таблице SCOTT.PEN!"
-                            + " Не найдена услуга с кодом usl=" + t.getUslId());
-                }
-                Org org = em.find(Org.class, t.getOrgId());
-                if (org == null) {
-                    // так как внутри потока, то только RuntimeException
-                    throw new RuntimeException("Ошибка при сохранении записей пени,"
-                            + " некорректные данные в таблице SCOTT.PEN!"
-                            + " Не найдена организация с кодом org=" + t.getOrgId());
-                }
+                ) {
+                    // если хотя бы одно поле != 0
+                    Usl usl = em.find(Usl.class, sumPenRec.getUslId());
+                    if (usl == null) {
+                        // так как внутри потока, то только RuntimeException
+                        throw new RuntimeException("Ошибка при сохранении записей пени,"
+                                + " некорректные данные в таблице SCOTT.PEN!"
+                                + " Не найдена услуга с кодом usl=" + sumPenRec.getUslId());
+                    }
+                    Org org = em.find(Org.class, sumPenRec.getOrgId());
+                    if (org == null) {
+                        // так как внутри потока, то только RuntimeException
+                        throw new RuntimeException("Ошибка при сохранении записей пени,"
+                                + " некорректные данные в таблице SCOTT.PEN!"
+                                + " Не найдена организация с кодом org=" + sumPenRec.getOrgId());
+                    }
 
-                Pen pen = Pen.builder()
-                        .withUsl(usl)
-                        .withOrg(org)
-                        .withPenIn(t.getPenyaIn())
-                        .withPenOut(penyaOut)
-                        .withPenChrg(penChrgRound)
-                        .withPenCorr(t.getPenyaCorr())
-                        .withPenPay(t.getPenyaPay())
-                        .withDays(t.getDays())
-                        .withKart(kart)
-                        .withMgFrom(calcStore.getPeriod())
-                        .withMgTo(calcStore.getPeriod())
-                        .withMg(t.getMg())
-                        .build();
-                em.persist(pen);
+                    Pen pen = Pen.builder()
+                            .withUsl(usl)
+                            .withOrg(org)
+                            .withPenIn(sumPenRec.getPenyaIn())
+                            .withPenOut(penyaOut)
+                            .withPenChrg(penChrgRound)
+                            .withPenCorr(sumPenRec.getPenyaCorr())
+                            .withPenPay(sumPenRec.getPenyaPay())
+                            .withDays(sumPenRec.getDays())
+                            .withKart(kart)
+                            .withMgFrom(calcStore.getPeriod())
+                            .withMgTo(calcStore.getPeriod())
+                            .withMg(sumPenRec.getMg())
+                            .build();
+                    em.persist(pen);
+                }
             }
         }
     }
@@ -339,9 +355,10 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
     /**
      * Сгруппировать по периодам пеню, и долги на дату расчета
      *
-     * @param lst - долги по всем дням
+     * @param lst       - долги по всем дням
+     * @param isCalcPen - учитывать пеню
      */
-    private List<SumPenRec> getGroupingPenDeb(List<SumDebRec> lst) throws ErrorWhileChrgPen {
+    private List<SumPenRec> getGroupingPenDeb(List<SumDebRec> lst, boolean isCalcPen) throws ErrorWhileChrgPen {
         // получить долги на последнюю дату
         List<SumPenRec> lstDebAmnt = lst.stream()
                 .filter(SumDebRec::getIsLastDay)
@@ -351,9 +368,11 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
                         t.getPenyaCorr(), t.getDays(), t.getMg()))
                 .collect(Collectors.toList());
 
-        // сгруппировать начисленную пеню по периодам
-        for (SumDebRec t : lst) {
-            addPen(t.getUslId(), t.getOrgId(), lstDebAmnt, t.getMg(), t.getPenyaChrg());
+        if (isCalcPen) {
+            // сгруппировать начисленную пеню по периодам
+            for (SumDebRec t : lst) {
+                addPen(t.getUslId(), t.getOrgId(), lstDebAmnt, t.getMg(), t.getPenyaChrg());
+            }
         }
         return lstDebAmnt;
     }
@@ -393,8 +412,6 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      */
     private void redirectPen(Kart kart, List<SumPenRec> lst) {
         // произвести перенаправление начисления пени, по справочнику
-        //ArrayList<SumPenRec> lstOut = new ArrayList<SumPenRec>();
-
         ListIterator<SumPenRec> itr = lst.listIterator();
         while (itr.hasNext()) {
             SumPenRec t = itr.next();

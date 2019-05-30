@@ -11,6 +11,6 @@ import com.ric.cmn.excp.ErrorWhileChrgPen;
 
 public interface DebitThrMng {
 
-	List<SumDebRec> genDebitUsl(Kart kart, UslOrg u, CalcStore calcStore, CalcStoreLocal localStore)
+	List<SumDebRec> genDebitUsl(Kart kart, UslOrg u, CalcStore calcStore, CalcStoreLocal localStore, boolean isCalcPen)
 			throws ErrorWhileChrgPen;
 }

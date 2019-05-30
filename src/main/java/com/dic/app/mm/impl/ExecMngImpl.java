@@ -69,88 +69,6 @@ public class ExecMngImpl implements ExecMng {
                 qr.execute();
                 ret = (Integer) qr.getOutputParameterValue(1);
                 log.info("Проверка ошибок scott.gen.gen_check с параметром var_={}, дала результат err_={}", par, ret);
-        // проверки ошибок
-		/*case 4:
-		case 5:
-		case 6:
-		case 7:
-		case 38:
-			qr = em.createStoredProcedureQuery("scott.p_thread.smpl_chk");
-			qr.registerStoredProcedureParameter(1, Integer.class, ParameterMode.IN);
-			qr.registerStoredProcedureParameter(2, Integer.class, ParameterMode.OUT);
-			// перекодировать в gen.smpl_chck код выполнения
-			switch (var) {
-			case 4:
-				par=1;
-				break;
-			case 5:
-				par=2;
-				break;
-			case 6:
-				par=3;
-				break;
-			case 7:
-				par=4;
-				break;
-			case 38:
-				par=5;
-				break;
-			}
-			qr.setParameter(1, par);
-			qr.execute();
-			ret = (Integer) qr.getOutputParameterValue(2);
-			log.info("Проверка ошибок scott.p_thread.smpl_chk с параметром var_={}, дала результат err_={}", par, ret);
-			break;
-		// проверки ошибок
-		case 8:
-		case 9:
-		case 10:
-		case 11:
-		case 12:
-		case 13:
-		case 14:
-		case 15:
-		case 37:
-			qr = em.createStoredProcedureQuery("scott.gen.gen_check");
-			qr.registerStoredProcedureParameter(1, Integer.class, ParameterMode.OUT);
-			qr.registerStoredProcedureParameter(2, String.class, ParameterMode.OUT);
-			qr.registerStoredProcedureParameter(3, Integer.class, ParameterMode.IN);
-
-			// перекодировать в gen.gen_check код выполнения
-			switch (var) {
-			case 8:
-				par=1;
-				break;
-			case 9:
-				par=2;
-				break;
-			case 10:
-				par=3;
-				break;
-			case 11:
-				par=4;
-				break;
-			case 12:
-				par=5;
-				break;
-			case 13:
-				par=6;
-				break;
-			case 14:
-				par=7;
-				break;
-			case 15:
-				par=8;
-				break;
-			case 37:
-				par=9;
-				break;
-			}
-			qr.setParameter(3, par);
-			qr.execute();
-			ret = (Integer) qr.getOutputParameterValue(1);
-			log.info("Проверка ошибок scott.gen.gen_check с параметром var_={}, дала результат err_={}", par, ret);
-			break;*/
             case 16:
                 // установить текущую дату, до формирования
                 qr = em.createStoredProcedureQuery("scott.init.set_date_for_gen");
@@ -257,6 +175,22 @@ public class ExecMngImpl implements ExecMng {
             case 36:
                 // перераспределение авансовых платежей
                 qr = em.createStoredProcedureQuery("scott.c_dist_pay.dist_pay_lsk_avnc_force");
+                qr.executeUpdate();
+                break;
+            case 38:
+                // обмен с ЛК
+                // импорт данных
+                qr = em.createStoredProcedureQuery("scott.ext_pkg.imp_vol_all");
+                qr.executeUpdate();
+
+                // экспорт данных
+                qr = em.createStoredProcedureQuery("scott.ext_pkg.exp_base");
+                qr.registerStoredProcedureParameter(1, Integer.class, ParameterMode.IN);
+                qr.registerStoredProcedureParameter(2, String.class, ParameterMode.IN);
+                qr.registerStoredProcedureParameter(3, String.class, ParameterMode.IN);
+                qr.setParameter(1, 1);
+                qr.setParameter(2, null);
+                qr.setParameter(3, null);
                 qr.executeUpdate();
                 break;
             case 100:

@@ -289,6 +289,12 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                         setMenuProc(menuGenItg, itm, 0.96D, dt1, new Date());
                         if (markExecuted(menuGenItg, itm, 1D, dt1)) return;
                         break;
+                    case "GEN_LK":
+                        // обмен с личным кабинетом
+                        dt1 = new Date();
+                        execMng.execProc(38, null, null);
+                        if (markExecuted(menuGenItg, itm, 0.99D, dt1)) return;
+                        break;
                 }
             }
 

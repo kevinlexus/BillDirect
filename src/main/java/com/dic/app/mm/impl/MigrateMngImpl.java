@@ -264,17 +264,19 @@ public class MigrateMngImpl implements MigrateMng {
             if (org == null) {
                 throw new RuntimeException("ОШИБКА #5 сохранения задолженности, не найдена организация org=" + t.getOrgId());
             }
-            // сохранить новое
-            Deb deb = Deb.builder()
-                    .withKart(kart)
-                    .withDebOut(t.getSumma())
-                    .withMg(t.getMg())
-                    .withUsl(usl)
-                    .withOrg(org)
-                    .withMgFrom(periodBack)
-                    .withMgTo(periodBack)
-                    .build();
-            em.persist(deb);
+            // сохранить новое, если не ноль
+            if (t.getSumma().compareTo(BigDecimal.ZERO) !=0) {
+                Deb deb = Deb.builder()
+                        .withKart(kart)
+                        .withDebOut(t.getSumma())
+                        .withMg(t.getMg())
+                        .withUsl(usl)
+                        .withOrg(org)
+                        .withMgFrom(periodBack)
+                        .withMgTo(periodBack)
+                        .build();
+                em.persist(deb);
+            }
         }
 
         log.info("ОКОНЧАНИЕ РАСПРЕДЕЛЕНИЯ лиц.счета={}", lsk);

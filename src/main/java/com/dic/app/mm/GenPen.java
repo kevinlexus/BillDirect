@@ -74,8 +74,8 @@ public class GenPen {
 	 * да и GenPen тогда пришлось бы тоже сделать @Service... что по архитектурным причинам не просто... TODO
 	 * Подумать!
 	 * @param mg
-	 * @param uslId
-	 * @param ukId
+	 * @param usl
+	 * @param kart
 	 * @return
 	 */
 	private PenDt getPenDt(Integer mg, Usl usl, Kart kart) {

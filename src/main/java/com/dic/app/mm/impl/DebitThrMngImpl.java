@@ -41,11 +41,11 @@ public class DebitThrMngImpl implements DebitThrMng {
 	 * @param kart - лицевой счет
 	 * @param u - услуга и организация
 	 * @param calcStore - хранилище параметров и справочников
-	 * @return
-	 * @throws ErrorWhileChrgPen
+	 * @param isCalcPen - рассчитывать пеню?
 	 */
 	@Override
-	public List<SumDebRec> genDebitUsl(Kart kart, UslOrg u, CalcStore calcStore, CalcStoreLocal localStore) throws ErrorWhileChrgPen {
+	public List<SumDebRec> genDebitUsl(Kart kart, UslOrg u, CalcStore calcStore,
+									   CalcStoreLocal localStore, boolean isCalcPen) throws ErrorWhileChrgPen {
 		// дата начала расчета
 		Date dt1 = calcStore.getCurDt1();
 		// дата окончания расчета
@@ -56,12 +56,19 @@ public class DebitThrMngImpl implements DebitThrMng {
 		// объект расчета пени
 		GenPen genPen = new GenPen(kart, u, usl, calcStore, localStore.getReuId());
 
-		List<SumDebRec> lstDeb = new ArrayList<SumDebRec>(50);
+		List<SumDebRec> lstDeb = new ArrayList<>(50);
 		// РАСЧЕТ по дням
 		Calendar c = Calendar.getInstance();
-		List<SumDebRec> lstPenAllDays = new ArrayList<SumDebRec>(100);
+		List<SumDebRec> lstPenAllDays = new ArrayList<>(100);
 		for (c.setTime(dt1); !c.getTime().after(dt2); c.add(Calendar.DATE, 1)) {
-			Date curDt = c.getTime();
+			Date curDt;
+			if (isCalcPen) {
+				// рассчитывать пеню
+				curDt = c.getTime();
+			} else {
+				// без расчета пени
+				curDt = dt2;
+			}
 			genPen.setUp(curDt);
 			// является ли текущий день последним расчетным?
 			boolean isLastDay = curDt.equals(dt2);
@@ -89,6 +96,7 @@ public class DebitThrMngImpl implements DebitThrMng {
 					.map(t-> new SumDebRec(null, null, null, null, null, null,
 							t.getSumma(), t.getSumma(), null, null, t.getMg(), t.getTp()))
 					.collect(Collectors.toList()));
+
 			// вычесть оплату долга - для расчета долга, включая текущий день (Не включая для задолженности для расчета пени)
 			lstDeb.addAll(localStore.getLstPayFlow().stream()
 					.filter(t-> t.getDt().getTime() <= curDt.getTime())
@@ -150,11 +158,13 @@ public class DebitThrMngImpl implements DebitThrMng {
 			// свернуть долги (учесть переплаты предыдущих периодов),
 			// рассчитать пеню на определенный день, добавить в общую коллекцию по всем дням
 			lstPenAllDays.addAll(genPen.getRolledDebPen(isLastDay));
+			if (!isCalcPen) {
+				// если не рассчитывать пеню, - выйти из цикла
+				break;
+			}
 		}
 
 		// вернуть всю детализированную пеню по данной услуге и организации, по дням
 		return lstPenAllDays;
 	}
-
-
 }
