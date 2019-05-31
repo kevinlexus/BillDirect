@@ -113,7 +113,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         // обработать каждый элемент услуга+организация
         List<SumDebRec> lst = lstUslOrg.stream()
                 .flatMap(t -> {
-                    try {
+                    try { 
                         // РАСЧЕТ задолженности и пени по услуге
                         return debitThrMng.genDebitUsl(kart, t, calcStore, localStore, isCalcPen).stream();
                     } catch (ErrorWhileChrgPen e) {
