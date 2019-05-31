@@ -1,6 +1,5 @@
 package com.dic.app.mm.impl;
 
-import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.DebitThrMng;
 import com.dic.app.mm.GenPenProcessMng;
 import com.dic.app.mm.ReferenceMng;
@@ -10,7 +9,6 @@ import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
 
@@ -35,29 +33,33 @@ import java.util.stream.Collectors;
 @Scope("prototype")
 public class GenPenProcessMngImpl implements GenPenProcessMng {
 
-    @Autowired
-    private ConfigApp config;
-    @Autowired
-    private DebDAO debDao;
-    @Autowired
-    private PenDAO penDao;
-    @Autowired
-    private ChargeDAO chargeDao;
-    @Autowired
-    private VchangeDetDAO vchangeDetDao;
-    @Autowired
-    private KwtpDayDAO kwtpDayDao;
-    @Autowired
-    private CorrectPayDAO correctPayDao;
-    @Autowired
-    private PenUslCorrDAO penUslCorrDao;
-    @Autowired
-    private ReferenceMng refMng;
-    @Autowired
-    private DebitThrMng debitThrMng;
+    private final DebDAO debDao;
+    private final PenDAO penDao;
+    private final ChargeDAO chargeDao;
+    private final VchangeDetDAO vchangeDetDao;
+    private final KwtpDayDAO kwtpDayDao;
+    private final CorrectPayDAO correctPayDao;
+    private final PenUslCorrDAO penUslCorrDao;
+    private final ReferenceMng refMng;
+    private final DebitThrMng debitThrMng;
 
     @PersistenceContext
     private EntityManager em;
+
+    public GenPenProcessMngImpl(DebDAO debDao, PenDAO penDao, ChargeDAO chargeDao,
+                                VchangeDetDAO vchangeDetDao, KwtpDayDAO kwtpDayDao,
+                                CorrectPayDAO correctPayDao, PenUslCorrDAO penUslCorrDao,
+                                ReferenceMng refMng, DebitThrMng debitThrMng) {
+        this.debDao = debDao;
+        this.penDao = penDao;
+        this.chargeDao = chargeDao;
+        this.vchangeDetDao = vchangeDetDao;
+        this.kwtpDayDao = kwtpDayDao;
+        this.correctPayDao = correctPayDao;
+        this.penUslCorrDao = penUslCorrDao;
+        this.refMng = refMng;
+        this.debitThrMng = debitThrMng;
+    }
 
     /**
      * Рассчет задолженности и пени по всем лиц.счетам помещения
@@ -67,7 +69,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      * @param klskId    - klskId помещения
      */
     @Override
-    public void genDebitPen(CalcStore calcStore, boolean isCalcPen, long klskId) {
+    public void genDebitPen(CalcStore calcStore, boolean isCalcPen, long klskId) throws ErrorWhileChrgPen {
         Ko ko = em.find(Ko.class, klskId);
         for (Kart kart : ko.getKart()) {
             genDebitPen(calcStore, isCalcPen, kart);
@@ -88,7 +90,6 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         // задолженность предыдущего периода (здесь же заполнены поля по вх.сальдо по пене) - 1
         CalcStoreLocal localStore = new CalcStoreLocal();
         localStore.setLstDebFlow(debDao.getDebitByLsk(kart.getLsk(), periodBack));
-
         // задолженность по пене (вх.сальдо) - 8
         localStore.setLstDebPenFlow(penDao.getPenByLsk(kart.getLsk(), periodBack));
         // текущее начисление - 2
@@ -110,18 +111,33 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         // получить список уникальных элементов услуга+организация
         List<UslOrg> lstUslOrg = localStore.getUniqUslOrg();
 
+        // Расчет задолженности
         // обработать каждый элемент услуга+организация
         List<SumDebRec> lst = lstUslOrg.stream()
                 .flatMap(t -> {
-                    try { 
-                        // РАСЧЕТ задолженности и пени по услуге
-                        return debitThrMng.genDebitUsl(kart, t, calcStore, localStore, isCalcPen).stream();
+                    try {
+                        return debitThrMng.genDebitUsl(kart, t, calcStore, localStore, false).stream();
                     } catch (ErrorWhileChrgPen e) {
                         log.error(Utl.getStackTraceString(e));
                         throw new RuntimeException("ОШИБКА в процессе начисления пени по лc.=" + kart.getLsk());
                     }
                 })
                 .collect(Collectors.toList());
+
+        // Расчет пени
+        List<SumDebRec> lstPen;
+        try {
+            lstPen = debitThrMng.genDebitUsl(kart, null, calcStore, localStore, isCalcPen);
+        } catch (ErrorWhileChrgPen e) {
+            log.error(Utl.getStackTraceString(e));
+            throw new RuntimeException("ОШИБКА во время расчета пени, лc.=" + kart.getLsk());
+        }
+
+        lstPen.forEach(t-> {
+            log.info("TEST: dt={}, mg={}, usl={}, org={}, PenyaIn={}, PenyaCorr={}, PenyaPay={}, PenyaChrg={}, PenChrgCorr={}",
+                    t.getDt(), t.getMg(), t.getUslId(), t.getOrgId(), t.getPenyaIn(),
+                    t.getPenyaCorr(), t.getPenyaPay(), t.getPenyaChrg(), t.getPenChrgCorr());
+        });
 
         List<SumPenRec> lstGrp;
         if (isCalcPen) {
@@ -141,14 +157,14 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
 
             // СГРУППИРОВАТЬ ПЕНЮ ПО ПЕРИОДАМ
             try {
-                lstGrp = getGroupingPenDeb(lst, isCalcPen);
+                lstGrp = getGroupingPenDeb(lstPen, isCalcPen);
             } catch (ErrorWhileChrgPen e) {
                 log.error(Utl.getStackTraceString(e));
                 throw new RuntimeException("ОШИБКА во время итоговой группировки пени по периодам, лc.=" + kart.getLsk());
             }
 
-            // перенаправить пеню на услугу и организацию по справочнику REDIR_PAY
-            redirectPen(kart, lstGrp);
+            // перенаправить пеню на услугу и организацию по справочнику REDIR_PAY (как перенаправлять, если usl==null? ред.25.05.2019)
+            //redirectPen(kart, lstGrp);
 
             // удалить записи текущего периода, если они были созданы
             penDao.delByLskPeriod(kart.getLsk(), period);
@@ -371,7 +387,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         if (isCalcPen) {
             // сгруппировать начисленную пеню по периодам
             for (SumDebRec t : lst) {
-                addPen(t.getUslId(), t.getOrgId(), lstDebAmnt, t.getMg(), t.getPenyaChrg());
+                addPen(lstDebAmnt, t.getMg(), t.getPenyaChrg());
             }
         }
         return lstDebAmnt;
@@ -379,19 +395,14 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
 
     /**
      * добавить пеню по периоду в долги по последней дате
-     *
-     * @param uslId      - Id услуги
-     * @param orgId      - Id организации
      * @param lstDebAmnt - коллекция долгов
      * @param mg         - период долга
      * @param penya      - начисленая пеня за день
      */
-    private void addPen(String uslId, Integer orgId, List<SumPenRec>
-            lstDebAmnt, Integer mg, BigDecimal penya) throws ErrorWhileChrgPen {
+    private void addPen(List<SumPenRec>
+                                lstDebAmnt, Integer mg, BigDecimal penya) throws ErrorWhileChrgPen {
         // найти запись долга с данным периодом
         SumPenRec recDeb = lstDebAmnt.stream()
-                .filter(t -> t.getUslId().equals(uslId))
-                .filter(t -> t.getOrgId().equals(orgId))
                 .filter(t -> t.getMg().equals(mg))
                 .findFirst().orElse(null);
         if (recDeb != null) {

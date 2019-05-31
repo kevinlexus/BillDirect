@@ -1,21 +1,15 @@
 package com.dic.app.mm;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.List;
+import java.math.RoundingMode;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.SumDebRec;
 import com.dic.bill.dto.UslOrg;
-import com.dic.bill.model.scott.Kart;
-import com.dic.bill.model.scott.PenDt;
-import com.dic.bill.model.scott.PenRef;
-import com.dic.bill.model.scott.Usl;
+import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
-import com.ric.cmn.excp.ErrorWhileChrgPen;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,11 +30,9 @@ public class GenPen {
 	private Kart kart;
 
 	// сгруппированные задолженности
-	List<SumDebRec> lst;
+	private List<SumDebRec> lst;
 	// услуга
 	private Usl usl;
-	// Integer представление кода reu, для ускорения фильтров
-	private int reuId;
 
 	/**
 	 * Конструктор
@@ -48,42 +40,32 @@ public class GenPen {
 	 * @param uslOrg - услуга + организация
 	 * @param usl - услуга (возникла необходимость получить еще и типы услуг, поэтому ввел usl)
 	 * @param calcStore - хранилище справочников
-	 * @param reuId - Integer представление кода reu, для ускорения фильтров
-	 * @param
 	 */
-	public GenPen(Kart kart, UslOrg uslOrg, Usl usl, CalcStore calcStore, int reuId) {
+	public GenPen(Kart kart, UslOrg uslOrg, Usl usl, CalcStore calcStore) {
 		this.calcStore = calcStore;
 		this.uslOrg = uslOrg;
 		this.kart = kart;
 		this.usl = usl;
-		this.reuId = reuId;
-	};
+	}
 
 	/**
 	 * Инициализация класса
-	 * @param curDt
+	 * @param curDt - дата расчета
 	 */
 	public void setUp(Date curDt) {
-		lst = new ArrayList<SumDebRec>();
+		lst = new ArrayList<>();
 		this.curDt = curDt;
 	}
 
 	/**
-	 * Справочник начала действия пени... была попытка сделать на нём @Cacheable
-	 * но не получилось. Нужно было бы тогда перенести его в public метод другого бина,
-	 * да и GenPen тогда пришлось бы тоже сделать @Service... что по архитектурным причинам не просто... TODO
-	 * Подумать!
-	 * @param mg
-	 * @param usl
-	 * @param kart
-	 * @return
+	 * Получить строку даты начала пени по типу лиц.счета
+	 * @param mg - период задолженности
+	 * @param kart - лиц.счет
 	 */
-	private PenDt getPenDt(Integer mg, Usl usl, Kart kart) {
-		return calcStore.getLstPenDt().stream()
-				.filter(t-> t.getUslTpPen().equals(usl.getTpPenDt()) && t.getMg().equals(mg)) // фильтр по типу услуги и периоду
-//				.filter(t-> utlMng.between2(kart.getUk().getReu(), t.getReuFrom(), t.getReuTo()))
-				.filter(t-> Utl.between2(reuId, t.getReuFrom(), t.getReuTo()))
-				//.filter(t-> Utl.between2(calcStore, t.getReuFrom(), t.getReuTo()))
+	private SprPen getPenDt(Integer mg, Kart kart) {
+		return calcStore.getLstSprPen().stream()
+				.filter(t-> t.getTp().equals(kart.getTp()) && t.getMg().equals(mg)) // фильтр по типу лиц.сч. и периоду
+				.filter(t-> t.getReu().equals(kart.getUk().getReu()))
 				.findFirst().orElse(null);
 	}
 
@@ -91,13 +73,12 @@ public class GenPen {
 	 * свернуть задолженность (учесть переплаты предыдущих периодов)
 	 * и расчитать пеню
 	 * @param isLastDay - последний ли расчетный день? (для получения итогового долга)
-	 * @return
-	 * @throws ErrorWhileChrgPen
 	 */
-	public List<SumDebRec> getRolledDebPen(boolean isLastDay) throws ErrorWhileChrgPen {
+	public List<SumDebRec> getRolledDebPen(boolean isLastDay) {
 		// отсортировать по периоду
-		List<SumDebRec> lstSorted = lst.stream().sorted((t1, t2) ->
-			t1.getMg().compareTo(t2.getMg())).collect(Collectors.toList());
+		List<SumDebRec> lstSorted = lst.stream()
+				.sorted(Comparator.comparing(SumDebRec::getMg))
+				.collect(Collectors.toList());
 
 /*		log.info("");
 		lstSorted.forEach(t-> {
@@ -115,10 +96,12 @@ public class GenPen {
 			SumDebRec t = itr.next();
 			// дата расчета
 			t.setDt(curDt);
-			// Id услуги
-			t.setUslId(uslOrg.getUslId());
-			// Id организации
-			t.setOrgId(uslOrg.getOrgId());
+			if (uslOrg!=null) {
+				// Id услуги
+				t.setUslId(uslOrg.getUslId());
+				// Id организации
+				t.setOrgId(uslOrg.getOrgId());
+			}
 			// пометить текущий день, является ли последним расчетным днём
 			t.setIsLastDay(isLastDay);
 			// Задолженность для расчета ПЕНИ
@@ -143,7 +126,7 @@ public class GenPen {
 				// если установлена дата ограничения пени, не считать пеню, начиная с этой даты
 				if (kart.getPnDt() == null || curDt.getTime() < kart.getPnDt().getTime()) {
 					// рассчитать пеню и сохранить
-					Pen pen = getPen(summa, t.getMg());
+					Pen pen = getPen(summa, t.getMg(), kart);
 					if (pen != null) {
 						// сохранить текущую пеню
 						t.setPenyaChrg(pen.penya);
@@ -210,13 +193,13 @@ public class GenPen {
 	 * Рассчитать пеню
 	 * @param summa - долг
 	 * @param mg - период долга
-	 * @throws ErrorWhileChrgPen
+	 * @param kart - лиц.счет
 	 */
-	private Pen getPen(BigDecimal summa, Integer mg) throws ErrorWhileChrgPen {
-		PenDt penDt = getPenDt(mg,  usl,  kart);
+	private Pen getPen(BigDecimal summa, Integer mg, Kart kart) {
+		SprPen penDt = getPenDt(mg,  kart);
 		// вернуть кол-во дней между датой расчета пени и датой начала пени по справочнику
 		if (penDt == null) {
-			if (mg.compareTo(calcStore.getPeriod())==1) {
+			if (mg.compareTo(calcStore.getPeriod()) > 0) {
 				// период больше текущего, не должно быть пени
 				return null;
 			} else {
@@ -230,15 +213,16 @@ public class GenPen {
 		if (days > 0) {
 			// пеня возможна, если есть кол-во дней долга
 			//log.info(" spr={}, cur={}, days={}", sprPenUsl.getTs(), curDt, days);
-			PenRef penRef = calcStore.getLstPenRef().stream()
-					.filter(t-> t.getUslTpRef().equals(usl.getTpPenRef())) // фильтр по типу услуги
-					.filter(t-> days >= t.getDays1().intValue() && days <= t.getDays2().intValue()) // фильтр по кол-ву дней долга
+			Stavr penRef = calcStore.getLstStavr().stream()
+					.filter(t-> t.getTp().equals(kart.getTp())) // фильтр по типу лиц.счета
+					.filter(t-> days >= t.getDays1() && days <= t.getDays2()) // фильтр по кол-ву дней долга
 					.filter(t-> Utl.between(curDt, t.getDt1(), t.getDt2())) // фильтр по дате расчета в справочнике
 					.findFirst().orElse(null);
 			Pen pen = new Pen();
 			// рассчет пени = долг * процент/100
+			assert penRef != null;
 			pen.proc = penRef.getProc();
-			pen.penya = summa.multiply(pen.proc).divide(new BigDecimal(100));
+			pen.penya = summa.multiply(pen.proc).divide(new BigDecimal(100), RoundingMode.HALF_UP);
 			pen.days = days;
 			return pen;
 		} else {

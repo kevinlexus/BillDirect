@@ -266,8 +266,8 @@ public class RequestConfigDirect implements Cloneable {
      */
     private CalcStore buildCalcStore(Date genDt, int tp) {
         ConfigApp config = SpringContext.getBean(ConfigApp.class);
-        PenDtDAO penDtDAO = SpringContext.getBean(PenDtDAO.class);
-        PenRefDAO penRefDAO = SpringContext.getBean(PenRefDAO.class);
+        SprPenDAO sprPenDAO = SpringContext.getBean(SprPenDAO.class);
+        StavrDAO stavrDAO = SpringContext.getBean(StavrDAO.class);
         CalcStore calcStore = new CalcStore();
         // дата начала периода
         calcStore.setCurDt1(config.getCurDt1());
@@ -282,10 +282,10 @@ public class RequestConfigDirect implements Cloneable {
         log.info("Начало получения справочников");
         if (tp == 1) {
             // справочник дат начала пени
-            calcStore.setLstPenDt(penDtDAO.findAll());
+            calcStore.setLstSprPen(sprPenDAO.findAll());
             log.info("Загружен справочник дат начала обязательства по оплате");
             // справочник ставок рефинансирования
-            calcStore.setLstPenRef(penRefDAO.findAll());
+            calcStore.setLstStavr(stavrDAO.findAll());
             log.info("Загружен справочник ставок рефинансирования");
         }
         return calcStore;

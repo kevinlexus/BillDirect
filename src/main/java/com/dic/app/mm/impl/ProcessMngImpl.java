@@ -2,12 +2,6 @@ package com.dic.app.mm.impl;
 
 import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.*;
-import com.dic.bill.dao.KartDAO;
-import com.dic.bill.dao.PenDtDAO;
-import com.dic.bill.dao.PenRefDAO;
-import com.dic.bill.dao.VvodDAO;
-import com.dic.bill.mm.KartMng;
-import com.dic.bill.model.scott.Vvod;
 import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.*;
@@ -15,11 +9,9 @@ import com.ric.dto.CommonResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 
 /**
  * Сервис выполнения процессов формирования

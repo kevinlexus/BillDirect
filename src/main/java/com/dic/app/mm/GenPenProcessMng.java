@@ -13,5 +13,5 @@ import java.util.concurrent.Future;
 
 public interface GenPenProcessMng {
 
-    void genDebitPen(CalcStore calcStore, boolean isCalcPen, long klskId);
+    void genDebitPen(CalcStore calcStore, boolean isCalcPen, long klskId) throws ErrorWhileChrgPen;
 }

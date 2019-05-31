@@ -4,6 +4,7 @@ import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.DistPayMng;
 import com.dic.app.mm.GenPenProcessMng;
 import com.dic.bill.dao.AchargeDAO;
+import com.dic.bill.dao.RedirPayDAO;
 import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.SumUslOrgDTO;
@@ -12,6 +13,7 @@ import com.dic.bill.mm.SaldoMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
+import com.ric.cmn.excp.ErrorWhileChrgPen;
 import com.ric.cmn.excp.ErrorWhileDistPay;
 import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
@@ -49,6 +51,8 @@ public class TestGenPenProcessMng {
     GenPenProcessMng genPenProcessMng;
     @Autowired
     ConfigApp config;
+    @Autowired
+    RedirPayDAO redirPayDAO;
 
     @PersistenceContext
     private EntityManager em;
@@ -56,7 +60,7 @@ public class TestGenPenProcessMng {
     @Test
     @Rollback(false)
     @Transactional
-    public void testGenDebitPen() throws ParseException {
+    public void testGenDebitPen() throws ParseException, ErrorWhileChrgPen {
         log.info("Test GenPenProcessMng.testGenDebitPen - Start");
 
         // построить запрос
@@ -74,7 +78,7 @@ public class TestGenPenProcessMng {
                 .build();
         reqConf.prepareId();
         reqConf.getCalcStore().setDebugLvl(1);
-        genPenProcessMng.genDebitPen(reqConf.getCalcStore(), false, 104880L);
+        genPenProcessMng.genDebitPen(reqConf.getCalcStore(), true, 104880L);
 
         log.info("Test GenPenProcessMng.testGenDebitPen - End");
     }
