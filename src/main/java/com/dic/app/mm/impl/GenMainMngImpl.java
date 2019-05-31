@@ -84,7 +84,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
             // прогресс - 0
             config.setProgress(0);
 
-            SprGenItm menuMonthOver = sprGenItmDao.getByCd("GEN_MONTH_OVER");
+            //SprGenItm menuMonthOver = sprGenItmDao.getByCd("GEN_MONTH_OVER");
             SprGenItm menuCheckBG = sprGenItmDao.getByCd("GEN_CHECK_BEFORE_GEN");
             SprGenItm menuCheckAG = sprGenItmDao.getByCd("GEN_CHECK_AFTER_GEN");
 
@@ -289,28 +289,29 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                         setMenuProc(menuGenItg, itm, 0.96D, dt1, new Date());
                         if (markExecuted(menuGenItg, itm, 1D, dt1)) return;
                         break;
+                    case "GEN_CHECK_AFTER_GEN":
+                        //********** Проверки после формирования
+                        dt1 = new Date();
+                        if (checkErrAfterGen(menuCheckAG)) {
+                            // найдены ошибки - выход
+                            menuGenItg.setState("Найдены ошибки после формирования!");
+                            log.error("Найдены ошибки после формирования!");
+                            return;
+                        }
+                        if (markExecuted(menuGenItg, itm, 0.99D, dt1)) return;
+                        break;
                     case "GEN_LK":
                         // обмен с личным кабинетом
                         dt1 = new Date();
                         execMng.execProc(38, null, null);
                         if (markExecuted(menuGenItg, itm, 0.99D, dt1)) return;
                         break;
+                    default:
+                        execMng.setMenuElemState(menuGenItg, "Найдены ошибки при формировании");
+                        log.error("ОШИБКА! Найден необработанный блок case={}!", itm.getCd());
+                        return;
                 }
             }
-
-            //********** Проверки после формирования
-            if (menuCheckAG.getSel()) {
-                // если выбраны проверки, а они как правило д.б. выбраны при итоговом
-                if (checkErrAfterGen(menuCheckAG)) {
-                    // найдены ошибки - выход
-                    menuGenItg.setState("Найдены ошибки после формирования!");
-                    log.info("Найдены ошибки до формирования!");
-                    return;
-                }
-                if (markExecuted(menuGenItg, menuCheckAG, 0.99D, new Date())) return;
-                log.info("Проверки после формирования выполнены!");
-            }
-
             // выполнено всё
             if (menuGenItg.getSel()) {
                 execMng.setMenuElemState(menuGenItg, "Выполнено успешно!");
@@ -538,7 +539,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
 
         if (strErr != null && strErr.length() > 0) {
             // ошибки
-            menuCheckBG.setState("Var="+ var+" "+strMes + strErr);
+            menuCheckBG.setState("Var=" + var + " " + strMes + strErr);
             return true;
         } else {
             // нет ошибок
