@@ -306,10 +306,14 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                         execMng.execProc(38, null, null);
                         if (markExecuted(menuGenItg, itm, 0.99D, dt1)) return;
                         break;
+                    case "GEN_ITG":
+                        break;
+                    case "GEN_CHECK_BEFORE_GEN":
+                        break;
                     default:
-                        execMng.setMenuElemState(menuGenItg, "Найдены ошибки при формировании");
-                        log.error("ОШИБКА! Найден необработанный блок case={}!", itm.getCd());
-                        return;
+                        //execMng.setMenuElemState(menuGenItg, "Найдены ошибки при формировании");
+                        log.warn("ПРЕДУПРЕЖДЕНИЕ! Найден необработанный блок case={}!", itm.getCd());
+                        //return;
                 }
             }
             // выполнено всё

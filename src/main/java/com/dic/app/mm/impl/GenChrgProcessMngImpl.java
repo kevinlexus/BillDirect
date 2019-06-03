@@ -435,12 +435,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // Х.В., Г.В., без уровня соцнормы/свыше, электроэнергия
                     // получить объем по нормативу в доле на 1 день
                     // узнать, работал ли хоть один счетчик в данном дне
+                    isMeterExist = meterMng.isExistAnyMeter(lstMeterVol, factUslVol.getId(), curDt);
                     if (Utl.in(fkCalcTp, 17, 31) || (Utl.in(fkCalcTp, 18) &&
                             (!Utl.nvl(kartMain.getIsKran1(), false) ||
-                                    Utl.between(curDt, sprParamMng.getD1("MONTH_HEAT1"),// кран из системы отопления -
+                                    isMeterExist || Utl.between(curDt, sprParamMng.getD1("MONTH_HEAT1"),// кран из системы отопления (не счетчик) -
                                             sprParamMng.getD1("MONTH_HEAT2")) // начислять только в отопительный период
                             ))) {
-                        isMeterExist = meterMng.isExistAnyMeter(lstMeterVol, factUslVol.getId(), curDt);
                         if (reqConf.getTp() == 4) {
                             // начисление по выбранной услуге, по нормативу, для автоначисления
                             isMeterExist = false;
