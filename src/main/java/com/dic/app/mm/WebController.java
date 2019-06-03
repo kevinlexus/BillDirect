@@ -121,13 +121,29 @@ public class WebController implements CommonConstants {
             @RequestParam(value = "nkom") String nkom,
             @RequestParam(value = "oper") String oper,
             @RequestParam(value = "strDtek") String strDtek,
-            @RequestParam(value = "strDtInk") String strDtInk
+            @RequestParam(value = "strDtInk") String strDtInk,
+            @RequestParam(value = "useQueue") int useQueue
     ) {
         log.info("GOT /distKwtpMg with: kwtpMgId={}, lsk={}, strSumma={}, " +
-                        "strPenya={}, strDebt={}, dopl={}, nink={}, nkom={}, oper={}, strDtek={}, strDtInk={}",
-                kwtpMgId, lsk, strSumma, strPenya, strDebt, dopl, nink, nkom, oper, strDtek, strDtInk);
-        distPayQueueMng.queueKwtpMg(new KwtpMgRec(kwtpMgId, lsk, strSumma, strPenya, strDebt,
-                dopl, nink, nkom, oper, strDtek, strDtInk, false));
+                        "strPenya={}, strDebt={}, dopl={}, nink={}, nkom={}, oper={}, strDtek={}, strDtInk={}," +
+                        "useQueue={}",
+                kwtpMgId, lsk, strSumma, strPenya, strDebt, dopl, nink, nkom, oper, strDtek, strDtInk, useQueue);
+        if (useQueue==1) {
+            // использовать очередь (асинхронно)
+            distPayQueueMng.queueKwtpMg(new KwtpMgRec(kwtpMgId, lsk, strSumma, strPenya, strDebt,
+                    dopl, nink, nkom, oper, strDtek, strDtInk, false));
+            log.info("Поставлен в очередь на распределение платеж kwtpMg.id={}", kwtpMgId);
+        } else {
+            // распределить сразу
+            try {
+                distPayMng.distKwtpMg(kwtpMgId, lsk, strSumma, strPenya, strDebt,
+                        dopl, nink, nkom, oper, strDtek, strDtInk, false);
+                log.info("Распределён платеж kwtpMg.id={}", kwtpMgId);
+            } catch (ErrorWhileDistPay e) {
+                log.error(Utl.getStackTraceString(e));
+                return "ERROR";
+            }
+        }
         return "OK";
     }
 

@@ -53,7 +53,6 @@ public class DistPayQueueMngImpl implements DistPayQueueMng {
     @Override
     public synchronized void queueKwtpMg(KwtpMgRec kwtpMgRec) {
         synchronized (lstKwtpMgRec) {
-            log.info("Поставлен в очередь на распределение платеж kwtpMg.id={}", kwtpMgRec.getKwtpMgId());
             lstKwtpMgRec.add(kwtpMgRec);
         }
     }
