@@ -439,4 +439,19 @@ public class WebController implements CommonConstants {
         log.info("ВНИМАНИЕ! Hbernate L2 Кэш очищен!");
         return "OK";
     }
+
+    /**
+     * Перезагрузить сущность Params
+     */
+    @RequestMapping("/reloadParams")
+    @ResponseBody
+    @Transactional
+    public String reloadParams() {
+        Param param = em.find(Param.class, 1);
+        em.refresh(param);
+        log.info("refreshed period={}", config.getPeriod());
+        log.info("ВНИМАНИЕ! Сущность Params перезагружена!");
+        return "OK";
+    }
+
 }

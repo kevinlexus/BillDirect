@@ -10,7 +10,9 @@ import com.dic.bill.model.scott.Kart;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
 
 public interface DebitThrMng {
+	void genDebitUsl(Kart kart, CalcStore calcStore,
+					 CalcStoreLocal localStore);
 
-	List<SumDebRec> genDebitUsl(Kart kart, UslOrg u, CalcStore calcStore, CalcStoreLocal localStore, boolean isCalcPen)
-			throws ErrorWhileChrgPen;
+//	List<SumDebRec> genDebitUsl(Kart kart, UslOrg u, CalcStore calcStore, CalcStoreLocal localStore)
+			//throws ErrorWhileChrgPen;
 }

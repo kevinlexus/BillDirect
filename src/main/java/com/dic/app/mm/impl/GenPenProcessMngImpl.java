@@ -16,11 +16,8 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.stream.Collectors;
 
 /**
  * Сервис формирования задолженностей и пени
@@ -83,27 +80,21 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      * @param isCalcPen - рассчитывать пеню?
      * @param kart      - лиц.счет
      */
-    private void genDebitPen(CalcStore calcStore, boolean isCalcPen, Kart kart) {
+    private void genDebitPen(CalcStore calcStore, boolean isCalcPen, Kart kart) throws ErrorWhileChrgPen {
         Integer period = calcStore.getPeriod();
         Integer periodBack = calcStore.getPeriodBack();
         // ЗАГРУЗИТЬ все финансовые операции по лиц.счету
-        // задолженность предыдущего периода (здесь же заполнены поля по вх.сальдо по пене) - 1
         CalcStoreLocal localStore = new CalcStoreLocal();
+        // задолженность предыдущего периода
         localStore.setLstDebFlow(debDao.getDebitByLsk(kart.getLsk(), periodBack));
-        // задолженность по пене (вх.сальдо) - 8
-        localStore.setLstDebPenFlow(penDao.getPenByLsk(kart.getLsk(), periodBack));
         // текущее начисление - 2
         localStore.setLstChrgFlow(chargeDao.getChargeByLsk(kart.getLsk()));
         // перерасчеты - 5
         localStore.setLstChngFlow(vchangeDetDao.getVchangeDetByLsk(kart.getLsk()));
         // оплата долга - 3
         localStore.setLstPayFlow(kwtpDayDao.getKwtpDaySumByLsk(kart.getLsk()));
-        // оплата пени - 4
-        localStore.setLstPayPenFlow(kwtpDayDao.getKwtpDayPenByLsk(kart.getLsk()));
         // корректировки оплаты - 6
         localStore.setLstPayCorrFlow(correctPayDao.getCorrectPayByLsk(kart.getLsk(), String.valueOf(period)));
-        // корректировки начисления пени - 7
-        localStore.setLstPenChrgCorrFlow(penUslCorrDao.getPenUslCorrByLsk(kart.getLsk()));
         // создать список уникальных элементов услуга+организация
         localStore.createUniqUslOrg();
         // преобразовать String код reu в int, для ускорения фильтров
@@ -111,19 +102,15 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         // получить список уникальных элементов услуга+организация
         List<UslOrg> lstUslOrg = localStore.getUniqUslOrg();
 
-        // Расчет задолженности
-        // обработать каждый элемент услуга+организация
-        List<SumDebRec> lst = lstUslOrg.stream()
-                .flatMap(t -> {
-                    try {
-                        return debitThrMng.genDebitUsl(kart, t, calcStore, localStore, false).stream();
-                    } catch (ErrorWhileChrgPen e) {
-                        log.error(Utl.getStackTraceString(e));
-                        throw new RuntimeException("ОШИБКА в процессе начисления пени по лc.=" + kart.getLsk());
-                    }
-                })
-                .collect(Collectors.toList());
 
+        lstUslOrg.forEach(t-> log.info("usl={}, org={}", t.getUslId(), t.getOrgId()));
+
+
+        // Расчет задолженности, подготовка для расчета пени
+        debitThrMng.genDebitUsl(kart, calcStore, localStore);
+
+
+/*
         // Расчет пени
         List<SumDebRec> lstPen;
         try {
@@ -133,13 +120,14 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
             throw new RuntimeException("ОШИБКА во время расчета пени, лc.=" + kart.getLsk());
         }
 
+
         lstPen.forEach(t-> {
             log.info("TEST: dt={}, mg={}, usl={}, org={}, PenyaIn={}, PenyaCorr={}, PenyaPay={}, PenyaChrg={}, PenChrgCorr={}",
                     t.getDt(), t.getMg(), t.getUslId(), t.getOrgId(), t.getPenyaIn(),
                     t.getPenyaCorr(), t.getPenyaPay(), t.getPenyaChrg(), t.getPenChrgCorr());
         });
-
-        List<SumPenRec> lstGrp;
+*/
+        /*List<SumPenRec> lstGrp;
         if (isCalcPen) {
             // найти совокупные задолженности каждого дня, обнулить пеню, в тех днях, где задолженность = 0
             // по дням
@@ -178,7 +166,9 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
                 throw new RuntimeException("ОШИБКА во время итоговой группировки пени по периодам, лc.=" + kart.getLsk());
             }
 
-        }
+        } */
+
+        /*
         // обновить mgTo записей, если они были расширены до текущего периода
         debDao.delByLskPeriod(kart.getLsk(), period);
         debDao.updByLskPeriod(kart.getLsk(), period, periodBack);
@@ -187,7 +177,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         for (SumPenRec t : lstGrp) {
             // рассчитать исходящее сальдо по пене, сохранить расчет, задолженность
             save(calcStore, kart, localStore, t, isCalcPen);
-        }
+        }*/
     }
 
     /**
@@ -199,6 +189,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      * @param sumPenRec  - расчитанная строка
      * @param isCalcPen  - учитывать пеню
      */
+/*
     private void save(CalcStore calcStore, Kart kart, CalcStoreLocal localStore, SumPenRec sumPenRec, boolean isCalcPen) {
         // флаг создания новой записи
         boolean isCreate = false;
@@ -367,6 +358,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
             }
         }
     }
+*/
 
     /**
      * Сгруппировать по периодам пеню, и долги на дату расчета
@@ -376,21 +368,23 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      */
     private List<SumPenRec> getGroupingPenDeb(List<SumDebRec> lst, boolean isCalcPen) throws ErrorWhileChrgPen {
         // получить долги на последнюю дату
+/*
         List<SumPenRec> lstDebAmnt = lst.stream()
                 .filter(SumDebRec::getIsLastDay)
-                .map(t -> new SumPenRec(t.getDebIn(), t.getPenyaPay(), t.getPayCorr(), t.getDebPay(),
+                .map(t -> new SumPenRec(t.getDebIn(), t.getPayCorr(), t.getDebPay(),
                         t.getChrg(), t.getChng(), t.getUslId(), t.getOrgId(), t.getDebOut(),
-                        t.getDebRolled(), t.getPenyaIn(),
-                        t.getPenyaCorr(), t.getDays(), t.getMg()))
+                        t.getDebRolled(), t.getMg()))
                 .collect(Collectors.toList());
+*/
 
         if (isCalcPen) {
             // сгруппировать начисленную пеню по периодам
             for (SumDebRec t : lst) {
-                addPen(lstDebAmnt, t.getMg(), t.getPenyaChrg());
+                //addPen(lstDebAmnt, t.getMg(), t.getPenyaChrg());
             }
         }
-        return lstDebAmnt;
+        return null;
+//        return lstDebAmnt;
     }
 
     /**

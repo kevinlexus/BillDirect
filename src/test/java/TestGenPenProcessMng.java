@@ -64,7 +64,7 @@ public class TestGenPenProcessMng {
         log.info("Test GenPenProcessMng.testGenDebitPen - Start");
 
         // построить запрос
-        Ko ko = em.find(Ko.class, 104880L);
+        Ko ko = em.find(Ko.class, 104880L); // лиц.сч.№ 00000007
         RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
                 .withTp(1)
                 .withGenDt(Utl.getDateFromStr("30.04.2014"))

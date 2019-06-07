@@ -1,21 +1,22 @@
 package com.dic.app.mm.impl;
 
+import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.DistPayMng;
 import com.dic.app.mm.DistPayQueueMng;
 import com.dic.bill.dto.KwtpMgRec;
+import com.dic.bill.model.scott.Param;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileDistPay;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.SpringApplication;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -37,12 +38,15 @@ public class DistPayQueueMngImpl implements DistPayQueueMng {
 
     @PersistenceContext
     private EntityManager em;
+    private final ConfigApp config;
 
     private final List<KwtpMgRec> lstKwtpMgRec = new ArrayList<>();
     private volatile Boolean isProcessDist = false;
 
-    public DistPayQueueMngImpl(DistPayMng distPayMng) {
+    public DistPayQueueMngImpl(DistPayMng distPayMng, EntityManager em, ConfigApp config) {
         this.distPayMng = distPayMng;
+        this.em = em;
+        this.config = config;
     }
 
     /**
