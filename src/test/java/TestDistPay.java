@@ -69,8 +69,8 @@ public class TestDistPay {
     public void testGetPinSalXitog3ByLsk() throws ErrorWhileDistPay, WrongParam {
         log.info("Test saldoUslDAO.getPinSalXitog3ByLsk");
         List<SumUslOrgRec> lst = saldoUslDAO.getPinSalXitog3ByLsk("00000202", "201403");
-        lst.forEach(t->{
-            log.info("usl={}, org={}, summa={}",t.getUslId(), t.getOrgId(), t.getSumma());
+        lst.forEach(t -> {
+            log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
         });
     }
 
@@ -80,7 +80,7 @@ public class TestDistPay {
     public void testGetCreditSaldoUslWhereDebitExists() throws ErrorWhileDistPay, WrongParam {
         log.info("Test saldoUslDAO.getSaldoUslWhereCreditAndDebitExists");
         List<SaldoUsl> lst = saldoUslDAO.getSaldoUslWhereCreditAndDebitExists("201405");
-        lst.forEach(t->{
+        lst.forEach(t -> {
             log.info("lsk={}, usl={}, org={}, summa={}",
                     t.getKart().getLsk(), t.getUsl().getId(), t.getOrg().getId(), t.getSumma());
         });
@@ -198,7 +198,7 @@ public class TestDistPay {
 
         log.info("Тест-записи - SaldoUsl: Вх.сальдо:");
         List<SumUslOrgDTO> lst = saldoMng.getOutSal(kart, "201404", null, null, true,
-                false, false, false, false, false, null);
+                false, false, false, false, false, null, false, false);
         for (SumUslOrgDTO t : lst) {
             log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
         }
@@ -214,7 +214,7 @@ public class TestDistPay {
         log.info("Тест-записи - Change: Перерасчеты:");
         kart.getChange().forEach(t -> {
             log.info("usl={}, org={}, summa={}", t.getUsl().getId(),
-                    t.getOrg()!=null?t.getOrg().getId():null, t.getSumma());
+                    t.getOrg() != null ? t.getOrg().getId() : null, t.getSumma());
         });
         BigDecimal itgChng = kart.getChange().stream()
                 .map(Change::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -222,7 +222,7 @@ public class TestDistPay {
 
         log.info("Тест-записи - V_CHANGES_FOR_SALDO: Контроль перерасчетов:");
         lst = saldoMng.getOutSal(kart, "201404", null, null,
-                false, false, false, true, false, false, null);
+                false, false, false, true, false, false, null, false, false);
         for (SumUslOrgDTO t : lst) {
             log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
         }
@@ -245,7 +245,7 @@ public class TestDistPay {
 
         log.info("Тест-записи - SaldoUsl: Исх.сальдо:");
         lst = saldoMng.getOutSal(kart, "201404", null, null,
-                true, true, false, true, true, true, null);
+                true, true, false, true, true, true, null, false, false);
         for (SumUslOrgDTO t : lst) {
             log.info("usl={}, org={}, summa={}", t.getUslId(), t.getOrgId(), t.getSumma());
         }

@@ -120,13 +120,13 @@ public class DistPayMngImpl implements DistPayMng {
                         saveKwtpDayLog(amount, "2.1 Распределить по вх.деб.+кред. по списку закрытых орг, c ограничением по исх.сал.");
                         distWithRestriction(amount, 0, true, true,
                                 true, true, true,
-                                true, false, null, true);
+                                true, false, null, true, null);
 
                         saveKwtpDayLog(amount, "2.2 Распределить по вх.деб.+кред. остальные услуги, кроме списка закрытых орг. " +
                                 "без ограничения по исх.сальдо");
                         distWithRestriction(amount, 0, false, null,
                                 null, null, null,
-                                false, true, null, true);
+                                false, true, null, true, null);
                     } else if (amount.getSumma().compareTo(amount.getAmntDebtDopl()) > 0) {
                         saveKwtpDayLog(amount, "3.0 Сумма оплаты > долг за период (переплата)");
                         boolean flag = false;
@@ -141,26 +141,26 @@ public class DistPayMngImpl implements DistPayMng {
                             saveKwtpDayLog(amount, "3.1.2 Распределить по вх.деб.+кред. по списку закрытых орг, c ограничением по исх.сал.");
                             distWithRestriction(amount, 0, true, true,
                                     true, true, true,
-                                    true, false, null, true);
+                                    true, false, null, true, null);
                             if (amount.isExistSumma()) {
                                 saveKwtpDayLog(amount, "3.1.3 Распределить по начислению предыдущего периода={}, без ограничения по исх.сал.",
                                         configApp.getPeriodBack());
                                 distWithRestriction(amount, 3, false, null,
                                         null, null, null,
-                                        false, false, null, true);
+                                        false, false, null, true, null);
                             }
                             if (amount.isExistSumma()) {
                                 saveKwtpDayLog(amount, "3.1.4 Распределить по начислению текущего периода={}, без ограничения по исх.сал.",
                                         configApp.getPeriod());
                                 distWithRestriction(amount, 5, false, null,
                                         null, null, null,
-                                        false, false, null, true);
+                                        false, false, null, true, null);
                             }
                             if (amount.isExistSumma()) {
                                 saveKwtpDayLog(amount, "3.1.5 Распределить по вх.деб.+кред. по всем орг, без ограничения по исх.сал.");
                                 distWithRestriction(amount, 0, false, null,
                                         null, null, null,
-                                        false, false, null, true);
+                                        false, false, null, true, null);
                             }
                         } else {
                             saveKwtpDayLog(amount, "3.2.1 Тип распределения - для УК 14,15 при вх.деб.+вх.кред. <= долг.1 мес.");
@@ -198,20 +198,20 @@ public class DistPayMngImpl implements DistPayMng {
                             saveKwtpDayLog(amount, "4.1.2 Распределить по вх.деб.+кред. по списку закрытых орг, c ограничением по исх.сал.");
                             distWithRestriction(amount, 0, true, true,
                                     true, true, true,
-                                    true, false, null, true);
+                                    true, false, null, true, null);
                             if (amount.isExistSumma()) {
                                 saveKwtpDayLog(amount, "4.1.3 Распределить по вх.деб.+кред. остальные услуги, кроме списка закрытых орг. " +
                                         "без ограничения по исх.сальдо");
                                 distWithRestriction(amount, 0, false, null,
                                         null, null, null,
-                                        false, true, null, true);
+                                        false, true, null, true, null);
                             }
                             if (amount.isExistSumma()) {
                                 saveKwtpDayLog(amount, "4.1.4 Распределить по начислению текущего периода=(), без ограничения по исх.сал.",
                                         configApp.getPeriod());
                                 distWithRestriction(amount, 5, false, null,
                                         null, null, null,
-                                        false, false, null, true);
+                                        false, false, null, true, null);
                             }
                         } else {
                             saveKwtpDayLog(amount, "4.2.1 Тип распределения - для УК 14,15 при сумме недоплаты " +
@@ -221,13 +221,13 @@ public class DistPayMngImpl implements DistPayMng {
                             distWithRestriction(amount, 0, true, true,
                                     true, true,
                                     true, true,
-                                    false, Collections.singletonList("003"), true);
+                                    false, Collections.singletonList("003"), true, null);
                             if (amount.isExistSumma()) {
                                 saveKwtpDayLog(amount, "4.2.3 Распределить по вх.деб.+кред. остальные услуги, кроме списка закрытых орг. и без услуги 003" +
                                         "с ограничением по исх.сальдо");
                                 distWithRestriction(amount, 0, true, true,
                                         true, true, true,
-                                        false, true, Collections.singletonList("003"), true);
+                                        false, true, Collections.singletonList("003"), true, null);
                             }
                             if (amount.isExistSumma()) {
                                 if (amount.getSumma().compareTo(BigDecimal.ZERO) > 0) {
@@ -291,18 +291,18 @@ public class DistPayMngImpl implements DistPayMng {
                     saveKwtpDayLog(amount, "5.0.1 Распределить по уже имеющемуся распределению оплаты");
                     distWithRestriction(amount, 4, false, null,
                             null, null, null,
-                            false, false, null, false);
+                            false, false, null, false, null);
                     if (amount.isExistPenya()) {
                         saveKwtpDayLog(amount, "5.0.2 Остаток распределить по начислению");
                         distWithRestriction(amount, 5, false, null,
                                 null, null, null,
-                                false, false, null, false);
+                                false, false, null, false, null);
                         if (amount.isExistPenya()) {
                             saveKwtpDayLog(amount, "5.0.3 Остаток распределить по вх.сал.пени");
                             distWithRestriction(amount, 6, false, null,
                                     null, null, null,
                                     false, false, null,
-                                    false);
+                                    false, null);
                         }
                         if (amount.isExistPenya()) {
                             if (amount.getKart().getTp().getCd().equals("LSK_TP_MAIN")) {
@@ -352,23 +352,34 @@ public class DistPayMngImpl implements DistPayMng {
                 // ТСЖ
                 if (amount.getSumma().compareTo(BigDecimal.ZERO) > 0) {
                     saveKwtpDayLog(amount, "1.0 Сумма оплаты долга > 0");
-
                     if (Integer.parseInt(amount.getDopl()) >= Integer.parseInt(configApp.getPeriod())) {
                         // текущий или будущий период (аванс) распределить точно по выбранным услугам,
                         // не превышая текущего начисления с учетом текущей оплаты
-                        saveKwtpDayLog(amount, "2.0 Период оплаты >= текущий период");
-                        // выбранные услуги: 011,012, 015,016, 038,039, 033,034
-
-                        distWithRestriction(amount, 5, false, null,
+                        saveKwtpDayLog(amount, "2.0 Период оплаты >= текущий период, распределить по списку услуг, точно");
+                        distWithRestriction(amount, 7, false, null,
                                 null, null, null,
-                                false, false, null, true);
+                                false, false, null,
+                                true, Arrays.asList("011", "012", "015", "016", "038", "039", "033", "034"));
+                        if (amount.isExistSumma()) {
+                            // если всё еще есть остаток суммы, распределить по прочим услугам
+                            saveKwtpDayLog(amount, "2.1 Остаток распределить пропорционально начисления прочих услуг, без ограничений");
+                            distWithRestriction(amount, 5, false, null,
+                                    null, null, null,
+                                    false, false,
+                                    Arrays.asList("011", "012", "015", "016", "038", "039", "033", "034"), true, null);
+                        }
+                        if (amount.isExistSumma()) {
+                            // если всё еще есть остаток суммы, распределить по 003 услуге
+                            saveKwtpDayLog(amount, "2.2 Остаток суммы распределить на услугу usl=003");
+                            distExclusivelyBySingleUslIdUk(amount, "003", true);
+                        }
                     } else {
                         // предыдущий период
                         saveKwtpDayLog(amount, "2.2 Распределить по начислению предыдущего периода={}, без ограничения по исх.сал.",
                                 configApp.getPeriodBack());
                         distWithRestriction(amount, 3, false, null,
                                 null, null, null,
-                                false, false, null, true);
+                                false, false, null, true, null);
                     }
                 }
 
@@ -486,7 +497,8 @@ public class DistPayMngImpl implements DistPayMng {
         // получить вх.общ.сал.
         amount.setInSal(saldoMng.getOutSal(amount.getKart(), configApp.getPeriod(),
                 null, null,
-                true, false, false, false, false, false, null));
+                true, false, false, false, false, false,
+                null, false, false));
         // итог по вх.сал.
         amount.setAmntInSal(amount.getInSal().stream().map(SumUslOrgDTO::getSumma)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
@@ -497,7 +509,7 @@ public class DistPayMngImpl implements DistPayMng {
                 saldoMng.getOutSal(amount.getKart(), configApp.getPeriod(),
                         null, null,
                         false, false, true, false, false, false,
-                        configApp.getPeriodBack());
+                        configApp.getPeriodBack(), false, false);
         // получить итог начисления за прошлый период
         amount.setAmntChrgPrevPeriod(lstChrgPrevPeriod
                 .stream().map(SumUslOrgDTO::getSumma)
@@ -532,7 +544,7 @@ public class DistPayMngImpl implements DistPayMng {
      * Распределить платеж
      *
      * @param amount                   - итоги
-     * @param tp                       - тип 0-по вх.деб.сал.+кред.сал, 1- по начислению+перерасчет-оплата,
+     * @param tp                       - тип 0-по вх.деб.сал.+кред.сал, 1- по начислению,
      *                                 2- по деб.сал-оплата, 3 -по начислению заданного периода
      *                                 4- по уже готовому распределению оплаты долга (распр.пени обычно)
      *                                 5- по начислению текущего периода,
@@ -547,7 +559,7 @@ public class DistPayMngImpl implements DistPayMng {
      * @param isExcludeByClosedOrgList - исключая услуги и организации по списку закрытых организаций?
      * @param lstExcludeUslId          - список Id услуг, которые исключить из базовой коллекции для распределения
      * @param isDistPay                - распределять оплату - да, пеню - нет
-     * @param lstFilterByUslId          - профильтровать по списку Id услуг
+     * @param lstFilterByUslId         - профильтровать по списку Id услуг
      */
     private void distWithRestriction(Amount amount, int tp, boolean isRestrictByOutSal,
                                      Boolean isUseChargeInRestrict, Boolean isUseChangeInRestrict,
@@ -555,7 +567,7 @@ public class DistPayMngImpl implements DistPayMng {
                                      boolean isIncludeByClosedOrgList,
                                      boolean isExcludeByClosedOrgList, List<String> lstExcludeUslId,
                                      boolean isDistPay,
-                 List<String> lstFilterByUslId) throws WrongParam {
+                                     List<String> lstFilterByUslId) throws WrongParam {
         if (!isRestrictByOutSal && isUseChargeInRestrict != null && isUseChangeInRestrict != null
                 && isUseCorrPayInRestrict != null && isUsePayInRestrict != null) {
             throw new WrongParam("Некорректно заполнять isUseChargeInRestrict, isUseChangeInRestrict, " +
@@ -574,10 +586,11 @@ public class DistPayMngImpl implements DistPayMng {
             // получить вх.сал.
             lstDistribBase = new ArrayList<>(amount.getInSal());
         } else if (tp == 1) {
-            // получить начисление+перерасчет-оплата
+            // получить начисление
             List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
                     amount.getLstDistPayment(), amount.getLstDistPayment(),
-                    false, true, false, false, false, false, null);
+                    false, true, false, false,
+                    false, false, null, false, false);
             // фильтровать по положительным значениям
             lstDistribBase = inSal.stream()
                     .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0
@@ -587,7 +600,7 @@ public class DistPayMngImpl implements DistPayMng {
             List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
                     amount.getLstDistPayment(), amount.getLstDistPayment(),
                     false, false, true, false, false, false,
-                    configApp.getPeriodBack());
+                    configApp.getPeriodBack(), false, false);
             // фильтровать по положительным значениям
             lstDistribBase = inSal.stream()
                     .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0
@@ -599,7 +612,8 @@ public class DistPayMngImpl implements DistPayMng {
             // получить начисление текущего периода
             List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
                     null, null,
-                    false, true, false, false, false, false, null);
+                    false, true, false, false, false, false,
+                    null, false, false);
             // фильтровать по положительным значениям
             lstDistribBase = inSal.stream()
                     .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0
@@ -610,10 +624,11 @@ public class DistPayMngImpl implements DistPayMng {
                     .stream().map(t -> new SumUslOrgDTO(t.getUslId(), t.getOrgId(), t.getSumma()))
                     .collect(Collectors.toList());
         } else if (tp == 7) {
-            // получить текущее начисление минус оплата и корректировки по оплате
+            // получить текущее начисление минус оплата за текущий период и корректировки по оплате за текущий период
             List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
                     null, null,
-                    false, true, false, false, true, true, null);
+                    false, true, false, false, false,
+                    false, null, true, true);
             // фильтровать по положительным значениям
             lstDistribBase = inSal.stream()
                     .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0
@@ -628,6 +643,11 @@ public class DistPayMngImpl implements DistPayMng {
         if (lstExcludeUslId != null) {
             lstDistribBase.removeIf(t -> lstExcludeUslId.contains(t.getUslId()));
         }
+        // оставить только услуги по списку
+        if (lstFilterByUslId != null) {
+            lstDistribBase.removeIf(t -> !lstFilterByUslId.contains(t.getUslId()));
+        }
+
         if (isIncludeByClosedOrgList) {
             // оставить только услуги и организации, содержащиеся в списке закрытых орг.
             lstDistribBase.removeIf(t -> amount.getLstSprProcPay()
@@ -656,8 +676,8 @@ public class DistPayMngImpl implements DistPayMng {
         BigDecimal amntSal = lstDistribBase.stream()
                 .map(SumUslOrgDTO::getSumma)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (tp == 1) {
-            saveKwtpDayLog(amount, "Текущее начисление > 0, по лиц.счету lsk={}:",
+        if (Utl.in(tp,1,7)) {
+            saveKwtpDayLog(amount, "Выбранное текущее начисление > 0 для распределения оплаты, по лиц.счету lsk={}:",
                     amount.getKart().getLsk());
         }
         saveKwtpDayLog(amount, "Будет распределено по строкам:");
@@ -666,17 +686,30 @@ public class DistPayMngImpl implements DistPayMng {
                         t.getUslId(), t.getOrgId(), t.getSumma()));
         saveKwtpDayLog(amount, "итого:{}", amntSal);
 
-        // распределить сумму по базе распределения
-        Map<DistributableBigDecimal, BigDecimal> mapDistPay;
-        if (isDistPay) {
-            // распределить оплату
-            mapDistPay =
-                    Utl.distBigDecimalByListIntoMap(amount.getSumma(), lstDistribBase, 2);
+        Map<DistributableBigDecimal, BigDecimal> mapDistPay = null;
+        if (tp==7) {
+            // распределить сумму в точности по услугам
+            if (isDistPay) {
+                // распределить оплату
+                mapDistPay = Utl.distBigDecimalPositiveByListIntoMap(amount.getSumma(), lstDistribBase);
+            } else {
+                // распределить пеню (не должна быть в данном типе распр, но вдруг будет)
+                mapDistPay = Utl.distBigDecimalPositiveByListIntoMap(amount.getPenya(), lstDistribBase);
+            }
         } else {
-            // распределить пеню
-            mapDistPay =
-                    Utl.distBigDecimalByListIntoMap(amount.getPenya(), lstDistribBase, 2);
+            // прочие типы распределения
+            // распределить сумму по базе распределения
+            if (isDistPay) {
+                // распределить оплату
+                mapDistPay =
+                        Utl.distBigDecimalByListIntoMap(amount.getSumma(), lstDistribBase, 2);
+            } else {
+                // распределить пеню
+                mapDistPay =
+                        Utl.distBigDecimalByListIntoMap(amount.getPenya(), lstDistribBase, 2);
+            }
         }
+
         // распечатать предварительное распределение оплаты или сохранить, если не будет ограничения по сальдо
         BigDecimal distSumma = saveDistPay(amount, mapDistPay, !isRestrictByOutSal, isDistPay);
 
@@ -688,7 +721,7 @@ public class DistPayMngImpl implements DistPayMng {
                 List<SumUslOrgDTO> lstOutSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
                         amount.getLstDistPayment(), amount.getLstDistControl(),
                         true, isUseChargeInRestrict, false, isUseChangeInRestrict, isUseCorrPayInRestrict,
-                        isUsePayInRestrict, null);
+                        isUsePayInRestrict, null, false, false);
                 saveKwtpDayLog(amount, "Исх.сальдо по лиц.счету lsk={}:",
                         amount.getKart().getLsk());
                 lstOutSal.forEach(t -> saveKwtpDayLog(amount, "usl={}, org={}, summa={}",
@@ -738,7 +771,7 @@ public class DistPayMngImpl implements DistPayMng {
                 lstOutSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
                         amount.getLstDistPayment(), amount.getLstDistPayment(),
                         true, true, false, true,
-                        true, true, null);
+                        true, true, null, false, false);
                 if (isDistPay) {
                     saveKwtpDayLog(amount, "После распределения оплаты: Исх.сальдо по лиц.счету lsk={}:",
                             amount.getKart().getLsk());
