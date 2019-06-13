@@ -3,23 +3,18 @@ package com.dic.app.mm.impl;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
-import com.dic.app.mm.GenPen;
-import com.ric.cmn.Utl;
-import lombok.AllArgsConstructor;
+import com.dic.bill.dto.*;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.stereotype.Service;
 
 import com.dic.app.mm.DebitThrMng;
-import com.dic.bill.dto.CalcStore;
-import com.dic.bill.dto.CalcStoreLocal;
-import com.dic.bill.dto.SumDebRec;
-import com.dic.bill.dto.UslOrg;
 import com.dic.bill.model.scott.Kart;
-import com.dic.bill.model.scott.Usl;
-import com.ric.cmn.excp.ErrorWhileChrgPen;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,6 +30,49 @@ public class DebitThrMngImpl implements DebitThrMng {
 
     @PersistenceContext
     private EntityManager em;
+
+    @Getter
+    @Setter
+    class DebPeriod {
+        private String uslId;
+        private Integer orgId;
+        private Integer mg;
+
+        private DebPeriod(String uslId, Integer orgId, Integer mg) {
+            this.uslId = uslId;
+            this.orgId = orgId;
+            this.mg = mg;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof DebPeriod)) return false;
+            DebPeriod debPeriod = (DebPeriod) o;
+            return orgId == debPeriod.orgId &&
+                    mg == debPeriod.mg &&
+                    uslId.equals(debPeriod.uslId);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(uslId, orgId, mg);
+        }
+    }
+
+    @Getter
+    @Setter
+    class PeriodSumma {
+        // задолженность
+        private BigDecimal deb;
+        // задолженность для расчета пени
+        private BigDecimal debForPen;
+
+        public PeriodSumma(BigDecimal deb, BigDecimal debForPen) {
+            this.deb = deb;
+            this.debForPen = debForPen;
+        }
+    }
 
 
     /**
@@ -52,64 +90,101 @@ public class DebitThrMngImpl implements DebitThrMng {
         // дата окончания расчета
         Date dt2 = calcStore.getGenDt();
 
-        class DebPeriod {
-            private int mg;
-            // задолженность
-            BigDecimal deb;
-            // задолженность для расчета пени
-            BigDecimal debForPen;
-
-            DebPeriod(int mg, BigDecimal deb, BigDecimal debForPen) {
-                this.mg = mg;
-                this.deb = deb;
-                this.debForPen = debForPen;
-            }
-        }
-
-        // загрузить долги предыдущего периода (вх.сальдо)
-        Map<UslOrg, DebPeriod> mapDebIn = new HashMap<>();
+        // долги предыдущего периода (вх.сальдо)
+        Map<DebPeriod, PeriodSumma> mapDebPart1 = new HashMap<>();
         localStore.getLstDebFlow()
-                .forEach(t -> mapDebIn.put(new UslOrg(t.getUslId(), t.getOrgId()), new DebPeriod(t.getMg(), t.getDebOut(), t.getDebOut())));
+                .forEach(t -> mapDebPart1.put(new DebPeriod(t.getUslId(), t.getOrgId(), t.getMg()),
+                        new PeriodSumma(t.getDebOut(), t.getDebOut())));
 
-        Map<UslOrg, DebPeriod> mapChrg = new HashMap<>();
         // текущее начисление
-        localStore.getLstChrgFlow()
-                .forEach(t -> mapChrg.put(new UslOrg(t.getUslId(), t.getOrgId()), new DebPeriod(t.getMg(), t.getSumma(), t.getSumma())));
+        process(localStore.getLstChrgFlow().stream(), mapDebPart1, null, null, false, calcStore.getPeriod());
 
+        HashMap<DebPeriod, PeriodSumma> mapDebPart2 = null;
         // перебрать все дни с начала месяца по дату расчета, включительно
         Calendar c = Calendar.getInstance();
         for (c.setTime(dt1); !c.getTime().after(dt2); c.add(Calendar.DATE, 1)) {
             Date curDt = c.getTime();
 
+            // восстановить неизменную часть
+            mapDebPart2 = new HashMap<>(mapDebPart1);
+
             // перерасчеты, включая текущий день
-            Map<UslOrg, DebPeriod> mapChng = new HashMap<>();
-            localStore.getLstChngFlow().stream()
-                    .filter(t -> t.getDt().getTime() <= curDt.getTime())
-                    .forEach(t -> mapChng.put(new UslOrg(t.getUslId(), t.getOrgId()),
-                            new DebPeriod(calcStore.getPeriod(), t.getSumma(), t.getSumma())));
+            process(localStore.getLstChngFlow().stream(), mapDebPart2, curDt, null, false, null);
 
             // вычесть оплату долга, включая текущий день поступления - для обычного долга
             // и не включая для расчета пени
-            Map<UslOrg, DebPeriod> mapPayDeb = new HashMap<>();
-            localStore.getLstChngFlow().stream()
-                    .filter(t -> t.getDt().getTime() <= curDt.getTime())
-                    .forEach(t -> mapChng.put(new UslOrg(t.getUslId(), t.getOrgId()),
-                            new DebPeriod(calcStore.getPeriod(),
-                                    t.getSumma().negate(),
-                                    t.getDt().getTime() == curDt.getTime() ? BigDecimal.ZERO : t.getSumma()
-                            )));
+            process(localStore.getLstPayFlow().stream(), mapDebPart2, curDt, curDt, true, null);
+
             // вычесть корректировки оплаты - для расчета долга, включая текущий день
-            Map<UslOrg, DebPeriod> mapPayCorr = new HashMap<>();
-            localStore.getLstPayCorrFlow().stream()
-                    .filter(t -> t.getDt().getTime() <= curDt.getTime())
-                    .forEach(t -> mapChng.put(new UslOrg(t.getUslId(), t.getOrgId()),
-                            new DebPeriod(calcStore.getPeriod(),
-                                    t.getSumma().negate(),
-                                    t.getSumma().negate()
-                            )));
+            process(localStore.getLstPayCorrFlow().stream(), mapDebPart2, curDt, null, true, null);
 
-
+            log.info("Долги на дату: dt={}", curDt);
+            mapDebPart2.forEach((key, value) -> log.info("usl={}, org={}, mg={}, deb={}, debForPen={}",
+                    key.getUslId(), key.getOrgId(), key.getMg(),
+                    value.getDeb(), value.getDebForPen()));
         }
+
+        assert mapDebPart2 != null;
+        mapDebPart2.forEach((key, value) -> log.info("usl={}, org={}, mg={}, deb={}, debForPen={}",
+                key.getUslId(), key.getOrgId(), key.getMg(),
+                value.getDeb(), value.getDebForPen()));
+
+        // Свернуть долги
+
+        // уникальные значения Usl, Org
+        Map<String, Integer> mapUslOrg = mapDebPart2.entrySet().stream()
+                .collect(Collectors.toMap(k -> k.getKey().getUslId(), v -> v.getKey().getOrgId(), (k, v) -> k));
+
+        for (Map.Entry<String, Integer> entry : mapUslOrg.entrySet()) {
+            List<Map.Entry<DebPeriod, PeriodSumma>> mapSorted =
+                    mapDebPart2.entrySet().stream()
+                    .filter(t -> t.getKey().getUslId().equals(entry.getKey())
+                            && t.getKey().getOrgId().equals(entry.getValue()))
+                    .sorted(Comparator.comparing(t -> t.getKey().getMg()))
+                    .collect(Collectors.toList());
+            log.info("Осортировано: usl={}, org={}", entry.getKey(), entry.getValue());
+            mapSorted.forEach(t-> log.info("check mg={}, deb={}, debForPen={}",
+                    t.getKey().getMg(), t.getValue().getDeb(), t.getValue().getDebForPen()));
+        }
+        //mapDebPart2.entrySet().stream().filter(t->t.getKey().)
+    }
+
+    /**
+     * Обработка финансового потока
+     * @param stream - поток
+     * @param mapDeb - результат
+     * @param beforeDt - ограничивать до даты, включительно
+     * @param beforeDtForPen - ограничивать до даты, не включая, для пени
+     * @param isNegate - делать отрицательный знак (для оплаты)
+     * @param curMg - текущий период
+     */
+    private void process(Stream<SumRec> stream, Map<DebPeriod, PeriodSumma> mapDeb,
+                         Date beforeDt, Date beforeDtForPen, boolean isNegate, Integer curMg) {
+        stream
+                .filter(t -> beforeDt == null || t.getDt().getTime() <= beforeDt.getTime()) // ограничить по дате
+                .forEach(t -> {
+                            DebPeriod debPeriod = new DebPeriod(
+                                    t.getUslId(),
+                                    t.getOrgId(),
+                                    curMg != null ? curMg : t.getMg());
+                            BigDecimal debForPen = BigDecimal.ZERO;
+                            // ограничить по дате для долга по пене
+                            if (beforeDtForPen == null || t.getDt().getTime() < beforeDtForPen.getTime()) {
+                                debForPen = isNegate ? t.getSumma().negate() : t.getSumma();
+                            }
+                            PeriodSumma periodSumma =
+                                    new PeriodSumma(isNegate ? t.getSumma().negate() : t.getSumma(), debForPen
+                                    );
+                            PeriodSumma val = mapDeb.get(debPeriod);
+                            if (val == null) {
+                                mapDeb.put(debPeriod, periodSumma);
+                            } else {
+                                val.setDeb(val.getDeb().add(periodSumma.getDeb()));
+                                val.setDebForPen(val.getDebForPen().add(periodSumma.getDebForPen()));
+                            }
+                        }
+                );
+
     }
 
 

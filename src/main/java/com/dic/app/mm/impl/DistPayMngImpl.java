@@ -354,9 +354,11 @@ public class DistPayMngImpl implements DistPayMng {
                     saveKwtpDayLog(amount, "1.0 Сумма оплаты долга > 0");
 
                     if (Integer.parseInt(amount.getDopl()) >= Integer.parseInt(configApp.getPeriod())) {
-                        // текущий или будущий период (аванс)
+                        // текущий или будущий период (аванс) распределить точно по выбранным услугам,
+                        // не превышая текущего начисления с учетом текущей оплаты
                         saveKwtpDayLog(amount, "2.0 Период оплаты >= текущий период");
-                        saveKwtpDayLog(amount, "2.1 Распределить сумму по текущему начислению, не ограничивая");
+                        // выбранные услуги: 011,012, 015,016, 038,039, 033,034
+
                         distWithRestriction(amount, 5, false, null,
                                 null, null, null,
                                 false, false, null, true);
@@ -535,6 +537,7 @@ public class DistPayMngImpl implements DistPayMng {
      *                                 4- по уже готовому распределению оплаты долга (распр.пени обычно)
      *                                 5- по начислению текущего периода,
      *                                 6- распределение пени по вх.саль.до по пене
+     *                                 7- распределение оплаты точно, без округлений по списку услуг
      * @param isRestrictByOutSal       - ограничить по исх.сал. (проверять чтобы не создавалось кред.сальдо)?
      * @param isUseChargeInRestrict    - использовать в ограничении по исх.деб.сал.начисление?
      * @param isUseChangeInRestrict    - использовать в ограничении по исх.деб.сал.перерасчеты?
@@ -544,13 +547,15 @@ public class DistPayMngImpl implements DistPayMng {
      * @param isExcludeByClosedOrgList - исключая услуги и организации по списку закрытых организаций?
      * @param lstExcludeUslId          - список Id услуг, которые исключить из базовой коллекции для распределения
      * @param isDistPay                - распределять оплату - да, пеню - нет
+     * @param lstFilterByUslId          - профильтровать по списку Id услуг
      */
     private void distWithRestriction(Amount amount, int tp, boolean isRestrictByOutSal,
                                      Boolean isUseChargeInRestrict, Boolean isUseChangeInRestrict,
                                      Boolean isUseCorrPayInRestrict, Boolean isUsePayInRestrict,
                                      boolean isIncludeByClosedOrgList,
                                      boolean isExcludeByClosedOrgList, List<String> lstExcludeUslId,
-                                     boolean isDistPay) throws WrongParam {
+                                     boolean isDistPay,
+                 List<String> lstFilterByUslId) throws WrongParam {
         if (!isRestrictByOutSal && isUseChargeInRestrict != null && isUseChangeInRestrict != null
                 && isUseCorrPayInRestrict != null && isUsePayInRestrict != null) {
             throw new WrongParam("Некорректно заполнять isUseChargeInRestrict, isUseChangeInRestrict, " +
@@ -604,6 +609,15 @@ public class DistPayMngImpl implements DistPayMng {
             lstDistribBase = saldoUslDAO.getPinSalXitog3ByLsk(amount.getKart().getLsk(), currPeriod)
                     .stream().map(t -> new SumUslOrgDTO(t.getUslId(), t.getOrgId(), t.getSumma()))
                     .collect(Collectors.toList());
+        } else if (tp == 7) {
+            // получить текущее начисление минус оплата и корректировки по оплате
+            List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
+                    null, null,
+                    false, true, false, false, true, true, null);
+            // фильтровать по положительным значениям
+            lstDistribBase = inSal.stream()
+                    .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0
+                    ).collect(Collectors.toList());
         } else {
             throw new WrongParam("Некорректный параметр tp=" + tp);
         }
