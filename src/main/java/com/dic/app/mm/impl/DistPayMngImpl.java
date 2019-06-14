@@ -359,14 +359,16 @@ public class DistPayMngImpl implements DistPayMng {
                         distWithRestriction(amount, 7, false, null,
                                 null, null, null,
                                 false, false, null,
-                                true, Arrays.asList("011", "012", "015", "016", "038", "039", "033", "034"));
+                                true, Arrays.asList("011", "012", "015", "016", "038", "039",
+                                        "033", "034", "042", "044", "045"));
                         if (amount.isExistSumma()) {
                             // если всё еще есть остаток суммы, распределить по прочим услугам
                             saveKwtpDayLog(amount, "2.1 Остаток распределить пропорционально начисления прочих услуг, без ограничений");
                             distWithRestriction(amount, 5, false, null,
                                     null, null, null,
                                     false, false,
-                                    Arrays.asList("011", "012", "015", "016", "038", "039", "033", "034"), true, null);
+                                    Arrays.asList("011", "012", "015", "016", "038", "039",
+                                            "033", "034", "042", "044", "045"), true, null);
                         }
                         if (amount.isExistSumma()) {
                             // если всё еще есть остаток суммы, распределить по 003 услуге
@@ -676,7 +678,7 @@ public class DistPayMngImpl implements DistPayMng {
         BigDecimal amntSal = lstDistribBase.stream()
                 .map(SumUslOrgDTO::getSumma)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (Utl.in(tp,1,7)) {
+        if (Utl.in(tp, 1, 7)) {
             saveKwtpDayLog(amount, "Выбранное текущее начисление > 0 для распределения оплаты, по лиц.счету lsk={}:",
                     amount.getKart().getLsk());
         }
@@ -687,14 +689,14 @@ public class DistPayMngImpl implements DistPayMng {
         saveKwtpDayLog(amount, "итого:{}", amntSal);
 
         Map<DistributableBigDecimal, BigDecimal> mapDistPay = null;
-        if (tp==7) {
+        if (tp == 7) {
             // распределить сумму в точности по услугам
             if (isDistPay) {
                 // распределить оплату
-                mapDistPay = Utl.distBigDecimalPositiveByListIntoMap(amount.getSumma(), lstDistribBase);
+                mapDistPay = Utl.distBigDecimalPositiveByListIntoMapExact(amount.getSumma(), lstDistribBase);
             } else {
                 // распределить пеню (не должна быть в данном типе распр, но вдруг будет)
-                mapDistPay = Utl.distBigDecimalPositiveByListIntoMap(amount.getPenya(), lstDistribBase);
+                mapDistPay = Utl.distBigDecimalPositiveByListIntoMapExact(amount.getPenya(), lstDistribBase);
             }
         } else {
             // прочие типы распределения
