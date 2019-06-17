@@ -49,9 +49,9 @@ public class DebitThrMngImpl implements DebitThrMng {
             if (this == o) return true;
             if (!(o instanceof DebPeriod)) return false;
             DebPeriod debPeriod = (DebPeriod) o;
-            return orgId == debPeriod.orgId &&
-                    mg == debPeriod.mg &&
-                    uslId.equals(debPeriod.uslId);
+            return Objects.equals(uslId, debPeriod.uslId) &&
+                    Objects.equals(orgId, debPeriod.orgId) &&
+                    Objects.equals(mg, debPeriod.mg);
         }
 
         @Override
@@ -99,6 +99,7 @@ public class DebitThrMngImpl implements DebitThrMng {
         // текущее начисление
         process(localStore.getLstChrgFlow().stream(), mapDebPart1, null, null, false, calcStore.getPeriod());
 
+        // Сгруппировать все операции по усл+орг+период
         HashMap<DebPeriod, PeriodSumma> mapDebPart2 = null;
         // перебрать все дни с начала месяца по дату расчета, включительно
         Calendar c = Calendar.getInstance();
@@ -106,7 +107,11 @@ public class DebitThrMngImpl implements DebitThrMng {
             Date curDt = c.getTime();
 
             // восстановить неизменную часть
-            mapDebPart2 = new HashMap<>(mapDebPart1);
+            mapDebPart2 =
+                    mapDebPart1.entrySet().stream().collect(Collectors.toMap(
+                            k -> new DebPeriod(k.getKey().getUslId(), k.getKey().getOrgId(), k.getKey().getMg()),
+                            v -> new PeriodSumma(v.getValue().getDeb(), v.getValue().getDebForPen()),
+                            (k, v) -> k, HashMap::new));
 
             // перерасчеты, включая текущий день
             process(localStore.getLstChngFlow().stream(), mapDebPart2, curDt, null, false, null);
@@ -118,45 +123,101 @@ public class DebitThrMngImpl implements DebitThrMng {
             // вычесть корректировки оплаты - для расчета долга, включая текущий день
             process(localStore.getLstPayCorrFlow().stream(), mapDebPart2, curDt, null, true, null);
 
-            log.info("Долги на дату: dt={}", curDt);
-            mapDebPart2.forEach((key, value) -> log.info("usl={}, org={}, mg={}, deb={}, debForPen={}",
-                    key.getUslId(), key.getOrgId(), key.getMg(),
-                    value.getDeb(), value.getDebForPen()));
+            log.info("********** Долги на дату: dt={}, lsk={}", curDt, kart.getLsk());
+            mapDebPart2.forEach((key, value) -> {
+                if (key.getUslId().equals("011") && key.getOrgId().equals(3)) {
+                    log.info("долг: usl={}, org={}, mg={}, deb={}, debForPen={}",
+                            key.getUslId(), key.getOrgId(), key.getMg(),
+                            value.getDeb(), value.getDebForPen());
+                    log.info("equals={}", key.getUslId().equals("011"));
+                }
+            });
+
+
+            // Перенести переплату
+            // уникальные значения Usl, Org
+            Map<String, Integer> mapUslOrg = mapDebPart2.entrySet().stream()
+                    .collect(Collectors.toMap(k -> k.getKey().getUslId(), v -> v.getKey().getOrgId(), (k, v) -> k));
+
+            for (Map.Entry<String, Integer> entry : mapUslOrg.entrySet()) {
+                // отсортировать по периоду
+                List<Map.Entry<DebPeriod, PeriodSumma>> mapSorted =
+                        mapDebPart2.entrySet().stream()
+                                .filter(t -> t.getKey().getUslId().equals(entry.getKey())
+                                        && t.getKey().getOrgId().equals(entry.getValue()))
+                                .sorted(Comparator.comparing(t -> t.getKey().getMg()))
+                                .collect(Collectors.toList());
+
+
+                log.info("Осортировано: usl={}, org={}", entry.getKey(), entry.getValue());
+                mapSorted.forEach(t -> log.info("check mg={}, deb={}, debForPen={}",
+                        t.getKey().getMg(), t.getValue().getDeb(), t.getValue().getDebForPen()));
+
+
+                // перенести переплату
+                BigDecimal overPay = BigDecimal.ZERO;
+                BigDecimal overPayForPen = BigDecimal.ZERO;
+                ListIterator<Map.Entry<DebPeriod, PeriodSumma>> itr = mapSorted.listIterator();
+                while (itr.hasNext()) {
+                    Map.Entry<DebPeriod, PeriodSumma> t = itr.next();
+
+                    // долг
+                    if (itr.hasNext()) {
+                        // не последний период, перенести переплату, если есть
+                        if (overPay.add(t.getValue().getDeb()).compareTo(BigDecimal.ZERO) < 0) {
+                            overPay = overPay.add(t.getValue().getDeb());
+                            t.getValue().setDeb(BigDecimal.ZERO);
+                        } else {
+                            t.getValue().setDeb(overPay.add(t.getValue().getDeb()));
+                            overPay = BigDecimal.ZERO;
+                        }
+                    } else {
+                        // последний период
+                        if (overPay.compareTo(BigDecimal.ZERO) != 0) {
+                            t.getValue().setDeb(overPay.add(t.getValue().getDeb()));
+                        }
+                    }
+
+                    // долг для расчета пени
+                    if (itr.hasNext()) {
+                        // не последний период, перенести переплату, если есть
+                        if (overPayForPen.add(t.getValue().getDebForPen()).compareTo(BigDecimal.ZERO) < 0) {
+                            overPayForPen = overPayForPen.add(t.getValue().getDebForPen());
+                            t.getValue().setDebForPen(BigDecimal.ZERO);
+                        } else {
+                            t.getValue().setDebForPen(overPayForPen.add(t.getValue().getDebForPen()));
+                            overPayForPen = BigDecimal.ZERO;
+                        }
+                    } else {
+                        // последний период
+                        if (overPayForPen.compareTo(BigDecimal.ZERO) != 0) {
+                            t.getValue().setDebForPen(overPayForPen.add(t.getValue().getDebForPen()));
+                        }
+                    }
+                }
+            }
+
+            mapDebPart2.entrySet().stream().sorted((Comparator.comparing(o -> o.getKey().getMg())))
+                    .forEach(t -> {
+                        if (t.getKey().getUslId().equals("011") && t.getKey().getOrgId().equals(3)) {
+                            log.info("Свернуто: usl={}, org={}, mg={}, deb={}, debForPen={}",
+                                    t.getKey().getUslId(), t.getKey().getOrgId(), t.getKey().getMg(),
+                                    t.getValue().getDeb(), t.getValue().getDebForPen());
+                        }
+                    });
+
         }
-
-        assert mapDebPart2 != null;
-        mapDebPart2.forEach((key, value) -> log.info("usl={}, org={}, mg={}, deb={}, debForPen={}",
-                key.getUslId(), key.getOrgId(), key.getMg(),
-                value.getDeb(), value.getDebForPen()));
-
-        // Свернуть долги
-
-        // уникальные значения Usl, Org
-        Map<String, Integer> mapUslOrg = mapDebPart2.entrySet().stream()
-                .collect(Collectors.toMap(k -> k.getKey().getUslId(), v -> v.getKey().getOrgId(), (k, v) -> k));
-
-        for (Map.Entry<String, Integer> entry : mapUslOrg.entrySet()) {
-            List<Map.Entry<DebPeriod, PeriodSumma>> mapSorted =
-                    mapDebPart2.entrySet().stream()
-                    .filter(t -> t.getKey().getUslId().equals(entry.getKey())
-                            && t.getKey().getOrgId().equals(entry.getValue()))
-                    .sorted(Comparator.comparing(t -> t.getKey().getMg()))
-                    .collect(Collectors.toList());
-            log.info("Осортировано: usl={}, org={}", entry.getKey(), entry.getValue());
-            mapSorted.forEach(t-> log.info("check mg={}, deb={}, debForPen={}",
-                    t.getKey().getMg(), t.getValue().getDeb(), t.getValue().getDebForPen()));
-        }
-        //mapDebPart2.entrySet().stream().filter(t->t.getKey().)
     }
 
     /**
      * Обработка финансового потока
-     * @param stream - поток
-     * @param mapDeb - результат
-     * @param beforeDt - ограничивать до даты, включительно
+     *
+     * @param stream         - поток
+     * @param mapDeb         - результат
+     * @param beforeDt       - ограничивать до даты, включительно
      * @param beforeDtForPen - ограничивать до даты, не включая, для пени
-     * @param isNegate - делать отрицательный знак (для оплаты)
-     * @param curMg - текущий период
+     * @param isNegate       - делать отрицательный знак (для оплаты)
+     * @param curMg          - текущий период
      */
     private void process(Stream<SumRec> stream, Map<DebPeriod, PeriodSumma> mapDeb,
                          Date beforeDt, Date beforeDtForPen, boolean isNegate, Integer curMg) {
@@ -175,6 +236,7 @@ public class DebitThrMngImpl implements DebitThrMng {
                             PeriodSumma periodSumma =
                                     new PeriodSumma(isNegate ? t.getSumma().negate() : t.getSumma(), debForPen
                                     );
+
                             PeriodSumma val = mapDeb.get(debPeriod);
                             if (val == null) {
                                 mapDeb.put(debPeriod, periodSumma);

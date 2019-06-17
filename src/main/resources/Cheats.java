@@ -165,11 +165,20 @@ public class VchangeDet implements java.io.Serializable {
         Integer lastPeriod=lstDeb.stream().map(t->t.getMg())
         .reduce(Integer::max).orElse(null);
 
-
 // Создать коллекцию другого объекта из stream
         lstDeb.addAll(lstFlow.stream()
         .map(t->new SumDebRec(t.getSumma().negate(),BigDecimal.ZERO,t.getMg()))
         .collect(Collectors.toList()));
+
+// Создать HashMap из другого HashMap
+        HashMap<DebPeriod, PeriodSumma> mapDebPart2 =
+                mapDebPart1.entrySet().stream().collect(Collectors.toMap(
+                k -> new DebPeriod(k.getKey().getUslId(), k.getKey().getOrgId(), k.getKey().getMg()), // ключ
+                v -> new PeriodSumma(v.getValue().getDeb(), v.getValue().getDebForPen()),             // значение
+                (k, v) -> k, // функция, определяющая, что делать в случае появления одинакового ключа (здесь - взять k значение)
+                HashMap::new // создать HashMap
+        ));
+
 
         // Сортировка без компаратора
         // отсортировать по периоду
@@ -194,20 +203,22 @@ public class VchangeDet implements java.io.Serializable {
         .collect(Collectors.toList());
 
         // Anymatch
-        Charge charge : kart.getCharge().stream()
-        .filter(t -> t.getType().equals(1))
-        .filter(t -> t.getUsl().getUslRound().stream()
-        .anyMatch(d -> d.getReu().equals(kart.getUk().getReu())))
-        .sorted(Comparator.comparing(d -> d.getUsl().getId())) // сортировать по коду услуги
+        Charge charge:kart.getCharge().stream()
+        .filter(t->t.getType().equals(1))
+        .filter(t->t.getUsl().getUslRound().stream()
+        .anyMatch(d->d.getReu().equals(kart.getUk().getReu())))
+        .sorted(Comparator.comparing(d->d.getUsl().getId())) // сортировать по коду услуги
         .collect(Collectors.toList())
-// Транзакция
 
+
+
+// Транзакция
 @Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 public Future<Result> chrgAndSaveLsk(RequestConfig reqConfig,Integer kartId)throws ErrorWhileChrg,ExecutionException{
 
 // Округлить до 2 знаков BigDecimal
 // HALF_UP - для использования в деньгах!
-        vl=vl.setScale(2,RoundingMode.HALF_UP);
+vl=vl.setScale(2,RoundingMode.HALF_UP);
 
 // RuntimeException:
 

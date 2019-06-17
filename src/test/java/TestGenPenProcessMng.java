@@ -3,6 +3,7 @@ import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.DistPayMng;
 import com.dic.app.mm.GenPenProcessMng;
+import com.dic.app.mm.impl.DebitThrMngImpl;
 import com.dic.bill.dao.AchargeDAO;
 import com.dic.bill.dao.RedirPayDAO;
 import com.dic.bill.dao.SaldoUslDAO;
@@ -16,6 +17,8 @@ import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
 import com.ric.cmn.excp.ErrorWhileDistPay;
 import com.ric.cmn.excp.WrongParam;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.assertj.core.util.Preconditions;
 import org.junit.Test;
@@ -34,7 +37,10 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.text.ParseException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * Тесты формирования задолженности и пени
@@ -53,18 +59,115 @@ public class TestGenPenProcessMng {
     ConfigApp config;
     @Autowired
     RedirPayDAO redirPayDAO;
+    @Autowired
+    private TestDataBuilder testDataBuilder;
 
     @PersistenceContext
     private EntityManager em;
 
     @Test
-    @Rollback(false)
+    @Rollback(true)
     @Transactional
     public void testGenDebitPen() throws ParseException, ErrorWhileChrgPen {
         log.info("Test GenPenProcessMng.testGenDebitPen - Start");
 
+        // дом
+        House house = new House();
+        Ko houseKo = new Ko();
+        em.persist(houseKo);
+
+        // добавить вводы
+        // без ОДПУ
+        // х.в.
+        testDataBuilder.addVvodForTest(house, "011", 4, false,
+                null, true);
+        // г.в.
+        testDataBuilder.addVvodForTest(house, "015", 4, false,
+                null, true);
+
+        house.setKo(houseKo);
+        house.setKul("0001");
+        house.setNd("000001");
+        em.persist(house);
+
+        // построить лицевые счета по помещению
+        int ukId = 12; // УК 14,15
+        //int ukId = 547; // общий тип распределения
+        Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),
+                3, true, true, 1, 1, ukId);
+        em.persist(ko);
+        String lsk = "РСО_0001";
+        Kart kart = em.find(Kart.class, lsk);
+
+        // Добавить входящую задолженность
+        testDataBuilder.addDebForTest(kart, "011", 3,
+                201401, 201403, 201401, "110.25");
+        testDataBuilder.addDebForTest(kart, "011", 3,
+                201401, 201403, 201402, "50.02");
+        testDataBuilder.addDebForTest(kart, "011", 3,
+                201401, 201403, 201403, "20.70");
+
+        testDataBuilder.addDebForTest(kart, "003", 1,
+                201401, 201403, 201401, "77.84");
+        testDataBuilder.addDebForTest(kart, "005", 10,
+                201401, 201403, 201401, "0.10");
+
+
+        // Добавить текущее начисление
+        testDataBuilder.addChargeForTest(kart, "011", "55.5");
+        testDataBuilder.addChargeForTest(kart, "003", "18.10");
+        testDataBuilder.addChargeForTest(kart, "005", "0.12");
+
+        testDataBuilder.addChargeForTest(kart, "029", "8.10");
+        testDataBuilder.addChargeForTest(kart, "004", "0.02");
+        testDataBuilder.addChargeForTest(kart, "031", "11.10");
+        testDataBuilder.addChargeForTest(kart, "013", "23.16");
+        testDataBuilder.addChargeForTest(kart, "042", "154.21");
+        testDataBuilder.addChargeForTest(kart, "043", "8.17");
+        testDataBuilder.addChargeForTest(kart, "038", "555.70");
+
+        // Добавить перерасчеты
+        String strDt = "06.04.2014";
+        String dopl = "201401";
+        ChangeDoc changeDoc = testDataBuilder.buildChangeDocForTest(strDt, dopl);
+        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
+                "201310", "201310", 1, strDt, "-10.3");
+        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
+                "201311", "201311", 1, strDt, "5.89");
+        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
+                "201312", "201312", 1, strDt, "15.74");
+        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
+                "201401", "201401", 1, strDt, "-10.10");
+        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "012", 5,
+                "201404", "201404", 1, strDt, "7.11");
+        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "013", 12,
+                "201404", "201404", 1, strDt, "3.15");
+        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "006", 8,
+                "201404", "201404", 1, strDt, "-33.15");
+        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "004", null,
+                "201404", "201404", 1, strDt, "-5.90");
+
+        // Добавить платеж
+        Kwtp kwtp = testDataBuilder.buildKwtpForTest(kart, dopl, "10.04.2014", null, 0,
+                "021", "12313", "001", "0000.00", null);
+        KwtpMg kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl, "20.05", "5.12");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 3, "210.22");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 1, "15.05");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 4, "0.12");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "015", 3, "5.00");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "006", 8, "10.33");
+
+        kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl, "75.08", "0.00");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 1, "50.30");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 3, "19.70");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 4, "5.08");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "005", 4, "22.00");
+        // Добавить корректировки оплатой (T_CORRECTS_PAYMENTS)
+        ChangeDoc corrPayDoc = testDataBuilder.buildChangeDocForTest(strDt, dopl);
+        testDataBuilder.addCorrectPayForTest(kart, corrPayDoc, 4, "011", 3,
+                "201401", "201404", "05.04.2014", null, "50.26");
+
         // построить запрос
-        Ko ko = em.find(Ko.class, 104880L); // лиц.сч.№ 00000007
         RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
                 .withTp(1)
                 .withGenDt(Utl.getDateFromStr("30.04.2014"))
@@ -78,7 +181,9 @@ public class TestGenPenProcessMng {
                 .build();
         reqConf.prepareId();
         reqConf.getCalcStore().setDebugLvl(1);
-        genPenProcessMng.genDebitPen(reqConf.getCalcStore(), true, 104880L);
+
+        // рассчитать задолженность, пеню
+        genPenProcessMng.genDebitPen(reqConf.getCalcStore(), true, ko.getId());
 
         log.info("Test GenPenProcessMng.testGenDebitPen - End");
     }

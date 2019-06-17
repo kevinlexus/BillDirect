@@ -377,7 +377,7 @@ public class DistPayMngImpl implements DistPayMng {
                         }
                     } else {
                         // предыдущий период
-                        saveKwtpDayLog(amount, "2.2 Распределить по начислению предыдущего периода={}, без ограничения по исх.сал.",
+                        saveKwtpDayLog(amount, "3.1 Распределить по начислению предыдущего периода={}, без ограничения по исх.сал.",
                                 configApp.getPeriodBack());
                         distWithRestriction(amount, 3, false, null,
                                 null, null, null,

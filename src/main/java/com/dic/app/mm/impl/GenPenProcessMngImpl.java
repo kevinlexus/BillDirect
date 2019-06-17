@@ -11,6 +11,9 @@ import com.ric.cmn.excp.ErrorWhileChrgPen;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -27,7 +30,6 @@ import java.util.ListIterator;
  */
 @Slf4j
 @Service
-@Scope("prototype")
 public class GenPenProcessMngImpl implements GenPenProcessMng {
 
     private final DebDAO debDao;
@@ -66,6 +68,9 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      * @param klskId    - klskId помещения
      */
     @Override
+    @Transactional(
+            propagation = Propagation.REQUIRED,
+            rollbackFor = Exception.class)
     public void genDebitPen(CalcStore calcStore, boolean isCalcPen, long klskId) throws ErrorWhileChrgPen {
         Ko ko = em.find(Ko.class, klskId);
         for (Kart kart : ko.getKart()) {
@@ -103,8 +108,8 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         List<UslOrg> lstUslOrg = localStore.getUniqUslOrg();
 
 
+        log.info("Список уникальных усл.+орг.:");
         lstUslOrg.forEach(t-> log.info("usl={}, org={}", t.getUslId(), t.getOrgId()));
-
 
         // Расчет задолженности, подготовка для расчета пени
         debitThrMng.genDebitUsl(kart, calcStore, localStore);

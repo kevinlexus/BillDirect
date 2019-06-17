@@ -103,10 +103,10 @@ public class TestKart {
 
         // добавить вводы
         // без ОДПУ
-        // Х.в.
+        // х.в.
         testDataBuilder.addVvodForTest(house, "011", 4, false,
                 null, true);
-        // Х.в.
+        // г.в.
         testDataBuilder.addVvodForTest(house, "015", 4, false,
                 null, true);
 

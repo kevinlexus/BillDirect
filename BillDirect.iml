@@ -19,7 +19,7 @@
       </configuration>
     </facet>
     <facet type="Python" name="Python">
-      <configuration sdkName="" />
+      <configuration sdkName="Python 3.7 (PythonEnv)" />
     </facet>
   </component>
   <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_1_8">
@@ -36,6 +36,7 @@
     </content>
     <orderEntry type="jdk" jdkName="1.8" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="Python 3.7 (PythonEnv) interpreter library" level="application" />
     <orderEntry type="library" name="Maven: org.jooq:jool-java-8:0.9.13" level="project" />
     <orderEntry type="module" module-name="DWC" />
     <orderEntry type="module" module-name="BillCommon" />
