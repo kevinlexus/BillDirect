@@ -1,24 +1,21 @@
 package com.dic.app.mm.impl;
 
 import com.dic.app.mm.DebitThrMng;
+import com.dic.app.mm.GenPenMng;
 import com.dic.app.mm.GenPenProcessMng;
 import com.dic.app.mm.ReferenceMng;
 import com.dic.bill.dao.*;
 import com.dic.bill.dto.*;
 import com.dic.bill.model.scott.*;
-import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.ListIterator;
 
@@ -113,65 +110,6 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
 
         // Расчет задолженности, подготовка для расчета пени
         debitThrMng.genDebitUsl(kart, calcStore, localStore);
-
-
-/*
-        // Расчет пени
-        List<SumDebRec> lstPen;
-        try {
-            lstPen = debitThrMng.genDebitUsl(kart, null, calcStore, localStore, isCalcPen);
-        } catch (ErrorWhileChrgPen e) {
-            log.error(Utl.getStackTraceString(e));
-            throw new RuntimeException("ОШИБКА во время расчета пени, лc.=" + kart.getLsk());
-        }
-
-
-        lstPen.forEach(t-> {
-            log.info("TEST: dt={}, mg={}, usl={}, org={}, PenyaIn={}, PenyaCorr={}, PenyaPay={}, PenyaChrg={}, PenChrgCorr={}",
-                    t.getDt(), t.getMg(), t.getUslId(), t.getOrgId(), t.getPenyaIn(),
-                    t.getPenyaCorr(), t.getPenyaPay(), t.getPenyaChrg(), t.getPenChrgCorr());
-        });
-*/
-        /*List<SumPenRec> lstGrp;
-        if (isCalcPen) {
-            // найти совокупные задолженности каждого дня, обнулить пеню, в тех днях, где задолженность = 0
-            // по дням
-            Calendar c = Calendar.getInstance();
-            for (c.setTime(calcStore.getCurDt1()); !c.getTime().after(calcStore.getGenDt()); c.add(Calendar.DATE, 1)) {
-                Date curDt = c.getTime();
-                // суммировать по дате
-                BigDecimal debForPen = lst.stream().filter(t -> t.getDt().equals(curDt))
-                        .map(SumDebRec::getSumma).reduce(BigDecimal.ZERO, BigDecimal::add);
-                if (debForPen.compareTo(BigDecimal.ZERO) <= 0) {
-                    // нет долгов, занулить пеню по всей дате
-                    lst.stream().filter(t -> t.getDt().equals(curDt)).forEach(t -> t.setPenyaChrg(BigDecimal.ZERO));
-                }
-            }
-
-            // СГРУППИРОВАТЬ ПЕНЮ ПО ПЕРИОДАМ
-            try {
-                lstGrp = getGroupingPenDeb(lstPen, isCalcPen);
-            } catch (ErrorWhileChrgPen e) {
-                log.error(Utl.getStackTraceString(e));
-                throw new RuntimeException("ОШИБКА во время итоговой группировки пени по периодам, лc.=" + kart.getLsk());
-            }
-
-            // перенаправить пеню на услугу и организацию по справочнику REDIR_PAY (как перенаправлять, если usl==null? ред.25.05.2019)
-            //redirectPen(kart, lstGrp);
-
-            // удалить записи текущего периода, если они были созданы
-            penDao.delByLskPeriod(kart.getLsk(), period);
-            penDao.updByLskPeriod(kart.getLsk(), period, periodBack);
-
-        } else {
-            try {
-                lstGrp = getGroupingPenDeb(lst, isCalcPen);
-            } catch (ErrorWhileChrgPen e) {
-                log.error(Utl.getStackTraceString(e));
-                throw new RuntimeException("ОШИБКА во время итоговой группировки пени по периодам, лc.=" + kart.getLsk());
-            }
-
-        } */
 
         /*
         // обновить mgTo записей, если они были расширены до текущего периода

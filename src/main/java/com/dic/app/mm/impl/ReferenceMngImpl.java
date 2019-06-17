@@ -43,6 +43,8 @@ public class ReferenceMngImpl implements ReferenceMng {
 			key="{#uslId, #orgId, #kart.getLsk(), #tp}" )
 	public UslOrg getUslOrgRedirect(String uslId, Integer orgId, Kart kart, Integer tp) {
 		UslOrg uo = new UslOrg(null, null);
+		log.info("tp={},getUk()={},getReu()={}, uslId={}, orgId={}", tp,
+				kart.getUk().getReu(), uslId, orgId);
 		List<RedirPay> lst = redirPayDao.getRedirPayOrd(tp,
 				kart.getUk().getReu(), uslId, orgId) .stream()
 			.filter(t->  t.getUk()==null || t.getUk() // либо заполненный УК, либо пуст

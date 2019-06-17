@@ -134,8 +134,8 @@ public class TestGenPenProcessMng {
                 "201310", "201310", 1, strDt, "-10.3");
         testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
                 "201311", "201311", 1, strDt, "5.89");
-        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
-                "201312", "201312", 1, strDt, "15.74");
+        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "012", 3,
+                "201312", "201312", 1, strDt, "15000.74");
         testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
                 "201401", "201401", 1, strDt, "-10.10");
         testDataBuilder.addChangeForTest(kart, changeDoc, 4, "012", 5,
@@ -170,7 +170,7 @@ public class TestGenPenProcessMng {
         // построить запрос
         RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
                 .withTp(1)
-                .withGenDt(Utl.getDateFromStr("30.04.2014"))
+                .withGenDt(Utl.getDateFromStr("28.04.2014"))
                 .withKo(ko)
                 .withCurDt1(config.getCurDt1())
                 .withCurDt2(config.getCurDt2())
