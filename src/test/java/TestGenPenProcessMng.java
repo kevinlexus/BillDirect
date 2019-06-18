@@ -5,6 +5,7 @@ import com.dic.app.mm.DistPayMng;
 import com.dic.app.mm.GenPenProcessMng;
 import com.dic.app.mm.impl.DebitThrMngImpl;
 import com.dic.bill.dao.AchargeDAO;
+import com.dic.bill.dao.PenCurDAO;
 import com.dic.bill.dao.RedirPayDAO;
 import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dto.CalcStore;
@@ -60,6 +61,9 @@ public class TestGenPenProcessMng {
     @Autowired
     RedirPayDAO redirPayDAO;
     @Autowired
+    PenCurDAO penCurDAO;
+
+    @Autowired
     private TestDataBuilder testDataBuilder;
 
     @PersistenceContext
@@ -70,7 +74,6 @@ public class TestGenPenProcessMng {
     @Transactional
     public void testGenDebitPen() throws ParseException, ErrorWhileChrgPen {
         log.info("Test GenPenProcessMng.testGenDebitPen - Start");
-
         // дом
         House house = new House();
         Ko houseKo = new Ko();
@@ -130,9 +133,9 @@ public class TestGenPenProcessMng {
         String strDt = "06.04.2014";
         String dopl = "201401";
         ChangeDoc changeDoc = testDataBuilder.buildChangeDocForTest(strDt, dopl);
-        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
-                "201310", "201310", 1, strDt, "-10.3");
-        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
+        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 5,
+                "201402", "201402", 1, strDt, "-10.3");
+/*        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
                 "201311", "201311", 1, strDt, "5.89");
         testDataBuilder.addChangeForTest(kart, changeDoc, 4, "012", 3,
                 "201312", "201312", 1, strDt, "15000.74");
@@ -146,11 +149,12 @@ public class TestGenPenProcessMng {
                 "201404", "201404", 1, strDt, "-33.15");
         testDataBuilder.addChangeForTest(kart, changeDoc, 4, "004", null,
                 "201404", "201404", 1, strDt, "-5.90");
-
+*/
         // Добавить платеж
-        Kwtp kwtp = testDataBuilder.buildKwtpForTest(kart, dopl, "10.04.2014", null, 0,
+/*        Kwtp kwtp = testDataBuilder.buildKwtpForTest(kart, dopl, "10.04.2014", null, 0,
                 "021", "12313", "001", "0000.00", null);
         KwtpMg kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl, "20.05", "5.12");
+        //testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "015", 5, "210.22");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 3, "210.22");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 1, "15.05");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 4, "0.12");
@@ -166,7 +170,7 @@ public class TestGenPenProcessMng {
         ChangeDoc corrPayDoc = testDataBuilder.buildChangeDocForTest(strDt, dopl);
         testDataBuilder.addCorrectPayForTest(kart, corrPayDoc, 4, "011", 3,
                 "201401", "201404", "05.04.2014", null, "50.26");
-
+*/
         // построить запрос
         RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
                 .withTp(1)
@@ -184,6 +188,9 @@ public class TestGenPenProcessMng {
 
         // рассчитать задолженность, пеню
         genPenProcessMng.genDebitPen(reqConf.getCalcStore(), true, ko.getId());
+
+        // для того чтобы увидеть insert-ы в тестом режиме
+        penCurDAO.findAll().size();
 
         log.info("Test GenPenProcessMng.testGenDebitPen - End");
     }

@@ -179,6 +179,13 @@ public class VchangeDet implements java.io.Serializable {
                 HashMap::new // создать HashMap
         ));
 
+        // merge Map - Integer
+        mapPenDays.merge(mg, 1, (k,v)->k+1); // увеличить значение на 1 или записать 1 если не было значения
+
+        // merge Map - BigDecimal
+        // добавить сумму пени за 1 день
+        mapPen.merge(mg, var1, BigDecimal::add); // увеличить значение, добавив переменную var1 или записать 1 если не было значения
+
 
         // Сортировка без компаратора
         // отсортировать по периоду
@@ -201,6 +208,16 @@ public class VchangeDet implements java.io.Serializable {
         .thenComparing((UslPriceVolKartDt o1)->o1.dtFrom)
         )
         .collect(Collectors.toList());
+
+        // сортировка Map
+        Map<Date, Map<Integer, BigDecimal>> lll = mapDebForPen
+        .entrySet()
+        .stream()
+        .sorted(comparingByKey()) // обязательно LinkedHashMap (упорядоченное добавление элементов), иначе не отсортирует
+        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2, LinkedHashMap::new));
+        for (Map.Entry<Date, Map<Integer, BigDecimal>> dtEntry : lll.entrySet()){
+          log.info("отсортировано: dt={}", dtEntry);
+        }
 
         // Anymatch
         Charge charge:kart.getCharge().stream()
