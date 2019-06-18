@@ -248,7 +248,7 @@ public class DistPayMngImpl implements DistPayMng {
                                     null, false);
                             if (amount.isExistSumma()) {
                                 saveKwtpDayLog(amount, "4.2.3 Распределить по вх.деб.+кред. остальные услуги, " +
-                                        "кроме списка закрытых орг. и без услуги 003" +
+                                        "кроме списка закрытых орг. и без услуги 003 " +
                                         "с ограничением по ВХ.сальдо");
                                 distWithRestriction(amount, 0, false, null,
                                         null, null, null,
@@ -759,24 +759,41 @@ public class DistPayMngImpl implements DistPayMng {
         }
 
         // распечатать предварительное распределение оплаты или сохранить, если не будет ограничения по сальдо
-        BigDecimal distSumma = saveDistPay(amount, mapDistPay, !isRestrictByOutSal, isDistPay);
+        BigDecimal distSumma = saveDistPay(amount, mapDistPay, !(isRestrictByOutSal || isRestrictByInSal), isDistPay);
 
-        if (isRestrictByOutSal) {
-            saveKwtpDayLog(amount, "Сумма для распределения будет ограничена по исх.сальдо");
+        if (isRestrictByOutSal || isRestrictByInSal) {
+            if (isRestrictByOutSal) {
+                saveKwtpDayLog(amount, "Сумма для распределения будет ограничена по исх.сальдо");
+            } else {
+                saveKwtpDayLog(amount, "Сумма для распределения будет ограничена по вх.сальдо");
+            }
             if (distSumma.compareTo(BigDecimal.ZERO) != 0) {
                 // Ограничить суммы  распределения по услугам, чтобы не было кредитового сальдо
                 // получить сумму исходящего сальдо, учитывая все операции
-                List<SumUslOrgDTO> lstOutSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
-                        amount.getLstDistPayment(), amount.getLstDistControl(),
-                        true, isUseChargeInRestrict, false, isUseChangeInRestrict,
-                        isUseCorrPayInRestrict,
-                        isUsePayInRestrict, null, false, false);
-                saveKwtpDayLog(amount, "Исх.сальдо по лиц.счету lsk={}:",
-                        amount.getKart().getLsk());
+                List<SumUslOrgDTO> lstOutSal = null;
+                if (isRestrictByOutSal) {
+                    lstOutSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
+                            amount.getLstDistPayment(), amount.getLstDistControl(),
+                            true, isUseChargeInRestrict, false, isUseChangeInRestrict,
+                            isUseCorrPayInRestrict,
+                            isUsePayInRestrict, null, false, false);
+                } else {
+                    lstOutSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
+                            amount.getLstDistPayment(), amount.getLstDistControl(),
+                            true, false, false, false,
+                            false,false, null, false, false);
+                }
+                if (isRestrictByOutSal) {
+                    saveKwtpDayLog(amount, "Исх.сальдо по лиц.счету lsk={}:",
+                            amount.getKart().getLsk());
+                } else {
+                    saveKwtpDayLog(amount, "Вх.сальдо по лиц.счету lsk={}:",
+                            amount.getKart().getLsk());
+                }
                 lstOutSal.forEach(t -> saveKwtpDayLog(amount, "usl={}, org={}, summa={}",
                         t.getUslId(), t.getOrgId(), t.getSumma()));
 
-                // ограничить суммы распределения по исх.сал.
+                // ограничить суммы распределения по исх. или вх. сал.
                 for (Map.Entry<DistributableBigDecimal, BigDecimal> dist : mapDistPay.entrySet()) {
                     SumUslOrgDTO distRec = (SumUslOrgDTO) dist.getKey();
                     if (dist.getValue().compareTo(BigDecimal.ZERO) != 0) {
@@ -808,15 +825,22 @@ public class DistPayMngImpl implements DistPayMng {
                                         }
                                     }
 
-                                    saveKwtpDayLog(amount,
-                                            "распределение ограничено по исх.сал. usl={}, org={}, summa={}",
-                                            sal.getUslId(), sal.getOrgId(), dist.getValue());
+                                    if (isRestrictByOutSal) {
+                                        saveKwtpDayLog(amount,
+                                                "распределение ограничено по исх.сал. usl={}, org={}, summa={}",
+                                                sal.getUslId(), sal.getOrgId(), dist.getValue());
+                                    } else {
+                                        saveKwtpDayLog(amount,
+                                                "распределение ограничено по вх.сал. usl={}, org={}, summa={}",
+                                                sal.getUslId(), sal.getOrgId(), dist.getValue());
+                                    }
                                 });
                     }
                 }
 
                 // сохранить, распечатать распределение оплаты
                 distSumma = saveDistPay(amount, mapDistPay, true, isDistPay);
+                // получить, распечатать исходящее сальдо
                 lstOutSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
                         amount.getLstDistPayment(), amount.getLstDistPayment(),
                         true, true, false, true,
