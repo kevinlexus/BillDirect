@@ -62,6 +62,8 @@ public class TestGenPenProcessMng {
     RedirPayDAO redirPayDAO;
     @Autowired
     PenCurDAO penCurDAO;
+    @Autowired
+    AchargeDAO achargeDAO;
 
     @Autowired
     private TestDataBuilder testDataBuilder;
@@ -74,6 +76,16 @@ public class TestGenPenProcessMng {
     @Transactional
     public void testGenDebitPen() throws ParseException, ErrorWhileChrgPen {
         log.info("Test GenPenProcessMng.testGenDebitPen - Start");
+
+        log.info("size={}", achargeDAO.getChrgGrp("00000007", 201404, 3));
+
+        if (1==1) throw new RuntimeException("");
+/*
+        Kart kart = em.find(Kart.class, "00000007");
+        Ko ko = kart.getKoKw();
+*/
+
+
         // дом
         House house = new House();
         Ko houseKo = new Ko();
@@ -135,6 +147,7 @@ public class TestGenPenProcessMng {
         ChangeDoc changeDoc = testDataBuilder.buildChangeDocForTest(strDt, dopl);
         testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 5,
                 "201402", "201402", 1, strDt, "-10.3");
+
 /*        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
                 "201311", "201311", 1, strDt, "5.89");
         testDataBuilder.addChangeForTest(kart, changeDoc, 4, "012", 3,

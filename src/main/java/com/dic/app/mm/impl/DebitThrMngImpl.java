@@ -9,6 +9,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import com.dic.app.mm.GenPenMng;
+import com.dic.bill.dao.DebDAO;
 import com.dic.bill.dao.PenCurDAO;
 import com.dic.bill.dto.*;
 import com.dic.bill.model.scott.*;
@@ -40,11 +41,13 @@ public class DebitThrMngImpl implements DebitThrMng {
     private EntityManager em;
     private final GenPenMng genPenMng;
     private final PenCurDAO penCurDAO;
+    private final DebDAO debDAO;
 
-    public DebitThrMngImpl(EntityManager em, GenPenMng genPenMng, PenCurDAO penCurDAO) {
+    public DebitThrMngImpl(EntityManager em, GenPenMng genPenMng, PenCurDAO penCurDAO, DebDAO debDAO) {
         this.em = em;
         this.genPenMng = genPenMng;
         this.penCurDAO = penCurDAO;
+        this.debDAO = debDAO;
     }
 
     @Getter
@@ -118,6 +121,10 @@ public class DebitThrMngImpl implements DebitThrMng {
         // текущее начисление
         process(localStore.getLstChrgFlow().stream(), mapDebPart1, null, null, false, calcStore.getPeriod());
 
+        // обновить mgTo записей, если они были расширены до текущего периода
+        debDAO.delByLskPeriod(kart.getLsk(), calcStore.getPeriod());
+        debDAO.updByLskPeriod(kart.getLsk(), calcStore.getPeriod(), calcStore.getPeriodBack());
+
         HashMap<DebPeriod, PeriodSumma> mapDebPart2 = null;
         // долги для расчета пени по дням - совокупно все услуги - упорядоченный по элементам LinkedHashMap
         Map<Date, Map<Integer, BigDecimal>> mapDebForPen = new LinkedHashMap<>();
@@ -145,15 +152,11 @@ public class DebitThrMngImpl implements DebitThrMng {
 
             log.info("********** Долги на дату: dt={}, lsk={}", dt, kart.getLsk());
 
-
-            // TODO Сохранить в DEB несвернутые долги на последнюю дату расчета!
+            // сохранить несвернутые долги на последнюю дату в DEB
             if (dt.getTime() == dt2.getTime()) {
                 mapDebPart2.forEach((k,v)-> saveDeb(calcStore, kart, localStore,
                         k.getUslId(), k.getOrgId(), k.getMg(), v.deb));
             }
-
-
-
             /*
             mapDebPart2.forEach((key, value) -> {
                 if (key.getUslId().equals("011") && key.getOrgId().equals(3)) {
@@ -178,7 +181,7 @@ public class DebitThrMngImpl implements DebitThrMng {
             groupByDateMg(mapDebPart2, mapDebForPen, dt);
 
         }
-        // рассчитать пеню
+        // рассчитать и сохранить пеню
         genPen(kart, calcStore, mapDebForPen);
 
     }
@@ -286,7 +289,8 @@ public class DebitThrMngImpl implements DebitThrMng {
         }
 
 
-        // сохранить пеню в C_PEN_CUR
+        // сохранить пеню в C_PEN_CUR (C_PEN_CUR нужен для Директа: Пасп.стол->Справка по пене, а так же для распределения
+        // текущей пени для оборотки - t_chpenya_for_saldo)
         penCurDAO.deleteByLsk(kart.getLsk());
         mapPen.forEach((key, value) -> {
                     Integer days = mapPenDays.get(key);
