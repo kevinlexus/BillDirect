@@ -77,6 +77,13 @@ public class TestGenPenProcessMng {
     public void testGenDebitPen() throws ParseException, ErrorWhileChrgPen {
         log.info("Test GenPenProcessMng.testGenDebitPen - Start");
 
+        achargeDAO.getChrgGrp("00000007", 201404, 3).stream()
+                .forEach(t-> {
+                    log.info("ulist={}, chrg={}, chng={}, price={}, sqr={}, ulistId={}, vol={}, norm={}",
+                            t.getUlist(), t.getChrg(), t.getChng(), t.getPrice(),
+                            t.getSqr(), t.getUlistId(), t.getVol(), t.getNorm());
+                });
+
         log.info("size={}", achargeDAO.getChrgGrp("00000007", 201404, 3));
 
         if (1==1) throw new RuntimeException("");
