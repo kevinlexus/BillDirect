@@ -38,6 +38,8 @@ public class GenPenMngImpl implements GenPenMng {
         BigDecimal penya;
         // % по которому рассчитана пеня (информационно)
         BigDecimal proc;
+        // ставка рефинансирования, по которой расчитана пеня
+        Stavr stavr;
     }
 
     /**
@@ -67,18 +69,19 @@ public class GenPenMngImpl implements GenPenMng {
         if (days > 0) {
             // пеня возможна, если есть кол-во дней долга
             //log.info(" spr={}, cur={}, days={}", sprPenUsl.getTs(), curDt, days);
-            Stavr penRef = calcStore.getLstStavr().stream()
+            Stavr stavr = calcStore.getLstStavr().stream()
                     .filter(t -> t.getTp().equals(kart.getTp())) // фильтр по типу лиц.счета
                     .filter(t -> days >= t.getDays1() && days <= t.getDays2()) // фильтр по кол-ву дней долга
                     .filter(t -> Utl.between(curDt, t.getDt1(), t.getDt2())) // фильтр по дате расчета в справочнике
                     .findFirst().orElse(null);
-            PenDTO pen = new PenDTO();
+            PenDTO penDTO = new PenDTO();
             // расчет пени = долг * процент/100
-            assert penRef != null;
-            pen.proc = penRef.getProc();
-            pen.penya = summa.multiply(pen.proc).divide(new BigDecimal(100), RoundingMode.HALF_UP);
-            pen.days = days;
-            return pen;
+            assert stavr != null;
+            penDTO.proc = stavr.getProc();
+            penDTO.penya = summa.multiply(penDTO.proc).divide(new BigDecimal(100), RoundingMode.HALF_UP);
+            penDTO.days = days;
+            penDTO.stavr = stavr;
+            return penDTO;
         } else {
             // нет пени
             return null;

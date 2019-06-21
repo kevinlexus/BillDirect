@@ -262,11 +262,58 @@ public class DebitThrMngImpl implements DebitThrMng {
      * @param mapDebForPen - долги для расчета пени
      */
     private void genPen(Kart kart, CalcStore calcStore, Map<Date, Map<Integer, BigDecimal>> mapDebForPen) {
+        // запись пени
+        @Getter @Setter
+        class PenCurRec {
+            // период долга
+            int mg;
+            // кол-во дней расчета пени
+            int days = 1;
+            // долг для расчета пени
+            BigDecimal debForPen;
+            // пеня
+            BigDecimal pen = BigDecimal.ZERO;
+            // ставка рефинансирования
+            Stavr stavr;
+            // дата начала
+            Date dt1;
+            // дата окончания
+            Date dt2;
+
+            public PenCurRec(int mg, BigDecimal debForPen, BigDecimal pen, Stavr stavr, Date dt1, Date dt2) {
+                this.mg = mg;
+                this.debForPen = debForPen;
+                this.pen = pen;
+                this.stavr = stavr;
+                this.dt1 = dt1;
+                this.dt2 = dt2;
+            }
+
+            /**
+             * сравнить запись
+             * @param mg - период
+             * @param debForPen - долг для расчета пени
+             * @param stavr - ставка реф.
+             * @param dt2 - дата окончания
+             */
+            boolean compareWith(int mg, BigDecimal debForPen, Stavr stavr, Date dt2) {
+                return mg==mg && this.debForPen.equals(debForPen)
+                        && this.stavr.equals(stavr) && this.dt2.equals(dt2);
+            }
+            void addPenDay(BigDecimal pen) {
+                this.pen = this.pen.add(pen);
+                this.days++;
+            }
+        }
+
         // расчитать пеню по долгам
         // кол-во дней начисления пени на дату расчета, по периодам задолженности
-        Map<Integer, Integer> mapPenDays = new HashMap<>();
+        //Map<Integer, Integer> mapPenDays = new HashMap<>();
+        // пеня для C_PEN_CUR
+        List<PenCurRec> lstPenCurRec = new ArrayList<>(10);
+
         // сумма пени на дату расчета, по периодам задолженности
-        Map<Integer, BigDecimal> mapPen = new HashMap<>();
+        //Map<Integer, BigDecimal> mapPen = new HashMap<>();
         for (Map.Entry<Date, Map<Integer, BigDecimal>> dtEntry : mapDebForPen.entrySet()) {
             Date dt = dtEntry.getKey();
             for (Map.Entry<Integer, BigDecimal> entry : dtEntry.getValue().entrySet()) {
@@ -277,12 +324,21 @@ public class DebitThrMngImpl implements DebitThrMng {
                     // расчет пени
                     GenPenMngImpl.PenDTO penDto = genPenMng.getPen(calcStore, debForPen, mg, kart, dt);
                     if (penDto != null) {
+
+                        Optional<PenCurRec> opt = lstPenCurRec.stream()
+                                .findFirst()
+                                .filter(t -> t.compareWith(mg, debForPen, penDto.getStavr(), dt2222));
+                                //.ifPresent(t -> t.addPenDay(penDto.getPenya()));;
+                        opt.ifPresent(t -> t.addPenDay(penDto.getPenya()));
+                        opt.orElse(lstPenCurRec.add(new PenCurRec(mg, debForPen, penDto.getPenya(), penDto.getStavr(), dt, dt22222) ))
+
                         // добавить 1 день расчета пени
-                        mapPenDays.merge(mg, 1, (k, v) -> k + 1);
+                        //mapPenDays.merge(mg, 1, (k, v) -> k + 1);
                         // добавить сумму пени за 1 день
                         mapPen.merge(mg, penDto.getPenya(), BigDecimal::add);
-                        log.info("Пеня: debForPen={}, dt={}, mg={}, days={}, penya={}, proc={}",
-                                debForPen, Utl.getStrFromDate(dt), mg, penDto.getDays(), penDto.getPenya(), penDto.getProc());
+                        log.info("Пеня: debForPen={}, dt={}, mg={}, days={}, penya={}, proc={}, Stavr.id={}",
+                                debForPen, Utl.getStrFromDate(dt), mg, penDto.getDays(), penDto.getPenya(), penDto.getProc(),
+                                penDto.getStavr().getId());
                     }
                 }
             }
