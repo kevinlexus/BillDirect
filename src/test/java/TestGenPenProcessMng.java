@@ -38,10 +38,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.text.ParseException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * Тесты формирования задолженности и пени
@@ -112,20 +109,20 @@ public class TestGenPenProcessMng {
 
         // Добавить входящую задолженность
         testDataBuilder.addDebForTest(kart, "011", 3,
-                201401, 201403, 201401, "110.25");
+                201401, 201403, 201401, "100.00");
         testDataBuilder.addDebForTest(kart, "011", 3,
-                201401, 201403, 201402, "50.02");
+                201401, 201403, 201402, "50.00");
         testDataBuilder.addDebForTest(kart, "011", 3,
-                201401, 201403, 201403, "20.70");
+                201401, 201403, 201403, "20.00");
 
-        testDataBuilder.addDebForTest(kart, "003", 1,
+/*        testDataBuilder.addDebForTest(kart, "003", 1,
                 201401, 201403, 201401, "77.84");
         testDataBuilder.addDebForTest(kart, "005", 10,
                 201401, 201403, 201401, "0.10");
-
+*/
 
         // Добавить текущее начисление
-        testDataBuilder.addChargeForTest(kart, "011", "55.5");
+        testDataBuilder.addChargeForTest(kart, "011", "70.0");
         testDataBuilder.addChargeForTest(kart, "003", "18.10");
         testDataBuilder.addChargeForTest(kart, "005", "0.12");
 
@@ -139,12 +136,12 @@ public class TestGenPenProcessMng {
 
         // Добавить перерасчеты
         String strDt = "06.04.2014";
-        String dopl = "201401";
+        String dopl = "201402";
         ChangeDoc changeDoc = testDataBuilder.buildChangeDocForTest(strDt, dopl);
-        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 5,
-                "201402", "201402", 1, strDt, "-10.3");
+        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
+                "201402", "201402", 1, strDt, "-5.0");
 
-/*        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
+        testDataBuilder.addChangeForTest(kart, changeDoc, 4, "011", 3,
                 "201311", "201311", 1, strDt, "5.89");
         testDataBuilder.addChangeForTest(kart, changeDoc, 4, "012", 3,
                 "201312", "201312", 1, strDt, "15000.74");
@@ -158,13 +155,12 @@ public class TestGenPenProcessMng {
                 "201404", "201404", 1, strDt, "-33.15");
         testDataBuilder.addChangeForTest(kart, changeDoc, 4, "004", null,
                 "201404", "201404", 1, strDt, "-5.90");
-*/
         // Добавить платеж
-/*        Kwtp kwtp = testDataBuilder.buildKwtpForTest(kart, dopl, "10.04.2014", null, 0,
+        Kwtp kwtp = testDataBuilder.buildKwtpForTest(kart, dopl, "10.04.2014", null, 0,
                 "021", "12313", "001", "0000.00", null);
-        KwtpMg kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl, "20.05", "5.12");
+        KwtpMg kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl, "20.05", "0.00");
         //testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "015", 5, "210.22");
-        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 3, "210.22");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 3, "200.00");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 1, "15.05");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 4, "0.12");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "015", 3, "5.00");
@@ -176,10 +172,11 @@ public class TestGenPenProcessMng {
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 4, "5.08");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "005", 4, "22.00");
         // Добавить корректировки оплатой (T_CORRECTS_PAYMENTS)
+
         ChangeDoc corrPayDoc = testDataBuilder.buildChangeDocForTest(strDt, dopl);
         testDataBuilder.addCorrectPayForTest(kart, corrPayDoc, 4, "011", 3,
                 "201401", "201404", "05.04.2014", null, "50.26");
-*/
+
         // построить запрос
         RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
                 .withTp(1)

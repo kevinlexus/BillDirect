@@ -1,12 +1,12 @@
 describe("Ext.form.field.Date", function() {
     var component, makeComponent;
-    
+
     function clickTrigger() {
         var trigger = component.getTrigger('picker').getEl(),
             xy = trigger.getXY();
         jasmine.fireMouseEvent(trigger.dom, 'click', xy[0], xy[1]);
     }
-    
+
     function expectAria(attr, value) {
         jasmine.expectAriaAttr(component, attr, value);
     }
@@ -21,7 +21,7 @@ describe("Ext.form.field.Date", function() {
             component = new Ext.form.field.Date(config);
         };
     });
-    
+
     afterEach(function() {
         if (component) {
             component.destroy();
@@ -126,11 +126,11 @@ describe("Ext.form.field.Date", function() {
         it("should give the trigger a class of 'x-form-date-trigger'", function() {
             expect(component.getTrigger('picker').el).toHaveCls('x-form-date-trigger');
         });
-        
+
         it("should have combobox role", function() {
             expectAria('role', 'combobox');
         });
-        
+
         it("should have title", function() {
             expectAria('title', 'Expected date format: m/d/Y');
         });
@@ -157,49 +157,49 @@ describe("Ext.form.field.Date", function() {
                     format: 'Y/m/d',
                     value: '2008/05/06'
                 });
-                
+
                 expect(component.getValue()).toEqual(new Date(2008, 4, 6));
             });
-            
+
             it("should parse a value according to the format 2", function(){
                 makeComponent({
                     format: 'd/m/Y',
                     value: '03/03/1986'
                 });
-                
+
                 expect(component.getValue()).toEqual(new Date(1986, 2, 3));
             });
         });
-        
+
         describe("setValue", function(){
             it("should accept a date object", function(){
                 makeComponent();
                 component.setValue(new Date(2010, 10, 5)); //5th nov 2010
                 expect(component.getValue()).toEqual(new Date(2010, 10, 5));
             });
-            
+
             it("should accept a string value", function(){
                 makeComponent({
                     format: 'Y/m/d'
-                });    
+                });
                 component.setValue('2006/01/01');
                 expect(component.getValue()).toEqual(new Date(2006, 0, 1));
             });
-            
+
             it("should accept a null value", function(){
                 makeComponent();
                 component.setValue(null);
-                expect(component.getValue()).toBeNull();    
+                expect(component.getValue()).toBeNull();
             });
-            
+
             it("should set null if an invalid date string is passed", function(){
                 makeComponent({
                     format: 'Y/m/d'
                 });
                 component.setValue('03.03.2000');
-                expect(component.getValue()).toBeNull();    
+                expect(component.getValue()).toBeNull();
             });
-            
+
         });
     });
 
@@ -283,7 +283,7 @@ describe("Ext.form.field.Date", function() {
             expect(date).toBeNull();
         });
     });
-    
+
     describe("submit value", function(){
         it("should use the format as the default", function(){
             makeComponent({
@@ -291,7 +291,7 @@ describe("Ext.form.field.Date", function() {
             });
             expect(component.getSubmitValue()).toBe('01/15/2010');
         });
-        
+
         it("should give precedence to submitFormat", function(){
             makeComponent({
                 value: new Date(2010, 0, 15),
@@ -299,7 +299,7 @@ describe("Ext.form.field.Date", function() {
             });
             expect(component.getSubmitValue()).toBe('2010-01-15');
         });
-        
+
         it("should return null if the value isn't a valid date", function(){
             makeComponent({
                 value: 'wontparse',
@@ -308,7 +308,7 @@ describe("Ext.form.field.Date", function() {
             expect(component.getSubmitValue()).toBe('');
         });
     });
-    
+
     describe("getModelData", function(){
         it("should use the format as the default", function(){
             makeComponent({
@@ -337,18 +337,18 @@ describe("Ext.form.field.Date", function() {
             it("should have no errors with allowBlank true", function(){
                 makeComponent({
                     allowBlank: true
-                });    
+                });
                 expect(component.getErrors()).toEqual([]);
             });
-            
+
             it("should have an error with allowBlank false and no value", function(){
                 makeComponent({
                     allowBlank: false
-                });    
+                });
                 expect(component.getErrors()).toContain(component.blankText);
             });
         });
-        
+
         describe("invalid dates", function(){
             it("should have no error if the date is valid according to the format", function(){
                 makeComponent({
@@ -356,8 +356,8 @@ describe("Ext.form.field.Date", function() {
                     value: '2000/01/01'
                 });
                 expect(component.getErrors()).toEqual([]);
-            });  
-            
+            });
+
             it("should have an error if the date is not in a required format", function(){
                 makeComponent({
                     format: 'Y/m/d',
@@ -365,150 +365,150 @@ describe("Ext.form.field.Date", function() {
                 });
                 var val = '2004.05.01',
                     errStr = Ext.String.format(component.invalidText, val, component.format);
-                    
+
                 component.inputEl.dom.value = val;
                 expect(component.getErrors()).toContain(errStr);
-            }); 
+            });
         });
-        
+
         describe("minValue", function(){
             it("should have no errors if a min value is not specified", function(){
                 makeComponent({
                     value: new Date(1500, 0, 1) // way in the past
-                });    
+                });
                 expect(component.getErrors()).toEqual([]);
-            });  
-            
+            });
+
             it("should have no errors if the value is greater than the minimum", function(){
                 makeComponent({
                     format: 'Y/m/d',
                     value: '2006/07/22',
                     minValue: '2004/07/09'
-                });    
+                });
                 expect(component.getErrors()).toEqual([]);
-            }); 
-            
+            });
+
             it("should have an error if the value is less than the minimum", function(){
                 var val = '2006/07/09',
                     errStr;
-                     
+
                 makeComponent({
                     format: 'Y/m/d',
                     value: '2004/07/22',
                     minValue: val
-                });    
+                });
                 errStr = Ext.String.format(component.minText, val);
                 expect(component.getErrors()).toContain(errStr);
-            }); 
-            
+            });
+
             it("should respond to setMinValue", function(){
                 var val = '2009/07/09',
                     errStr;
-                     
+
                 makeComponent({
                     format: 'Y/m/d',
                     value: '2008/07/22',
                     minValue: '2006/07/09'
-                });    
+                });
                 errStr = Ext.String.format(component.minText, val);
                 expect(component.getErrors()).toEqual([]);
-                
+
                 component.setMinValue(val);
                 expect(component.getErrors()).toContain(errStr);
             });
-            
+
             it("should not throw an error when the value is equal to the min value", function(){
                 makeComponent({
                     format: 'Y/m/d',
                     value: '2008/05/01',
                     minValue: '2008/05/01'
-                }); 
+                });
                 expect(component.getErrors()).toEqual([]);
             });
         });
-        
+
         describe("maxValue", function(){
             it("should have no errors if a max value is not specified", function(){
                 makeComponent({
                     value: new Date(3000, 0, 1) // way in the future
-                });    
+                });
                 expect(component.getErrors()).toEqual([]);
             });
-            
+
             it("should have no errors if the value is less than the maximum", function(){
                 makeComponent({
                     format: 'Y/m/d',
                     value: '2006/07/22',
                     maxValue: '2008/07/09'
-                });    
+                });
                 expect(component.getErrors()).toEqual([]);
-            }); 
-            
+            });
+
             it("should have an error if the value is bigger than the maximum", function(){
                 var val = '2006/07/09',
                     errStr;
-                     
+
                 makeComponent({
                     format: 'Y/m/d',
                     value: '2008/07/22',
                     maxValue: val
-                });    
+                });
                 errStr = Ext.String.format(component.maxText, val);
                 expect(component.getErrors()).toContain(errStr);
-            }); 
-            
+            });
+
             it("should respond to setMaxValue", function(){
                 var val = '2008/05/09',
                     errStr;
-                     
+
                 makeComponent({
                     format: 'Y/m/d',
                     value: '2008/07/22',
                     maxValue: '2009/07/09'
-                });    
+                });
                 errStr = Ext.String.format(component.maxText, val);
                 expect(component.getErrors()).toEqual([]);
-                
+
                 component.setMaxValue(val);
                 expect(component.getErrors()).toContain(errStr);
             });
-            
+
             it("should not throw an error when the value is equal to the max value", function(){
                 makeComponent({
                     format: 'Y/m/d',
                     value: '2008/05/01',
                     maxValue: '2008/05/01'
-                }); 
+                });
                 expect(component.getErrors()).toEqual([]);
             });
         });
-        
+
         describe("disabledDays", function(){
             it("should throw no error if disabledDays is not defined", function(){
                 makeComponent({
                     format: 'Y/m/d',
                     value: '2008/06/06'
                 });
-            
-                expect(component.getErrors()).toEqual([]);    
+
+                expect(component.getErrors()).toEqual([]);
             });
-            
-            it("should not throw an error if the date doesn't match the disabled days", function(){
+
+            it("should not throw an error if the date doesn't match the disabled curDays", function(){
                 makeComponent({
                     format: 'Y/m/d',
                     value: '2010/11/05', //Friday
                     disabledDays: [0, 6] //Sun, Sat
                 });
-                expect(component.getErrors()).toEqual([]);     
+                expect(component.getErrors()).toEqual([]);
             });
-            
-            it("should throw an error if the date does match the disabled days", function(){
+
+            it("should throw an error if the date does match the disabled curDays", function(){
                 makeComponent({
                     format: 'Y/m/d',
                     value: '2010/11/05', //Friday
                     disabledDays: [1, 5] //Mon, Fri
                 });
-                expect(component.getErrors()).toContain(component.disabledDaysText);     
+                expect(component.getErrors()).toContain(component.disabledDaysText);
             });
 
             describe("setDisabledDays method", function() {
@@ -529,16 +529,16 @@ describe("Ext.form.field.Date", function() {
                 });
             });
         });
-        
+
         describe("disabledDates", function(){
             it("should not throw an error if there's no regex", function(){
                 makeComponent({
                     format: 'Y/m/d',
                     value: new Date()
-                });    
+                });
                 expect(component.getErrors()).toEqual([]);
-            }); 
-            
+            });
+
             it("should not throw an error if the value does not match the regex", function(){
                 makeComponent({
                     format: 'Y/m/d',
@@ -547,7 +547,7 @@ describe("Ext.form.field.Date", function() {
                 });
                 expect(component.getErrors()).toEqual([]);
             });
-            
+
             it("should throw an error if the value matches the regex", function(){
                 makeComponent({
                     format: 'Y/m/d',
@@ -584,7 +584,7 @@ describe("Ext.form.field.Date", function() {
             });
         });
     });
-    
+
     describe("blur", function() {
         var webkitIt = Ext.isWebKit ? it : xit;
         webkitIt("should call rawToValue inside blur", function() {

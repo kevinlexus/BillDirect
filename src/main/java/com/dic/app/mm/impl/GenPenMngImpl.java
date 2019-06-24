@@ -45,12 +45,13 @@ public class GenPenMngImpl implements GenPenMng {
     /**
      * Рассчитать пеню
      *
-     * @param summa - долг
+     * @param deb - долг
      * @param mg    - период долга
      * @param kart  - лиц.счет
      */
     @Override
-    public PenDTO getPen(CalcStore calcStore, BigDecimal summa, Integer mg, Kart kart, Date curDt) {
+    public PenDTO calcPen(CalcStore calcStore, BigDecimal deb, Integer mg, Kart kart, Date curDt) {
+        // дата начала начисления пени
         SprPen penDt = getPenDt(calcStore, mg, kart);
         // вернуть кол-во дней между датой расчета пени и датой начала пени по справочнику
         if (penDt == null) {
@@ -68,7 +69,7 @@ public class GenPenMngImpl implements GenPenMng {
         int days = Utl.daysBetween(penDt.getDt(), curDt);
         if (days > 0) {
             // пеня возможна, если есть кол-во дней долга
-            //log.info(" spr={}, cur={}, days={}", sprPenUsl.getTs(), curDt, days);
+            //log.info(" spr={}, cur={}, curDays={}", sprPenUsl.getTs(), curDt, curDays);
             Stavr stavr = calcStore.getLstStavr().stream()
                     .filter(t -> t.getTp().equals(kart.getTp())) // фильтр по типу лиц.счета
                     .filter(t -> days >= t.getDays1() && days <= t.getDays2()) // фильтр по кол-ву дней долга
@@ -78,7 +79,7 @@ public class GenPenMngImpl implements GenPenMng {
             // расчет пени = долг * процент/100
             assert stavr != null;
             penDTO.proc = stavr.getProc();
-            penDTO.penya = summa.multiply(penDTO.proc).divide(new BigDecimal(100), RoundingMode.HALF_UP);
+            penDTO.penya = deb.multiply(penDTO.proc).divide(new BigDecimal(100), RoundingMode.HALF_UP);
             penDTO.days = days;
             penDTO.stavr = stavr;
             return penDTO;

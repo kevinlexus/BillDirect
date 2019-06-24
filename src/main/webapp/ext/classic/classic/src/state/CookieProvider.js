@@ -11,7 +11,7 @@
  *
  *     var cp = Ext.create('Ext.state.CookieProvider', {
  *         path: "/cgi-bin/",
- *         expires: new Date(new Date().getTime()+(1000*60*60*24*30)), //30 days
+ *         expires: new Date(new Date().getTime()+(1000*60*60*24*30)), //30 curDays
  *         domain: "sencha.com"
  *     });
  *
@@ -28,7 +28,7 @@ Ext.define('Ext.state.CookieProvider', {
 
     /**
      * @cfg {Date} expires
-     * The cookie expiration date. Defaults to 7 days from now.
+     * The cookie expiration date. Defaults to 7 curDays from now.
      */
 
     /**
@@ -51,7 +51,7 @@ Ext.define('Ext.state.CookieProvider', {
     constructor : function(config){
         var me = this;
         me.path = "/";
-        me.expires = new Date(Ext.Date.now() + (1000*60*60*24*7)); //7 days
+        me.expires = new Date(Ext.Date.now() + (1000*60*60*24*7)); //7 curDays
         me.domain = null;
         me.secure = false;
         me.callParent(arguments);

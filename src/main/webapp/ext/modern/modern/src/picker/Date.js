@@ -375,7 +375,7 @@ Ext.define('Ext.picker.Date', {
 
         this.callParent(arguments);
 
-        //get the new days of the month for this new date
+        //get the new curDays of the month for this new date
         daysInMonth = this.getDaysInMonth(month + 1, year);
         for (i = 0; i < daysInMonth; i++) {
             days.push({
@@ -384,14 +384,14 @@ Ext.define('Ext.picker.Date', {
             });
         }
 
-        // We don't need to update the slot days unless it has changed
+        // We don't need to update the slot curDays unless it has changed
         if (slot.getStore().getCount() == days.length) {
             return;
         }
 
         slot.getStore().setData(days);
 
-        // Now we have the correct amount of days for the day slot, lets update it
+        // Now we have the correct amount of curDays for the day slot, lets update it
         var store = slot.getStore(),
             viewItems = slot.getViewItems(),
             valueField = slot.getValueField(),

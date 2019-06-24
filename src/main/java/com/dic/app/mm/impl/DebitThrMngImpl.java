@@ -1,31 +1,29 @@
 package com.dic.app.mm.impl;
 
-import java.math.BigDecimal;
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-
+import com.dic.app.mm.DebitThrMng;
 import com.dic.app.mm.GenPenMng;
-import com.dic.bill.dao.DebDAO;
-import com.dic.bill.dao.PenCurDAO;
-import com.dic.bill.dto.*;
+import com.dic.bill.dao.*;
+import com.dic.bill.dto.CalcStore;
+import com.dic.bill.dto.CalcStoreLocal;
+import com.dic.bill.dto.SumDebPenRec;
+import com.dic.bill.dto.SumRec;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.data.util.Optionals;
-import org.springframework.stereotype.Service;
-
-import com.dic.app.mm.DebitThrMng;
-
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import static java.util.Map.Entry.comparingByKey;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import static java.util.stream.Collectors.toMap;
 
 /**
@@ -43,12 +41,20 @@ public class DebitThrMngImpl implements DebitThrMng {
     private final GenPenMng genPenMng;
     private final PenCurDAO penCurDAO;
     private final DebDAO debDAO;
+    private final ApenyaDAO apenyaDAO;
+    private final PenCorrDAO penCorrDAO;
+    private final KwtpMgDAO kwtpMgDAO;
 
-    public DebitThrMngImpl(EntityManager em, GenPenMng genPenMng, PenCurDAO penCurDAO, DebDAO debDAO) {
+
+    public DebitThrMngImpl(EntityManager em, GenPenMng genPenMng, PenCurDAO penCurDAO,
+                           DebDAO debDAO, ApenyaDAO apenyaDAO, PenCorrDAO penCorrDAO, KwtpMgDAO kwtpMgDAO) {
         this.em = em;
         this.genPenMng = genPenMng;
         this.penCurDAO = penCurDAO;
         this.debDAO = debDAO;
+        this.apenyaDAO = apenyaDAO;
+        this.penCorrDAO = penCorrDAO;
+        this.kwtpMgDAO = kwtpMgDAO;
     }
 
     @Getter
@@ -88,7 +94,7 @@ public class DebitThrMngImpl implements DebitThrMng {
         // задолженность для расчета пени
         private BigDecimal debForPen;
 
-        public PeriodSumma(BigDecimal deb, BigDecimal debForPen) {
+        PeriodSumma(BigDecimal deb, BigDecimal debForPen) {
             this.deb = deb;
             this.debForPen = debForPen;
         }
@@ -126,9 +132,12 @@ public class DebitThrMngImpl implements DebitThrMng {
         debDAO.delByLskPeriod(kart.getLsk(), calcStore.getPeriod());
         debDAO.updByLskPeriod(kart.getLsk(), calcStore.getPeriod(), calcStore.getPeriodBack());
 
-        HashMap<DebPeriod, PeriodSumma> mapDebPart2 = null;
-        // долги для расчета пени по дням - совокупно все услуги - упорядоченный по элементам LinkedHashMap
+        HashMap<DebPeriod, PeriodSumma> mapDebPart2;
+        // свернутые долги для расчета пени по дням - совокупно все услуги - упорядоченный по ключу (дата) LinkedHashMap
         Map<Date, Map<Integer, BigDecimal>> mapDebForPen = new LinkedHashMap<>();
+        // долги на последнюю дату - совокупно все услуги
+        Map<Integer, BigDecimal> mapDeb = new LinkedHashMap<>();
+
         // перебрать все дни с начала месяца по дату расчета, включительно
         Calendar c = Calendar.getInstance();
         for (c.setTime(dt1); !c.getTime().after(dt2); c.add(Calendar.DATE, 1)) {
@@ -181,10 +190,14 @@ public class DebitThrMngImpl implements DebitThrMng {
             // сгруппировать сумму свернутых долгов для расчета пени по всем услугам, по датам
             groupByDateMg(mapDebPart2, mapDebForPen, dt);
 
+            if (dt.getTime() == dt2.getTime()) {
+                // сгруппировать сумму свернутых основных долгов по всем услугам, на последнюю дату
+                groupByDateMg(mapDebPart2, mapDeb);
+            }
+
         }
         // рассчитать и сохранить пеню
-        genPen(kart, calcStore, mapDebForPen);
-
+        genSavePen(kart, calcStore, mapDebForPen, mapDeb);
     }
 
 
@@ -262,20 +275,26 @@ public class DebitThrMngImpl implements DebitThrMng {
      * @param kart         - текущий лиц.счет
      * @param calcStore    - хранилище справочников
      * @param mapDebForPen - долги для расчета пени
+     * @param mapDeb       - долги
      */
-    private void genPen(Kart kart, CalcStore calcStore, Map<Date, Map<Integer, BigDecimal>> mapDebForPen) {
+    private void genSavePen(Kart kart, CalcStore calcStore, Map<Date,
+            Map<Integer, BigDecimal>> mapDebForPen, Map<Integer, BigDecimal> mapDeb) {
         // запись пени
         @Getter
         @Setter
         class PenCurRec {
             // период долга
             int mg;
-            // кол-во дней расчета пени
-            int days = 1;
+            // кол-во дней расчета пени всего
+            // int days = 0;
+            // кол-во текущих дней расчета пени
+            int curDays = 1;
+            // долг
+            //BigDecimal deb;
             // долг для расчета пени
             BigDecimal debForPen;
             // пеня
-            BigDecimal pen = BigDecimal.ZERO;
+            BigDecimal pen;
             // ставка рефинансирования
             Stavr stavr;
             // дата начала
@@ -283,8 +302,8 @@ public class DebitThrMngImpl implements DebitThrMng {
             // дата окончания
             Date dt2;
 
-            public PenCurRec(int mg, BigDecimal debForPen, BigDecimal pen,
-                             Stavr stavr, Date dt1, Date dt2) {
+            private PenCurRec(int mg, BigDecimal debForPen, BigDecimal pen,
+                              Stavr stavr, Date dt1, Date dt2) {
                 this.mg = mg;
                 this.debForPen = debForPen;
                 this.pen = pen;
@@ -299,31 +318,38 @@ public class DebitThrMngImpl implements DebitThrMng {
              * @param debForPen - долг для расчета пени
              * @param stavr - ставка реф.
              */
-            boolean compareWith(int mg, BigDecimal debForPen, Stavr stavr) {
-                return mg == mg && this.debForPen.equals(debForPen)
-                        && this.stavr.equals(stavr) && this.dt2.equals(dt2);
+            private boolean compareWith(int mg, BigDecimal debForPen, Stavr stavr) {
+                return this.mg == mg && this.debForPen.equals(debForPen)
+                        && this.stavr.equals(stavr);
             }
 
-            void addPenDay(BigDecimal pen, Date dt) {
+            /**
+             * добавить в существующую запись о пене
+             * @param pen - сумма начисленной пени
+             * @param dt - дата начисления
+             */
+            private void addPenDay(BigDecimal pen, Date dt) {
                 // добавить пеню
                 this.pen = this.pen.add(pen);
                 // расширить период
                 this.dt2 = dt;
                 // добавить день пени
-                this.days++;
+                this.curDays++;
             }
         }
 
         // расчитать пеню по долгам
-        // кол-во дней начисления пени на дату расчета, по периодам задолженности
-        //Map<Integer, Integer> mapPenDays = new HashMap<>();
         // пеня для C_PEN_CUR
         List<PenCurRec> lstPenCurRec = new ArrayList<>(10);
 
-        // сумма пени на дату расчета, по периодам задолженности
-        //Map<Integer, BigDecimal> mapPen = new HashMap<>();
         // последние элементы записей пени
         Map<Integer, PenCurRec> mapLastPenCurRec = new HashMap<>();
+
+        // для записи в C_PENYA:
+        // кол-во дней долга, на последнюю дату расчета
+        Map<Integer, Integer> mapDebDays = new HashMap<>();
+
+        // перебрать все элементы долгов для пени mapDebForPen, (LinkedHashMap - отсортированный по дате)
         for (Map.Entry<Date, Map<Integer, BigDecimal>> dtEntry : mapDebForPen.entrySet()) {
             Date dt = dtEntry.getKey();
             for (Map.Entry<Integer, BigDecimal> entry : dtEntry.getValue().entrySet()) {
@@ -332,9 +358,10 @@ public class DebitThrMngImpl implements DebitThrMng {
                 if (debForPen.compareTo(BigDecimal.ZERO) > 0) {
                     Integer mg = entry.getKey();
                     // расчет пени
-                    GenPenMngImpl.PenDTO penDto = genPenMng.getPen(calcStore, debForPen, mg, kart, dt);
+                    GenPenMngImpl.PenDTO penDto = genPenMng.calcPen(calcStore, debForPen, mg, kart, dt);
                     if (penDto != null) {
-
+                        // сохранить кол-во дней долга (будет сохранено последнее значение)
+                        mapDebDays.put(mg, penDto.getDays());
                         PenCurRec lastRec = mapLastPenCurRec.get(mg);
                         if (lastRec != null) {
                             if (lastRec.compareWith(mg, debForPen, penDto.getStavr())) {
@@ -342,46 +369,76 @@ public class DebitThrMngImpl implements DebitThrMng {
                             } else {
                                 PenCurRec rec = new PenCurRec(mg, debForPen, penDto.getPenya(), penDto.getStavr(), dt, dt);
                                 lstPenCurRec.add(rec);
-                                // поменять последюю запись по пене
+                                // поменять последнюю запись по пене
                                 mapLastPenCurRec.put(mg, rec);
                             }
-                            // добавить 1 день расчета пени
-                            //mapPenDays.merge(mg, 1, (k, v) -> k + 1);
-                            // добавить сумму пени за 1 день
-                            //mapPen.merge(mg, penDto.getPenya(), BigDecimal::add);
                         } else {
                             PenCurRec rec = new PenCurRec(mg, debForPen, penDto.getPenya(), penDto.getStavr(), dt, dt);
                             lstPenCurRec.add(rec);
-                            // поменять последюю запись по пене
+                            // поменять последнюю запись по пене
                             mapLastPenCurRec.put(mg, rec);
                         }
-                        log.info("Пеня: debForPen={}, dt={}, mg={}, days={}, penya={}, proc={}, Stavr.id={}",
+                        log.info("Пеня: debForPen={}, dt={}, mg={}, совокупно дней={}, penya={}, proc={}, Stavr.id={}",
                                 debForPen, Utl.getStrFromDate(dt), mg, penDto.getDays(), penDto.getPenya(), penDto.getProc(),
                                 penDto.getStavr().getId());
                     }
                 }
             }
         }
-            // сохранить пеню в C_PEN_CUR (C_PEN_CUR нужен для Директа: Пасп.стол->Справка по пене, а так же для распределения
-            // текущей пени для оборотки - t_chpenya_for_saldo)
-            penCurDAO.deleteByLsk(kart.getLsk());
-            System.out.println(lstPenCurRec);
+        // сохранить пеню в C_PEN_CUR (C_PEN_CUR нужен для Директа: Пасп.стол->Справка по пене, а так же для распределения
+        // текущей пени для оборотки - t_chpenya_for_saldo)
+        penCurDAO.deleteByLsk(kart.getLsk());
+        for (PenCurRec t : lstPenCurRec) {
+            log.info("Пеня свернуто: mg={}, debPen={}, curDays={}, dt1={}, dt2={}, pen={}, stavr.id={}",
+                    t.getMg(), t.getDebForPen(), t.getCurDays(), Utl.getStrFromDate(t.getDt1()),
+                    Utl.getStrFromDate(t.getDt2()), t.getPen(), t.getStavr().getId());
+        }
 
-/*
-        mapPen.forEach((key, value) -> {
-                    Integer days = mapPenDays.get(key);
-                    PenCur penCur = new PenCur();
-                    penCur.setKart(kart);
-                    penCur.setMg1(String.valueOf(key));
-                    penCur.setCurDays(days);
-                    penCur.setPenya(value);
-                    kart.getPenCur().add(penCur);
-                    em.persist(penCur);
-                    log.info("Итого: период={}, тек.пеня={}, тек.дней={}", key, value, days);
-                }
-        );
-*/
+        // записать в C_PEN_CUR
+        lstPenCurRec.forEach(t -> {
+            PenCur penCur = new PenCur();
+            penCur.setKart(kart);
+            penCur.setMg1(String.valueOf(t.mg));
+            penCur.setCurDays(t.getCurDays());
+            penCur.setStavr(t.getStavr());
+            penCur.setDeb(t.getDebForPen());
+            penCur.setPenya(t.pen);
+            penCur.setDt1(t.getDt1());
+            penCur.setDt2(t.getDt2());
+            kart.getPenCur().add(penCur);
+            em.persist(penCur);
+            log.info("C_PEN_CUR: период={}, тек.пеня={}, тек.дней={}", t.mg, t.pen, t.getCurDays());
+        });
 
+        // формировать C_PENYA:
+
+        Map<Integer, BigDecimal> mapPenResult = new HashMap<>();
+        // вх.сальдо по пене - APENYA
+        apenyaDAO.getByLsk(kart.getLsk(), String.valueOf(calcStore.getPeriodBack()))
+                .forEach(t -> mapPenResult.put(Integer.parseInt(t.getMg1()), t.getPenya()));
+        // прибавить корректировки пени C_PEN_CORR
+        penCorrDAO.getByLsk(kart.getLsk())
+                .forEach(t -> mapPenResult.merge(Integer.parseInt(t.getDopl()), t.getPenya(), BigDecimal::add));
+        // вычесть поступление оплаты пени C_KWTP_MG
+        kwtpMgDAO.getByLsk(kart.getLsk())
+                .forEach(t -> mapPenResult.merge(Integer.parseInt(t.getDopl()), t.getPenya().negate(), BigDecimal::subtract));
+        // прибавить текущее начисление пени
+        lstPenCurRec.forEach(t -> mapPenResult.merge(t.getMg(), t.getPen(), BigDecimal::add));
+
+        // сохранить в C_PENYA
+        mapPenResult.forEach((k, v) -> {
+            Penya penya = new Penya();
+            penya.setKart(kart);
+            penya.setMg1(String.valueOf(k));
+            penya.setPenya(v.setScale(2, RoundingMode.HALF_UP));
+            penya.setSumma(mapDeb.get(k));
+            if (Utl.nvl(mapDeb.get(k), BigDecimal.ZERO).compareTo(BigDecimal.ZERO) != 0) {
+                penya.setDays(mapDebDays.get(k));
+            }
+            em.persist(penya);
+            log.info("C_PENYA: mg1={}, penya={}, summa={}, days={}",
+                    penya.getMg1(), penya.getPenya(), penya.getSumma(), penya.getDays());
+        });
     }
 
     /**
@@ -391,7 +448,8 @@ public class DebitThrMngImpl implements DebitThrMng {
      * @param mapDebForPen - результат
      * @param curDt        - дата группировки
      */
-    private void groupByDateMg(HashMap<DebPeriod, PeriodSumma> mapDebPart2, Map<Date, Map<Integer, BigDecimal>> mapDebForPen, Date curDt) {
+    private void groupByDateMg(HashMap<DebPeriod, PeriodSumma> mapDebPart2, Map<Date,
+            Map<Integer, BigDecimal>> mapDebForPen, Date curDt) {
         // взять только положительную составляющую, так как для данного периода долга нужно
         // брать только задолженности по услугам, но не переплаты
         mapDebPart2.entrySet().stream()
@@ -406,6 +464,21 @@ public class DebitThrMngImpl implements DebitThrMng {
                         mapDebForPen.put(curDt, map);
                     }
                 });
+    }
+
+    /**
+     * Сгруппировать долг
+     *
+     * @param mapDebPart2 - исходная коллекция
+     * @param mapDeb      - результат
+     */
+    private void groupByDateMg(HashMap<DebPeriod, PeriodSumma> mapDebPart2,
+                               Map<Integer, BigDecimal> mapDeb) {
+        // взять только положительную составляющую, так как для данного периода долга нужно
+        // брать только задолженности по услугам, но не переплаты
+        mapDebPart2.entrySet().stream()
+                .filter(t -> t.getValue().getDeb().compareTo(BigDecimal.ZERO) > 0)
+                .forEach(t -> mapDeb.merge(t.getKey().getMg(), t.getValue().getDeb(), BigDecimal::add));
     }
 
     /**
@@ -478,7 +551,7 @@ public class DebitThrMngImpl implements DebitThrMng {
     }
 
     /**
-     * Обработка финансового потока
+     * Обработка финансового потока, группировка долгов по услугам, орг, периоду
      *
      * @param stream         - поток
      * @param mapDeb         - результат

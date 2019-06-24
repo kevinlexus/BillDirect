@@ -23,7 +23,7 @@
  *        m         Numeric representation of a month, with leading zeros                     01 to 12
  *        M         A short textual representation of a month                                 Jan to Dec
  *        n         Numeric representation of a month, without leading zeros                  1 to 12
- *        t         Number of days in the given month                                         28 to 31
+ *        t         Number of curDays in the given month                                         28 to 31
  *        L         Whether it&#39;s a leap year                                                  1 if it is a leap year, 0 otherwise.
  *        o         ISO-8601 year number (identical to (Y), but if the ISO week number (W)    Examples: 1998 or 2004
  *                  belongs to the previous or next year, that year is used instead)
@@ -202,7 +202,7 @@ Ext.Date = (function () {
                         // 1. Getting the day of the week.
                         // 2. Subtracting that by one.
                         // 3. Multiplying that by 86400000 (one day in ms).
-                        // 4. Subtracting this number of days (in ms) from the January 4 date (represented in ms).
+                        // 4. Subtracting this number of curDays (in ms) from the January 4 date (represented in ms).
                         //
                         // Example #1 ...
                         //
@@ -216,7 +216,7 @@ Ext.Date = (function () {
                         //
                         // 1. January 4th is a Wednesday.
                         // 2. Its day number is 3.
-                        // 3. Simply substract 2 days from Wednesday.
+                        // 3. Simply substract 2 curDays from Wednesday.
                         // 4. The first week of the year begins on Monday, January 2. Simple!
                         //
                         // Example #2 ...
@@ -230,7 +230,7 @@ Ext.Date = (function () {
                         //
                         // 1. January 4th is a Saturday.
                         // 2. Its day number is 6.
-                        // 3. Simply subtract 5 days from Saturday.
+                        // 3. Simply subtract 5 curDays from Saturday.
                         // 4. The first week of the year begins on Monday, December 30. Simple!
                         //
                         // v = Ext.Date.clearTime(new Date(week1monday.getTime() + ((W - 1) * 604800000 + 43200000)));
@@ -242,7 +242,7 @@ Ext.Date = (function () {
                         // day number here, which is why we use the day === checks.
                         "week1monday = new Date(jan4.getTime() - ((d === 0 ? 6 : d - 1) * 86400000));",
                         // The reason for adding 43200000 (12 hours) is to avoid any complication with daylight saving
-                        // switch overs. For example,  if the clock is rolled back, an hour will repeat, so adding 7 days
+                        // switch overs. For example,  if the clock is rolled back, an hour will repeat, so adding 7 curDays
                         // will leave us 1 hour short (Sun <date> 23:00:00). By setting is to 12:00, subtraction
                         // or addition of an hour won't make any difference.
                         "v = Ext.Date.clearTime(new Date(week1monday.getTime() + ((W - 1) * 604800000 + 43200000)));",
@@ -1017,7 +1017,7 @@ return utilDate = {
         t: {
             g:0,
             c:null,
-            s:"(?:\\d{2})" // no. of days in the month (28 - 31)
+            s:"(?:\\d{2})" // no. of curDays in the month (28 - 31)
         },
         L: {
             g:0,
@@ -1403,9 +1403,9 @@ return utilDate = {
     },
 
     /**
-     * Get the number of days in the current month, adjusted for leap year.
+     * Get the number of curDays in the current month, adjusted for leap year.
      * @param {Date} date The date
-     * @return {Number} The number of days in the month.
+     * @return {Number} The number of curDays in the month.
      * @method
      */
     getDaysInMonth: (function() {

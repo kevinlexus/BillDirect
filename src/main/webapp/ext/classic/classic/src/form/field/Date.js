@@ -79,7 +79,7 @@ Ext.define('Ext.form.field.Date', {
      */
     format : "m/d/Y",
     //</locale>
-    
+
     //<locale>
     /**
      * @cfg {String} [ariaFormat="M j Y"]
@@ -89,7 +89,7 @@ Ext.define('Ext.form.field.Date', {
      */
     ariaFormat: 'M j Y',
     //</locale>
-    
+
     //<locale>
     /**
      * @cfg {String} altFormats
@@ -105,7 +105,7 @@ Ext.define('Ext.form.field.Date', {
      */
     disabledDaysText : "Disabled",
     //</locale>
-    
+
     //<locale>
     /**
      * @cfg {String} ariaDisabledDaysText The text that Assistive Technologies such as screen readers
@@ -113,7 +113,7 @@ Ext.define('Ext.form.field.Date', {
      */
     ariaDisabledDaysText: "This day of week is disabled",
     //</locale>
-    
+
     //<locale>
     /**
      * @cfg {String} disabledDatesText
@@ -121,7 +121,7 @@ Ext.define('Ext.form.field.Date', {
      */
     disabledDatesText : "Disabled",
     //</locale>
-    
+
     //<locale>
     /**
      * @cfg {String} ariaDisabledDatesText The text that Assistive Technologies such as screen readers
@@ -129,7 +129,7 @@ Ext.define('Ext.form.field.Date', {
      */
     ariaDisabledDatesText: "This date cannot be selected",
     //</locale>
-    
+
     //<locale>
     /**
      * @cfg {String} minText
@@ -137,7 +137,7 @@ Ext.define('Ext.form.field.Date', {
      */
     minText : "The date in this field must be equal to or after {0}",
     //</locale>
-    
+
     //<locale>
     /**
      * @cfg {String} ariaMinText The text that Assistive Technologies such as screen readers
@@ -146,7 +146,7 @@ Ext.define('Ext.form.field.Date', {
      */
     ariaMinText: "The date must be equal to or after {0}",
     //</locale>
-    
+
     //<locale>
     /**
      * @cfg {String} maxText
@@ -154,7 +154,7 @@ Ext.define('Ext.form.field.Date', {
      */
     maxText : "The date in this field must be equal to or before {0}",
     //</locale>
-    
+
     //<locale>
     /**
      * @cfg {String} ariaMaxText The text that Assistive Technologies such as screen readers
@@ -163,7 +163,7 @@ Ext.define('Ext.form.field.Date', {
      */
     ariaMaxText: "The date must be equal to or before {0}",
     //</locale>
-    
+
     //<locale>
     /**
      * @cfg {String} invalidText
@@ -171,7 +171,7 @@ Ext.define('Ext.form.field.Date', {
      */
     invalidText : "{0} is not a valid date - it must be in the format {1}",
     //</locale>
-    
+
     //<locale>
     /**
      * @cfg {String} formatText The format text to be announced by screen readers
@@ -179,7 +179,7 @@ Ext.define('Ext.form.field.Date', {
      */
     formatText: 'Expected date format: {0}',
     //</locale>
-    
+
     /**
      * @cfg {String} [triggerCls='x-form-date-trigger']
      * An additional CSS class used to style the trigger button. The trigger will always get the class 'x-form-trigger'
@@ -202,7 +202,7 @@ Ext.define('Ext.form.field.Date', {
      */
     /**
      * @cfg {Number[]} disabledDays
-     * An array of days to disable, 0 based. Some examples:
+     * An array of curDays to disable, 0 based. Some examples:
      *
      *     // disable Sunday and Saturday:
      *     disabledDays:  [0, 6]
@@ -216,7 +216,7 @@ Ext.define('Ext.form.field.Date', {
      *
      *     // disable these exact dates:
      *     disabledDates: ["03/08/2003", "09/16/2003"]
-     *     // disable these days for every year:
+     *     // disable these curDays for every year:
      *     disabledDates: ["03/08", "09/16"]
      *     // only match the beginning (useful if you are using short years):
      *     disabledDates: ["^03/08"]
@@ -268,7 +268,7 @@ Ext.define('Ext.form.field.Date', {
      * @inheritdoc
      */
     valuePublishEvent: ['select', 'blur'],
-    
+
     ariaRole: 'combobox',
 
     initComponent : function(){
@@ -344,7 +344,7 @@ Ext.define('Ext.form.field.Date', {
     },
 
     /**
-     * Replaces any existing disabled days (by index, 0-6) with new values and refreshes the Date picker.
+     * Replaces any existing disabled curDays (by index, 0-6) with new values and refreshes the Date picker.
      * @param {Number[]} disabledDays An array of disabled day indexes. See the {@link #disabledDays} config for details on
      * supported values.
      */
@@ -415,7 +415,7 @@ Ext.define('Ext.form.field.Date', {
             day,
             time;
 
-        
+
 
         if (value === null || value.length < 1) { // if it's blank and textfield didn't flag it then it's valid
              return errors;
@@ -602,7 +602,7 @@ Ext.define('Ext.form.field.Date', {
 
         me.setValue(d);
         me.fireEvent('select', me, d);
-        
+
         // Focus the inputEl first and then collapse. We configure
         // the picker not to revert focus which is a normal thing to do
         // for floaters; in our case when the picker is focusable it will

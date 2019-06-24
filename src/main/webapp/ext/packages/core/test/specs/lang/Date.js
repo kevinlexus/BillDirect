@@ -89,7 +89,7 @@ describe("Ext.Date", function() {
 
     describe("getMonthNumber", function() {
         it("should return the month number [0-11] for the corresponding short month name", function() {
-            var names = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 
+            var names = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
                          'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
             Ext.Array.forEach(names, function(name, idx) {
@@ -100,17 +100,17 @@ describe("Ext.Date", function() {
         });
 
         it("should return the month number [0-11] for the corresponding full month name", function() {
-            var names = ['january', 
-                         'february', 
-                         'march', 
-                         'april', 
-                         'may', 
-                         'june', 
-                         'july', 
-                         'august', 
-                         'september', 
-                         'october', 
-                         'november', 
+            var names = ['january',
+                         'february',
+                         'march',
+                         'april',
+                         'may',
+                         'june',
+                         'july',
+                         'august',
+                         'september',
+                         'october',
+                         'november',
                          'december'];
 
             Ext.Array.forEach(names, function(name, idx) {
@@ -315,7 +315,7 @@ describe("Ext.Date", function() {
                 expect(date).toEqual(expectedDate);
            });
        });
-       
+
        describe("week/year", function() {
            var d;
            function expectDate(year, month, day) {
@@ -323,37 +323,37 @@ describe("Ext.Date", function() {
                expect(d.getMonth()).toBe(month);
                expect(d.getDate()).toBe(day);
            }
-           
+
            describe("first week of year", function() {
                it("should return the correct date for 2013", function() {
                    d = Ext.Date.parse('01/2013', 'W/Y');
                    expectDate(2012, 11, 31);
                });
-               
+
                it("should return the correct date for 2014", function() {
                    d = Ext.Date.parse('01/2014', 'W/Y');
                    expectDate(2013, 11, 30);
                });
-               
+
                it("should return the correct date for 2015", function() {
                    d = Ext.Date.parse('01/2015', 'W/Y');
                    expectDate(2014, 11, 29);
                });
-               
+
                it("should return the correct date for 2016", function() {
                    d = Ext.Date.parse('01/2016', 'W/Y');
                    expectDate(2016, 0, 4);
                });
            });
-           
+
            it("should always be a Monday", function() {
                var i, j;
-               
+
                for (i = 2012; i <= 2020; ++i) {
                    for (j = 1; j < 53; ++j) {
                        expect(Ext.Date.parse(i + '-' + Ext.String.leftPad(j, 2, '0'), 'Y-W').getDay()).toBe(1);
                    }
-               }    
+               }
            });
        });
 
@@ -449,7 +449,7 @@ describe("Ext.Date", function() {
            expect(Ext.Date.getSuffix(new Date(2011, 0, 3))).toBe("rd");
            expect(Ext.Date.getSuffix(new Date(2011, 0, 23))).toBe("rd");
        });
-       it("should return th for days [11-13] and days ending in [4-0]", function() {
+       it("should return th for curDays [11-13] and curDays ending in [4-0]", function() {
            expect(Ext.Date.getSuffix(new Date(2011, 0, 4))).toBe("th");
            expect(Ext.Date.getSuffix(new Date(2011, 0, 5))).toBe("th");
            expect(Ext.Date.getSuffix(new Date(2011, 0, 6))).toBe("th");
@@ -558,7 +558,7 @@ describe("Ext.Date", function() {
         it("should add hours", function() {
             expect(Ext.Date.add(date, Ext.Date.HOUR, 1)).toEqual(new Date(2000, 0, 1, 1, 0, 0, 0));
         });
-        it("should add days", function() {
+        it("should add curDays", function() {
             expect(Ext.Date.add(date, Ext.Date.DAY, 1)).toEqual(new Date(2000, 0, 2, 0, 0, 0, 0));
         });
         it("should add months", function() {

@@ -17,7 +17,7 @@
  * the data points with the duplicate values in a discrete layout, you should use combineDuplicate layout.
  *
  * Segmenter defines the way to segment data range. For example, if you have a Date-type data range from Jan 1, 1997 to
- * Jan 1, 2017, the segmenter will segement the data range into years, months or days based on the current zooming
+ * Jan 1, 2017, the segmenter will segement the data range into years, months or curDays based on the current zooming
  * level.
  *
  * It is possible to write custom axis layouts and segmenters to extends this behavior by simply implementing interfaces
@@ -356,7 +356,7 @@ Ext.define('Ext.chart.axis.Axis', {
         /**
          * @cfg {Number|Object}
          * If `floating` is a number, then it's a percentage displacement of the axis from its initial {@link #position}
-         * in the direction opposite to the axis' direction. For instance, '{position:"left", floating:75}' displays a vertical 
+         * in the direction opposite to the axis' direction. For instance, '{position:"left", floating:75}' displays a vertical
          * axis at 3/4 of the chart, starting from the left. It is equivalent to '{position:"right", floating:25}'.
          * If `floating` is an object, then `floating.value` is the position of this axis along another axis,
          * defined by `floating.alongAxis`, where `alongAxis` is an ID, an {@link Ext.chart.AbstractChart#axes} config index,

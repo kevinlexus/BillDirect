@@ -9,5 +9,5 @@ import java.math.BigDecimal;
 import java.util.Date;
 
 public interface GenPenMng {
-    GenPenMngImpl.PenDTO getPen(CalcStore calcStore, BigDecimal summa, Integer mg, Kart kart, Date curDt);
+    GenPenMngImpl.PenDTO calcPen(CalcStore calcStore, BigDecimal summa, Integer mg, Kart kart, Date curDt);
 }
