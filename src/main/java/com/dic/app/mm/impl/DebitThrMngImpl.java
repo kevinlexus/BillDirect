@@ -11,6 +11,7 @@ import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -25,7 +26,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toMap;
-
 /**
  * Сервис обработки строк задолженности и расчета пени по дням
  *
@@ -160,7 +160,7 @@ public class DebitThrMngImpl implements DebitThrMng {
             // вычесть корректировки оплаты - для расчета долга, включая текущий день
             process(localStore.getLstPayCorrFlow().stream(), mapDebPart2, dt, null, true, null);
 
-            log.info("********** Долги на дату: dt={}, lsk={}", dt, kart.getLsk());
+            log.info("********** Долги на дату: dt={}, lsk={}", Utl.getStrFromDate(dt), kart.getLsk());
 
             // сохранить несвернутые долги на последнюю дату в DEB
             if (dt.getTime() == dt2.getTime()) {
@@ -169,11 +169,11 @@ public class DebitThrMngImpl implements DebitThrMng {
             }
 
             mapDebPart2.forEach((key, value) -> {
-                if (key.getUslId().equals("011") && key.getOrgId().equals(3)) {
+                //if (key.getUslId().equals("011") && key.getOrgId().equals(3)) {
                     log.info("долг: usl={}, org={}, mg={}, deb={}, debForPen={}",
                             key.getUslId(), key.getOrgId(), key.getMg(),
                             value.getDeb(), value.getDebForPen());
-                }
+                //}
             });
             // перенести переплату
             moveOverpay(mapDebPart2);
@@ -388,14 +388,11 @@ public class DebitThrMngImpl implements DebitThrMng {
         // сохранить пеню в C_PEN_CUR (C_PEN_CUR нужен для Директа: Пасп.стол->Справка по пене, а так же для распределения
         // текущей пени для оборотки - t_chpenya_for_saldo)
         penCurDAO.deleteByLsk(kart.getLsk());
-        for (PenCurRec t : lstPenCurRec) {
-            log.info("Пеня свернуто: mg={}, debPen={}, curDays={}, dt1={}, dt2={}, pen={}, stavr.id={}",
-                    t.getMg(), t.getDebForPen(), t.getCurDays(), Utl.getStrFromDate(t.getDt1()),
-                    Utl.getStrFromDate(t.getDt2()), t.getPen(), t.getStavr().getId());
-        }
-
         // записать в C_PEN_CUR
         lstPenCurRec.forEach(t -> {
+            log.info("Пеня по ставкам: mg={}, debPen={}, curDays={}, dt1={}, dt2={}, pen={}, stavr.id={}",
+                    t.getMg(), t.getDebForPen(), t.getCurDays(), Utl.getStrFromDate(t.getDt1()),
+                    Utl.getStrFromDate(t.getDt2()), t.getPen(), t.getStavr().getId());
             PenCur penCur = new PenCur();
             penCur.setKart(kart);
             penCur.setMg1(String.valueOf(t.mg));
@@ -487,24 +484,31 @@ public class DebitThrMngImpl implements DebitThrMng {
      * @param mapDebPart2 - коллекция для обработки
      */
     private void moveOverpay(HashMap<DebPeriod, PeriodSumma> mapDebPart2) {
-        // уникальные значения Usl, Org
-        Map<String, Integer> mapUslOrg = mapDebPart2.entrySet().stream()
-                .collect(toMap(k -> k.getKey().getUslId(), v -> v.getKey().getOrgId(), (k, v) -> k));
 
-        for (Map.Entry<String, Integer> entry : mapUslOrg.entrySet()) {
+        @Value
+        class UslOrgUniq<K, V> {
+            String uslId;
+            Integer orgId;
+        }
+        // уникальные значения Usl, Org
+        Set<UslOrgUniq> mapUslOrg = mapDebPart2.keySet().stream()
+                .map(periodSumma -> new UslOrgUniq(periodSumma.getUslId(), periodSumma.getOrgId()))
+                .collect(Collectors.toSet());
+
+        for (UslOrgUniq entry : mapUslOrg) {
             // отсортировать по периоду
             List<Map.Entry<DebPeriod, PeriodSumma>> mapSorted =
                     mapDebPart2.entrySet().stream()
-                            .filter(t -> t.getKey().getUslId().equals(entry.getKey())
-                                    && t.getKey().getOrgId().equals(entry.getValue()))
+                            .filter(t -> t.getKey().getUslId().equals(entry.getUslId())
+                                    && t.getKey().getOrgId().equals(entry.getOrgId()))
                             .sorted(Comparator.comparing(t -> t.getKey().getMg()))
                             .collect(Collectors.toList());
 
-
-            //log.info("Осортировано: usl={}, org={}", entry.getKey(), entry.getValue());
-            //mapSorted.forEach(t -> log.info("check mg={}, deb={}, debForPen={}",
-            //        t.getKey().getMg(), t.getValue().getDeb(), t.getValue().getDebForPen()));
-
+/*
+            log.info("Осортировано: usl={}, org={}", entry.getUslId(), entry.getOrgId());
+            mapSorted.forEach(t -> log.info("check mg={}, deb={}, debForPen={}",
+                    t.getKey().getMg(), t.getValue().getDeb(), t.getValue().getDebForPen()));
+*/
 
             // перенести переплату
             BigDecimal overPay = BigDecimal.ZERO;

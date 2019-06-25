@@ -155,27 +155,32 @@ public class TestGenPenProcessMng {
                 "201404", "201404", 1, strDt, "-33.15");
         testDataBuilder.addChangeForTest(kart, changeDoc, 4, "004", null,
                 "201404", "201404", 1, strDt, "-5.90");
+
         // Добавить платеж
-        Kwtp kwtp = testDataBuilder.buildKwtpForTest(kart, dopl, "10.04.2014", null, 0,
+        String dopl2 = "201311";
+        Kwtp kwtp = testDataBuilder.buildKwtpForTest(kart, dopl2, "10.04.2014", null, 0,
                 "021", "12313", "001", "0000.00", null);
-        KwtpMg kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl, "20.05", "0.00");
-        //testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "015", 5, "210.22");
-        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 3, "200.00");
+
+        KwtpMg kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl2, "20.05", "0.00");
+        testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 3, "20000.00");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 1, "15.05");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 4, "0.12");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "015", 3, "5.00");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "006", 8, "10.33");
 
-        kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl, "75.08", "0.00");
+        kwtpMg = testDataBuilder.addKwtpMgForTest(kwtp, dopl2, "75.08", "0.00");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "003", 1, "50.30");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 3, "19.70");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "011", 4, "5.08");
         testDataBuilder.addKwtpDayForTest(kwtpMg, 1, "005", 4, "22.00");
+
         // Добавить корректировки оплатой (T_CORRECTS_PAYMENTS)
 
+/*
         ChangeDoc corrPayDoc = testDataBuilder.buildChangeDocForTest(strDt, dopl);
         testDataBuilder.addCorrectPayForTest(kart, corrPayDoc, 4, "011", 3,
                 "201401", "201404", "05.04.2014", null, "50.26");
+*/
 
         // построить запрос
         RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
