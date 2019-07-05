@@ -80,7 +80,7 @@ public class RequestConfigDirect implements Cloneable {
     Usl usl = null;
 
     // список Id объектов формирования
-    List<Long> lstItems;
+    List<Long> lstItems = new ArrayList<>(0);
 
     // список String объектов формирования
     List<String> lstStrItems;
@@ -152,7 +152,7 @@ public class RequestConfigDirect implements Cloneable {
      * Подготовка списка Id (помещений, вводов)
      */
     public void prepareId() {
-        if (Utl.in(tp, 0,3,4)) {
+        if (Utl.in(tp, 0,1,3,4)) {
             // начисление, начисление для распределения объемов, начисление по одной услуге, для автоначисления
             KartDAO kartDao = SpringContext.getBean(KartDAO.class);
             if (ko != null) {
@@ -247,6 +247,8 @@ public class RequestConfigDirect implements Cloneable {
             cntThreads = CNT_THREADS_FOR_COMMON_TASKS;
             lstStrItems = saldoUslDao.getAllWithNonZeroDeb(lskFrom, lskTo,
                     config.getPeriodBack());
+        } else {
+            throw new IllegalArgumentException("Параметр tp="+tp+" не обслуживается методом");
         }
     }
 

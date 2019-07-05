@@ -3,7 +3,6 @@ package com.dic.app.mm.impl;
 import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.GenChrgProcessMng;
-import com.dic.app.mm.ProcessMng;
 import com.dic.bill.dao.MeterDAO;
 import com.dic.bill.dao.UslDAO;
 import com.dic.bill.dto.*;
@@ -13,12 +12,10 @@ import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StopWatch;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -44,14 +41,13 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
     private final UslDAO uslDao;
     private final ConfigApp config;
     private final SprParamMng sprParamMng;
-    private final ApplicationContext ctx;
 
     @PersistenceContext
     private EntityManager em;
 
     public GenChrgProcessMngImpl(NaborMng naborMng, KartMng kartMng,
                                  KartPrMng kartPrMng, MeterMng meterMng, MeterDAO meterDao, UslDAO uslDao,
-                                 ConfigApp config, SprParamMng sprParamMng, ApplicationContext ctx) {
+                                 ConfigApp config, SprParamMng sprParamMng) {
         this.naborMng = naborMng;
         this.kartMng = kartMng;
         this.kartPrMng = kartPrMng;
@@ -60,76 +56,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         this.uslDao = uslDao;
         this.config = config;
         this.sprParamMng = sprParamMng;
-        this.ctx = ctx;
-    }
-
-    /**
-     * Начисление - вызов из WebController
-     *
-     * @param tp       - тип выполнения 0-начисление, 1-задолженность и пеня, 2 - распределение объемов по вводу,
-     *                 4 - начисление по одной услуге, для автоначисления
-     * @param debugLvl - уровень отладки
-     * @param genDt    - дата формирования
-     * @param house    - дом
-     * @param vvod     - ввод
-     * @param ko       - объект Ко
-     * @param uk       - УК
-     * @param usl      - услуга
-     */
-    @Override
-    @Transactional(
-            propagation = Propagation.REQUIRED,
-            isolation = Isolation.READ_COMMITTED, // читать только закомиченные данные, не ставить другое, не даст запустить поток!
-            rollbackFor = Exception.class)
-    public String genChrg(int tp, int debugLvl, Date genDt,
-                          House house, Vvod vvod, Ko ko, Org uk, Usl usl) {
-        String retStatus;
-        // построить запрос
-        RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
-                .withTp(tp)
-                .withGenDt(genDt)
-                .withUk(uk)
-                .withHouse(house)
-                .withVvod(vvod)
-                .withKo(ko)
-                .withUsl(usl)
-                .withCurDt1(config.getCurDt1())
-                .withCurDt2(config.getCurDt2())
-                .withDebugLvl(debugLvl)
-                .withRqn(config.incNextReqNum())
-                .withIsMultiThreads(true)
-                .withStopMark("processMng.genProcess")
-                .build();
-        reqConf.prepareId();
-        StopWatch sw = new StopWatch();
-        sw.start("TIMING: " + reqConf.getTpName());
-
-        // проверить переданные параметры
-        retStatus = reqConf.checkArguments();
-        if (retStatus == null) {
-            try {
-                if (Utl.in(reqConf.getTp(), 0, 1, 2, 4)) {
-                    // расчет начисления, распределение объемов, расчет задолженности и пени
-                    reqConf.prepareChrgCountAmount();
-                    log.info("Будет обработано {} объектов", reqConf.getLstItems().size());
-                    ProcessMng processMng = ctx.getBean(ProcessMng.class);
-                    processMng.genProcessAll(reqConf);
-                }
-                if (Utl.in(reqConf.getTp(), 4)) {
-                    // по операции - начисление по одной услуге, для автоначисления
-                    // вернуть начисленный объем
-                    retStatus = "OK:" + reqConf.getChrgCountAmount().getResultVol().toString();
-                } else {
-                    retStatus = "OK";
-                }
-            } catch (Exception e) {
-                retStatus = "ERROR! Ошибка при выполнении расчета!";
-                log.error(Utl.getStackTraceString(e));
-            }
-        }
-        sw.stop();
-        System.out.println(sw.prettyPrint());
-        return retStatus;
     }
 
     /**

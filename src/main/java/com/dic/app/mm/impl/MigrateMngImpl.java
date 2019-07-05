@@ -3,8 +3,6 @@ package com.dic.app.mm.impl;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import javax.persistence.EntityManager;
@@ -13,24 +11,16 @@ import javax.persistence.PersistenceContext;
 import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.*;
 import com.dic.bill.model.scott.*;
-import com.ric.cmn.excp.ErrorWhileChrg;
 import com.ric.cmn.excp.ErrorWhileGen;
-import com.ric.cmn.excp.WrongParam;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Scope;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dic.bill.dao.DebDAO;
-import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dto.SumDebMgRec;
 import com.dic.bill.dto.SumDebUslMgRec;
 import com.ric.dto.CommonResult;
-import com.ric.cmn.Utl;
-import com.ric.cmn.excp.ErrorWhileDistDeb;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StopWatch;
@@ -84,7 +74,7 @@ public class MigrateMngImpl implements MigrateMng {
         sw.start("TIMING: " + reqConf.getTpName());
 
         ProcessMng processMng = ctx.getBean(ProcessMng.class);
-        processMng.genProcessAll(reqConf);
+        processMng.processAll(reqConf);
 
         sw.stop();
         System.out.println(sw.prettyPrint());

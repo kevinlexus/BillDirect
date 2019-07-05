@@ -225,7 +225,7 @@ public class TestKart {
         reqConf.prepareId();
         sw.start("TIMING:Начисление");
         // вызов начисления
-        processMng.genProcessAll(reqConf);
+        processMng.processAll(reqConf);
         sw.stop();
 
         // распечатать объемы

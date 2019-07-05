@@ -46,7 +46,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
     @Autowired
     private VvodDAO vvodDAO;
     @Autowired
-    private GenChrgProcessMng genChrgProcessMng;
+    private ProcessMng processMng;
     @Autowired
     private ObjParMng objParMng;
     @Autowired
@@ -146,7 +146,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                     // собрать информацию об объемах по лиц.счетам принадлежащим вводу
 
                     ProcessMng processMng = ctx.getBean(ProcessMng.class);
-                    processMng.genProcessAll(reqConf2);
+                    processMng.processAll(reqConf2);
 
                     // объемы по лиц.счетам (базовый фильтр по услуге)
                     final List<UslVolKart> lstUslVolKart =

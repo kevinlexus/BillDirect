@@ -8,6 +8,5 @@ import java.util.Date;
 
 public interface GenChrgProcessMng {
 
-    String genChrg(int tp, int debugLvl, Date genDt, House house, Vvod vvod, Ko ko, Org uk, Usl usl);
     void genChrg(RequestConfigDirect reqConf, long klskId) throws ErrorWhileChrg;
 }

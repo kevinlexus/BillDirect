@@ -192,7 +192,7 @@ public class TestGenPenProcessMng {
                 .withDebugLvl(1)
                 .withRqn(config.incNextReqNum())
                 .withIsMultiThreads(false)
-                .withStopMark("processMng.genProcess")
+                .withStopMark("processMng.process")
                 .build();
         reqConf.prepareId();
         reqConf.getCalcStore().setDebugLvl(1);

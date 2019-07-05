@@ -3,6 +3,7 @@ package com.dic.app.mm;
 import com.dic.app.RequestConfigDirect;
 import com.dic.bill.RequestConfig;
 import com.dic.bill.dto.CalcStore;
+import com.dic.bill.model.scott.*;
 import com.ric.cmn.excp.*;
 import com.ric.dto.CommonResult;
 
@@ -12,10 +13,9 @@ import java.util.concurrent.Future;
 
 public interface ProcessMng {
 
-   // void distVolAll(RequestConfigDirect reqConf)
-//            throws ErrorWhileGen;
+    String processWebRequest(int tp, int debugLvl, Date genDt, House house, Vvod vvod, Ko ko, Org uk, Usl usl);
 
-    void genProcessAll(RequestConfigDirect reqConf) throws ErrorWhileGen;
+    void processAll(RequestConfigDirect reqConf) throws ErrorWhileGen;
 
-    CompletableFuture<CommonResult> genProcess(RequestConfigDirect reqConf) throws ErrorWhileGen;
+    CompletableFuture<CommonResult> process(RequestConfigDirect reqConf) throws ErrorWhileGen;
 }

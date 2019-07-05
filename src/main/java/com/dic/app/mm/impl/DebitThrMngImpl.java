@@ -162,11 +162,6 @@ public class DebitThrMngImpl implements DebitThrMng {
 
             log.info("********** Долги на дату: dt={}, lsk={}", Utl.getStrFromDate(dt), kart.getLsk());
 
-            // сохранить несвернутые долги на последнюю дату в DEB
-            if (dt.getTime() == dt2.getTime()) {
-                mapDebPart2.forEach((k, v) -> saveDeb(calcStore, kart, localStore,
-                        k.getUslId(), k.getOrgId(), k.getMg(), v.deb));
-            }
 
             mapDebPart2.forEach((key, value) -> {
                 //if (key.getUslId().equals("011") && key.getOrgId().equals(3)) {
@@ -177,6 +172,12 @@ public class DebitThrMngImpl implements DebitThrMng {
             });
             // перенести переплату
             moveOverpay(mapDebPart2);
+
+            // сохранить долги на последнюю дату в DEB
+            if (dt.getTime() == dt2.getTime()) {
+                mapDebPart2.forEach((k, v) -> saveDeb(calcStore, kart, localStore,
+                        k.getUslId(), k.getOrgId(), k.getMg(), v));
+            }
 
             mapDebPart2.entrySet().stream().sorted((Comparator.comparing(o -> o.getKey().getMg())))
                     .forEach(t -> {
@@ -203,17 +204,16 @@ public class DebitThrMngImpl implements DebitThrMng {
 
     /**
      * Сохранить запись долга
-     *
-     * @param calcStore  - хранилище справочников
+     *  @param calcStore  - хранилище справочников
      * @param kart       - лиц.счет
      * @param localStore - хранилище всех операций по лиц.счету
      * @param uslId      - ID услуги
      * @param orgId      - ID организации
      * @param mg         - период
-     * @param debOut     - долг
+     * @param periodSumma     - долг
      */
     private void saveDeb(CalcStore calcStore, Kart kart, CalcStoreLocal localStore, String uslId,
-                         int orgId, int mg, BigDecimal debOut) {
+                         int orgId, int mg, PeriodSumma periodSumma) {
         // флаг создания новой записи
         boolean isCreate = false;
         // найти запись долгов предыдущего периода
@@ -227,7 +227,8 @@ public class DebitThrMngImpl implements DebitThrMng {
             isCreate = true;
         } else {
             // найдена, проверить равенство по полям
-            if (debOut.compareTo(foundDeb.getDebOut()) == 0) {
+            if (periodSumma.getDeb().compareTo(foundDeb.getDebOut()) == 0 &&
+                    periodSumma.getDebForPen().compareTo(foundDeb.getDebRolled()) == 0) {
                 // равны, расширить период
                 Deb deb = em.find(Deb.class, foundDeb.getId());
                 deb.setMgTo(calcStore.getPeriod());
@@ -238,7 +239,8 @@ public class DebitThrMngImpl implements DebitThrMng {
         }
         if (isCreate) {
             // создать запись нового периода
-            if (debOut.compareTo(BigDecimal.ZERO) != 0) {
+            if (periodSumma.getDeb().compareTo(BigDecimal.ZERO) != 0 ||
+                    periodSumma.getDebForPen().compareTo(BigDecimal.ZERO) != 0) {
                 // если хотя бы одно поле != 0
                 Usl usl = em.find(Usl.class, uslId);
                 if (usl == null) {
@@ -257,7 +259,8 @@ public class DebitThrMngImpl implements DebitThrMng {
                 Deb deb = Deb.builder()
                         .withUsl(usl)
                         .withOrg(org)
-                        .withDebOut(debOut)
+                        .withDebOut(periodSumma.getDeb())
+                        .withDebRolled(periodSumma.getDebForPen())
                         .withKart(kart)
                         .withMgFrom(calcStore.getPeriod())
                         .withMgTo(calcStore.getPeriod())
@@ -358,30 +361,30 @@ public class DebitThrMngImpl implements DebitThrMng {
                 if (debForPen.compareTo(BigDecimal.ZERO) > 0) {
                     Integer mg = entry.getKey();
                     // расчет пени
-                    GenPenMngImpl.PenDTO penDto = genPenMng.calcPen(calcStore, debForPen, mg, kart, dt);
-                    if (penDto != null) {
+                    Optional<GenPenMngImpl.PenDTO> penDto = genPenMng.calcPen(calcStore, debForPen, mg, kart, dt);
+                    penDto.ifPresent(t-> {
                         // сохранить кол-во дней долга (будет сохранено последнее значение)
-                        mapDebDays.put(mg, penDto.getDays());
+                        mapDebDays.put(mg, t.getDays());
                         PenCurRec lastRec = mapLastPenCurRec.get(mg);
                         if (lastRec != null) {
-                            if (lastRec.compareWith(mg, debForPen, penDto.getStavr())) {
-                                lastRec.addPenDay(penDto.getPenya(), dt);
+                            if (lastRec.compareWith(mg, debForPen, t.getStavr())) {
+                                lastRec.addPenDay(t.getPenya(), dt);
                             } else {
-                                PenCurRec rec = new PenCurRec(mg, debForPen, penDto.getPenya(), penDto.getStavr(), dt, dt);
+                                PenCurRec rec = new PenCurRec(mg, debForPen, t.getPenya(), t.getStavr(), dt, dt);
                                 lstPenCurRec.add(rec);
                                 // поменять последнюю запись по пене
                                 mapLastPenCurRec.put(mg, rec);
                             }
                         } else {
-                            PenCurRec rec = new PenCurRec(mg, debForPen, penDto.getPenya(), penDto.getStavr(), dt, dt);
+                            PenCurRec rec = new PenCurRec(mg, debForPen, t.getPenya(), t.getStavr(), dt, dt);
                             lstPenCurRec.add(rec);
                             // поменять последнюю запись по пене
                             mapLastPenCurRec.put(mg, rec);
                         }
                         log.info("Пеня: debForPen={}, dt={}, mg={}, совокупно дней={}, penya={}, proc={}, Stavr.id={}",
-                                debForPen, Utl.getStrFromDate(dt), mg, penDto.getDays(), penDto.getPenya(), penDto.getProc(),
-                                penDto.getStavr().getId());
-                    }
+                                debForPen, Utl.getStrFromDate(dt), mg, t.getDays(), t.getPenya(), t.getProc(),
+                                t.getStavr().getId());
+                    });
                 }
             }
         }

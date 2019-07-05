@@ -78,13 +78,10 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
         execMng.setMenuElemDt1(menuGenItg, new Date());
         execMng.setMenuElemDt2(menuGenItg, null);
 
-        //sprGenItmDao.getAllOrdered().stream().forEach(t->execMng.set);
-
         try {
             // прогресс - 0
             config.setProgress(0);
 
-            //SprGenItm menuMonthOver = sprGenItmDao.getByCd("GEN_MONTH_OVER");
             SprGenItm menuCheckBG = sprGenItmDao.getByCd("GEN_CHECK_BEFORE_GEN");
             SprGenItm menuCheckAG = sprGenItmDao.getByCd("GEN_CHECK_AFTER_GEN");
 
@@ -112,20 +109,6 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                 if (markExecuted(menuGenItg, menuCheckBG, 0.05D, new Date())) return;
                 log.info("Проверки до формирования выполнены!");
             }
-
-            //********** Проверки до перехода месяца note Переделать этот бред!
-/*            if (menuMonthOver.getSel()) {
-                if (checkMonthOverErr()) {
-                    // найдены ошибки - выход
-                    menuGenItg.setState("Найдены ошибки до перехода месяца!");
-                    log.info("Найдены ошибки до перехода месяца!");
-                    return;
-                }
-                execMng.setMenuElemPercent(menuMonthOver, 1);
-                log.info("Проверки до перехода месяца выполнены!");
-            }
-            execMng.setMenuElemPercent(menuGenItg, 0.10D);
-*/
             // список Id объектов
             List<Long> lst;
             String retStatus;
@@ -133,7 +116,6 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
             for (SprGenItm itm : sprGenItmDao.getAllCheckedOrdered()) {
 
                 log.info("Generating menu item: {}", itm.getCd());
-                Integer ret;
                 Date dt1;
                 switch (itm.getCd()) {
                     case "GEN_ADVANCE":
@@ -311,7 +293,6 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                     case "GEN_CHECK_BEFORE_GEN":
                         break;
                     default:
-                        //execMng.setMenuElemState(menuGenItg, "Найдены ошибки при формировании");
                         log.warn("ПРЕДУПРЕЖДЕНИЕ! Найден необработанный блок case={}!", itm.getCd());
                         //return;
                 }
@@ -516,7 +497,7 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
         procedureQuery.setParameter("P_VAR", var);
         procedureQuery.execute();
 
-        String strErr = null;
+        String strErr;
         switch (t.getName()) {
             case "com.dic.bill.model.scott.Kart": {
                 @SuppressWarnings("unchecked")
@@ -564,37 +545,6 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
     private String printStrStub(List<Stub> lst) {
         return lst.stream().map(Stub::getText).limit(100)
                 .collect(Collectors.joining(","));
-    }
-
-    /**
-     * Проверка ошибок до перехода
-     * вернуть false - если нет ошибок
-     */
-    private boolean checkMonthOverErr() {
-        // новая проверка, на список домов в разных УК, по которым обнаружены открытые лицевые счета
-        Integer ret = execMng.execProc(8, null, null);
-        boolean isErr = false;
-        if (ret.equals(1)) {
-            // установить статус ошибки, выйти из формирования
-            isErr = true;
-        }
-        ret = execMng.execProc(10, null, null);
-        if (ret.equals(1)) {
-            // установить статус ошибки, выйти из формирования
-            isErr = true;
-        }
-        ret = execMng.execProc(11, null, null);
-        if (ret.equals(1)) {
-            // установить статус ошибки, выйти из формирования
-            isErr = true;
-        }
-        ret = execMng.execProc(14, null, null);
-        if (ret.equals(1)) {
-            // установить статус ошибки, выйти из формирования
-            isErr = true;
-        }
-
-        return isErr;
     }
 
 }

@@ -157,8 +157,8 @@ Ext.define('TestApp.view.main.MainController', {
                 }
             }
         });
-
-
+        // обновить страницу без кэша
+	window.location.reload(true)
     },
 
     // Остановка формирования

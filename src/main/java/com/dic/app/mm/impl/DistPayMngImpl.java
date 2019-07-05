@@ -2,7 +2,7 @@ package com.dic.app.mm.impl;
 
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.DistPayMng;
-import com.dic.app.mm.GenChrgProcessMng;
+import com.dic.app.mm.ProcessMng;
 import com.dic.app.mm.ReferenceMng;
 import com.dic.bill.dao.NaborDAO;
 import com.dic.bill.dao.SaldoUslDAO;
@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
 @Service
 public class DistPayMngImpl implements DistPayMng {
 
-    private final GenChrgProcessMng genChrgProcessMng;
+    private final ProcessMng processMng;
     private final SaldoMng saldoMng;
     private final ConfigApp configApp;
     private final SprProcPayDAO sprProcPayDAO;
@@ -51,13 +51,13 @@ public class DistPayMngImpl implements DistPayMng {
 
     public DistPayMngImpl(SaldoMng saldoMng, ConfigApp configApp,
                           SprProcPayDAO sprProcPayDAO, NaborDAO naborDAO, SaldoUslDAO saldoUslDAO,
-                          GenChrgProcessMng genChrgProcessMng,
+                          ProcessMng processMng,
                           ReferenceMng referenceMng, SprParamMng sprParamMng) {
         this.saldoMng = saldoMng;
         this.configApp = configApp;
         this.sprProcPayDAO = sprProcPayDAO;
         this.saldoUslDAO = saldoUslDAO;
-        this.genChrgProcessMng = genChrgProcessMng;
+        this.processMng = processMng;
         this.referenceMng = referenceMng;
         this.sprParamMng = sprParamMng;
     }
@@ -391,11 +391,11 @@ public class DistPayMngImpl implements DistPayMng {
                         // текущий или будущий период (аванс) распределить точно по выбранным услугам,
                         // не превышая текущего начисления с учетом текущей оплаты
                         saveKwtpDayLog(amount, "2.0 Период оплаты >= текущий период, распределить " +
-                                "по списку услуг, точно");
+                                "по тек.начислению списка услуг, точно");
                         distWithRestriction(amount, 7, false, null,
                                 null, null, null,
                                 false, false, null,
-                                true, Arrays.asList("011", "012", "015", "016", "038", "039",
+                                true, Arrays.asList("011", "012", "015", "016", "013", "014", "038", "039",
                                         "033", "034", "042", "044", "045"), false);
                         if (amount.isExistSumma()) {
                             // если всё еще есть остаток суммы, распределить по прочим услугам
@@ -404,7 +404,7 @@ public class DistPayMngImpl implements DistPayMng {
                             distWithRestriction(amount, 5, false, null,
                                     null, null, null,
                                     false, false,
-                                    Arrays.asList("011", "012", "015", "016", "038", "039",
+                                    Arrays.asList("011", "012", "015", "016", "013", "014", "038", "039",
                                             "033", "034", "042", "044", "045"), true,
                                     null, false);
                         }
@@ -523,19 +523,43 @@ public class DistPayMngImpl implements DistPayMng {
         }
 
         saveKwtpDayLog(amount, "***** Распределение оплаты ver=1.03 *****");
-        saveKwtpDayLog(amount, "1.0 C_KWTP_MG.ID={}, C_KWTP_MG.SUMMA={}, C_KWTP_MG.PENYA={}, Дата-время={}",
-                amount.getKwtpMgId(), amount.getSumma(), amount.getPenya(),
+        saveKwtpDayLog(amount, "1.0 C_KWTP_MG.LSK={}, C_KWTP_MG.ID={}, C_KWTP_MG.SUMMA={}, C_KWTP_MG.PENYA={}, Дата-время={}",
+                kart.getLsk(), amount.getKwtpMgId(), amount.getSumma(), amount.getPenya(),
                 Utl.getStrFromDate(new Date(), "dd.MM.yyyy HH:mm:ss"));
         saveKwtpDayLog(amount, "УК: {}", amount.getKart().getUk().getReu());
         saveKwtpDayLog(amount, "Тип счета: {}", amount.getKart().getTp().getName());
         saveKwtpDayLog(amount, "Тип распределения, параметр JAVA_DIST_KWTP_MG={}", amount.getDistTp());
         saveKwtpDayLog(amount, "Долг за период: {}", amount.getAmntDebtDopl());
 
-        if (isGenChrg && Utl.in(amount.getDistTp(), 1)) {
-            // сформировать начисление - только вариант Кис.
-            genChrgProcessMng.genChrg(0, 0, amount.getDtek(), null, null,
-                    amount.getKart().getKoKw(), null, null);
+        // сформировать начисление
+        if (isGenChrg) {
+            if (Utl.in(amount.getDistTp(), 1)) {
+                // только вариант Кис.
+                processMng.processWebRequest(0, 0, amount.getDtek(), null, null,
+                        amount.getKart().getKoKw(), null, null);
+                //} else {
+                // ТСЖ - вызвать начисление PL/SQL - не надо! делается в Direct
+                // расчитать начисление по одному лиц счету
+/*
+                StoredProcedureQuery qr = em.createStoredProcedureQuery("scott.c_charges.gen_charges");
+                // id дома
+                qr.registerStoredProcedureParameter(1, String.class, ParameterMode.IN);
+                qr.registerStoredProcedureParameter(2, String.class, ParameterMode.IN);
+                qr.registerStoredProcedureParameter(3, Integer.class, ParameterMode.IN);
+                qr.registerStoredProcedureParameter(4, Integer.class, ParameterMode.IN);
+                qr.registerStoredProcedureParameter(5, Integer.class, ParameterMode.IN);
+                qr.registerStoredProcedureParameter(6, Integer.class, ParameterMode.IN);
+                qr.setParameter(1, kart.getLsk());
+                qr.setParameter(2, kart.getLsk());
+                qr.setParameter(3, null);
+                qr.setParameter(4, null);
+                qr.setParameter(5, 1);
+                qr.setParameter(6, 0);
+                qr.executeUpdate();
+*/
+            }
         }
+
         // получить вх.общ.сал.
         amount.setInSal(saldoMng.getOutSal(amount.getKart(), configApp.getPeriod(),
                 null, null,
@@ -672,11 +696,11 @@ public class DistPayMngImpl implements DistPayMng {
                     .stream().map(t -> new SumUslOrgDTO(t.getUslId(), t.getOrgId(), t.getSumma()))
                     .collect(Collectors.toList());
         } else if (tp == 7) {
-            // получить текущее начисление минус оплата за текущий период и корректировки по оплате за текущий период
+            // получить текущее начисление ред. 25.06.2019 убрал вот это:минус оплата за текущий период и корректировки по оплате за текущий период
             List<SumUslOrgDTO> inSal = saldoMng.getOutSal(amount.getKart(), currPeriod,
                     null, null,
                     false, true, false, false, false,
-                    false, null, true, true);
+                    false, null, false, false);
             // фильтровать по положительным значениям
             lstDistribBase = inSal.stream()
                     .filter(t -> t.getSumma().compareTo(BigDecimal.ZERO) > 0

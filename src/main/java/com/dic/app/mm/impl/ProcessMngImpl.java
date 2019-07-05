@@ -2,6 +2,7 @@ package com.dic.app.mm.impl;
 
 import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.*;
+import com.dic.bill.model.scott.*;
 import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.*;
@@ -9,15 +10,19 @@ import com.ric.dto.CommonResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StopWatch;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -34,21 +39,96 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     private final ConfigApp config;
     private final ThreadMng<Long> threadMng;
     private final GenChrgProcessMng genChrgProcessMng;
+    private final GenPenProcessMng genPenProcessMng;
     private final MigrateMng migrateMng;
     private final DistVolMng distVolMng;
+    private final ApplicationContext ctx;
 
     @PersistenceContext
     private EntityManager em;
 
     @Autowired
     public ProcessMngImpl(@Lazy DistVolMng distVolMng, ConfigApp config, ThreadMng<Long> threadMng,
-                          GenChrgProcessMng genChrgProcessMng, MigrateMng migrateMng) {
+                          GenChrgProcessMng genChrgProcessMng, GenPenProcessMng genPenProcessMng,
+                          MigrateMng migrateMng, ApplicationContext ctx) {
         this.distVolMng = distVolMng;
         this.config = config;
         this.threadMng = threadMng;
         this.genChrgProcessMng = genChrgProcessMng;
+        this.genPenProcessMng = genPenProcessMng;
         this.migrateMng = migrateMng;
+        this.ctx = ctx;
     }
+
+    /**
+     * Обработка запроса  из WebController
+     *
+     * @param tp       - тип выполнения 0-начисление, 1-задолженность и пеня, 2 - распределение объемов по вводу,
+     *                 4 - начисление по одной услуге, для автоначисления
+     * @param debugLvl - уровень отладки
+     * @param genDt    - дата формирования
+     * @param house    - дом
+     * @param vvod     - ввод
+     * @param ko       - объект Ко
+     * @param uk       - УК
+     * @param usl      - услуга
+     */
+    @Override
+    @Transactional(
+            propagation = Propagation.REQUIRED,
+            isolation = Isolation.READ_COMMITTED, // читать только закомиченные данные, не ставить другое, не даст запустить поток!
+            rollbackFor = Exception.class)
+    public String processWebRequest(int tp, int debugLvl, Date genDt,
+                                    House house, Vvod vvod, Ko ko, Org uk, Usl usl) {
+        String retStatus;
+        // построить запрос
+        RequestConfigDirect reqConf = RequestConfigDirect.RequestConfigDirectBuilder.aRequestConfigDirect()
+                .withTp(tp)
+                .withGenDt(genDt)
+                .withUk(uk)
+                .withHouse(house)
+                .withVvod(vvod)
+                .withKo(ko)
+                .withUsl(usl)
+                .withCurDt1(config.getCurDt1())
+                .withCurDt2(config.getCurDt2())
+                .withDebugLvl(debugLvl)
+                .withRqn(config.incNextReqNum())
+                .withIsMultiThreads(true)
+                .withStopMark("processMng.process")
+                .build();
+        reqConf.prepareId();
+        //StopWatch sw = new StopWatch();
+        //sw.start("TIMING: " + reqConf.getTpName());
+
+        // проверить переданные параметры
+        retStatus = reqConf.checkArguments();
+        if (retStatus == null) {
+            try {
+                if (Utl.in(reqConf.getTp(), 0, 1, 2, 4)) {
+                    // расчет начисления, распределение объемов, расчет задолженности и пени
+                    reqConf.prepareChrgCountAmount();
+                    log.info("Будет обработано {} объектов", reqConf.getLstItems().size());
+                    ProcessMng processMng = ctx.getBean(ProcessMng.class);
+                    processMng.processAll(reqConf);
+                }
+                if (Utl.in(reqConf.getTp(), 4)) {
+                    // по операции - начисление по одной услуге, для автоначисления
+                    // вернуть начисленный объем
+                    retStatus = "OK:" + reqConf.getChrgCountAmount().getResultVol().toString();
+                } else {
+                    retStatus = "OK";
+                }
+            } catch (Exception e) {
+                retStatus = "ERROR! Ошибка при выполнении расчета!";
+                log.error(Utl.getStackTraceString(e));
+            }
+        }
+        //sw.stop();
+        //System.out.println(sw.prettyPrint());
+        return retStatus;
+    }
+
 
     /**
      * Выполнение процесса формирования начисления, задолженности, по помещению, по дому, по вводу
@@ -60,7 +140,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     @CacheEvict(value = {"ReferenceMng.getUslOrgRedirect"}, allEntries = true)
     @Transactional(propagation = Propagation.REQUIRED,
             rollbackFor = Exception.class)
-    public void genProcessAll(RequestConfigDirect reqConf) throws ErrorWhileGen {
+    public void processAll(RequestConfigDirect reqConf) throws ErrorWhileGen {
 
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО процесса {} заданных объектов", reqConf.getTpName());
@@ -115,7 +195,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW,
             rollbackFor = Exception.class)
-    public CompletableFuture<CommonResult> genProcess(RequestConfigDirect reqConf) throws ErrorWhileGen {
+    public CompletableFuture<CommonResult> process(RequestConfigDirect reqConf) throws ErrorWhileGen {
         long startTime = System.currentTimeMillis();
         log.info("НАЧАЛО потока {}", reqConf.getTpName());
 
@@ -137,6 +217,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     private void selectInvokeProcess(RequestConfigDirect reqConf) throws ErrorWhileGen {
         switch (reqConf.getTp()) {
             case 0:
+            case 1:
             case 2:
             case 3:
             case 4: {
@@ -151,13 +232,19 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                                 log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
                                 break;
                             }
-                            if (Utl.in(reqConf.getTp(), 0, 3, 4)) {
-                                // Начисление и начисление для распределения объемов
+                            if (Utl.in(reqConf.getTp(), 0, 1, 3, 4)) {
+                                // Начисление и начисление для распределения объемов, расчет пени
                                 if (reqConf.isSingleObjectCalc()) {
                                     log.info("****** {} помещения klskId={} - начало    ******",
                                             reqConf.getTpName(), id);
                                 }
-                                genChrgProcessMng.genChrg(reqConf, id);
+                                if (Utl.in(reqConf.getTp(), 1)) {
+                                    // расчет пени
+                                    genPenProcessMng.genDebitPen(reqConf.getCalcStore(), true, id);
+                                } else {
+                                    // расчет начисления и начисления для распределения объемов
+                                    genChrgProcessMng.genChrg(reqConf, id);
+                                }
                                 if (reqConf.isSingleObjectCalc()) {
                                     log.info("****** {} помещения klskId={} - окончание   ******",
                                             reqConf.getTpName(), id);
@@ -221,11 +308,6 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                         throw new ErrorWhileGen("ОШИБКА! Произошла ошибка в потоке " + reqConf.getTpName()
                                 + ", объект lsk=" + id);
                 }
-                break;
-            }
-            case 1: {
-                // Расчет долга и пени
-                //genPenProcessMng.genDebitPen(calcStore, klskId); fixme доделать вызов!
                 break;
             }
             default:

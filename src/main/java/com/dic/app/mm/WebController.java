@@ -1,6 +1,5 @@
 package com.dic.app.mm;
 
-import com.dic.app.mm.impl.DistPayMngImpl;
 import com.dic.bill.dao.OrgDAO;
 import com.dic.bill.dao.PrepErrDAO;
 import com.dic.bill.dao.SprGenItmDAO;
@@ -9,7 +8,6 @@ import com.dic.bill.mm.NaborMng;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
-import com.ric.cmn.excp.ErrorWhileDistDeb;
 import com.ric.cmn.excp.ErrorWhileDistPay;
 import com.ric.cmn.excp.ErrorWhileGen;
 import com.ric.cmn.excp.WrongParam;
@@ -38,7 +36,7 @@ public class WebController implements CommonConstants {
     @PersistenceContext
     private EntityManager em;
 
-    private final GenChrgProcessMng genChrgProcessMng;
+    private final ProcessMng processMng;
     private final NaborMng naborMng;
     private final MigrateMng migrateMng;
     private final ExecMng execMng;
@@ -56,7 +54,7 @@ public class WebController implements CommonConstants {
                          OrgDAO orgDAO, ConfigApp config, ApplicationContext ctx,
                          DistPayMng distPayMng,
                          DistPayQueueMng distPayQueueMng,
-                         GenChrgProcessMng genChrgProcessMng,
+                         ProcessMng processMng,
                          CorrectsMng correctsMng) {
         this.naborMng = naborMng;
         this.migrateMng = migrateMng;
@@ -68,7 +66,7 @@ public class WebController implements CommonConstants {
         this.distPayQueueMng = distPayQueueMng;
         this.config = config;
         this.ctx = ctx;
-        this.genChrgProcessMng = genChrgProcessMng;
+        this.processMng = processMng;
         this.correctsMng = correctsMng;
     }
 
@@ -242,7 +240,7 @@ public class WebController implements CommonConstants {
             Date genDt = null;
             try {
                 genDt = genDtStr != null ? Utl.getDateFromStr(genDtStr) : null;
-                retStatus = genChrgProcessMng.genChrg(tp, debugLvl, genDt, house, vvod, ko, uk, usl);
+                retStatus = processMng.processWebRequest(tp, debugLvl, genDt, house, vvod, ko, uk, usl);
             } catch (ParseException e) {
                 log.error(Utl.getStackTraceString(e));
                 retStatus = "ERROR! Некорректная дата genDtStr=" + genDtStr;

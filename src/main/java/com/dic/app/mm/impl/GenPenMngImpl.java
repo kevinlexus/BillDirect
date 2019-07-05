@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Date;
+import java.util.Optional;
 
 /**
  * Сервис расчета пени
@@ -44,13 +45,13 @@ public class GenPenMngImpl implements GenPenMng {
 
     /**
      * Рассчитать пеню
-     *
-     * @param deb - долг
+     *  @param deb - долг
      * @param mg    - период долга
      * @param kart  - лиц.счет
+     * @return
      */
     @Override
-    public PenDTO calcPen(CalcStore calcStore, BigDecimal deb, Integer mg, Kart kart, Date curDt) {
+    public Optional<PenDTO> calcPen(CalcStore calcStore, BigDecimal deb, Integer mg, Kart kart, Date curDt) {
         // дата начала начисления пени
         SprPen penDt = getPenDt(calcStore, mg, kart);
         // вернуть кол-во дней между датой расчета пени и датой начала пени по справочнику
@@ -82,10 +83,10 @@ public class GenPenMngImpl implements GenPenMng {
             penDTO.penya = deb.multiply(penDTO.proc).divide(new BigDecimal(100), RoundingMode.HALF_UP);
             penDTO.days = days;
             penDTO.stavr = stavr;
-            return penDTO;
+            return Optional.of(penDTO);
         } else {
             // нет пени
-            return null;
+            return Optional.empty();
         }
     }
 

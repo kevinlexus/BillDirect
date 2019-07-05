@@ -59,7 +59,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
             //log.info("********* Создан новый поток-1 tpName={}", reqConf.getTpName());
             ProcessMng processMng = ctx.getBean(ProcessMng.class);
             //log.info("********* Создан новый поток-2 tpName={}", reqConf.getTpName());
-            CompletableFuture<CommonResult> ret = processMng.genProcess(reqConf);
+            CompletableFuture<CommonResult> ret = processMng.process(reqConf);
             //log.info("********* Создан новый поток-3 tpName={}", reqConf.getTpName());
             lst.add(ret);
             //log.info("********* Создан новый поток-4 tpName={}", reqConf.getTpName());

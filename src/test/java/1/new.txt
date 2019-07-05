@@ -1,0 +1,127 @@
+function get_money_nal(lsk_ in kart.lsk%type) return c_kwtp.id%type is
+  nkvit_           number;
+  cnt_             number;
+  id_              c_kwtp.id%type;
+  c_kwtp_summa_    number;
+  c_kwtp_mg_summa_ number;
+  summa_mg_        number;
+begin
+  --ввод оплаты, наличкой
+  select nvl(count(*), 0)
+    into cnt_
+    from (select count(*) as cnt, t.oper from c_kwtp_temp t group by t.oper)
+   where cnt > 1;
+  if cnt_ > 1 then
+    Raise_application_error(-20001,
+                            'Внимание! Дублируется код операции, отмена!');
+  end if;
+
+  --номер квитанции
+  select nkvit into nkvit_ from c_comps t where t.nkom = init.get_nkom();
+  update c_comps c set c.nkvit = nkvit_ + 1 where c.nkom = init.get_nkom();
+  select c_kwtp_id.nextval into id_ from dual;
+
+  insert into c_kwtp
+    (lsk, summa, penya, oper, dopl, nink, nkom, dtek, nkvit, dat_ink, ts, id, iscorrect)
+    select lpad(lsk_, 8, '0'), sum(t.summa), sum(t.penya), null, null, 0, init.get_nkom(), init.get_date(), nkvit_, null, sysdate, id_, 3
+      from c_kwtp_temp t
+     where nvl(t.summa, 0) <> 0
+        or nvl(t.penya, 0) <> 0;
+
+  select nvl(sum(t.summa), 0) + nvl(sum(t.penya), 0)
+    into c_kwtp_summa_
+    from c_kwtp_temp t
+   where nvl(t.summa, 0) <> 0
+      or nvl(t.penya, 0) <> 0;
+
+  summa_mg_        := 0;
+  c_kwtp_mg_summa_ := 0;
+  for c in (select t.*, nvl(o.iscounter, 0) as iscounter, trim(u.counter) as counter
+              from c_kwtp_temp t, oper o, usl u
+             where t.oper = o.oper
+               and o.fk_usl_chk = u.usl(+)) loop
+    if c.iscounter = 0 then
+      --например 01 - опер, квартплата
+      insert into c_kwtp_mg
+        (lsk, summa, penya, oper, dopl, nink, nkom, dtek, nkvit, dat_ink, ts, c_kwtp_id)
+        select lpad(lsk_, 8, '0'), t.summa, t.penya, c.oper, t.mg, 0, init.get_nkom(), init.get_date(), nkvit_, null, sysdate, id_
+          from c_kwtp_temp_dolg t
+         where (nvl(t.summa, 0) <> 0 or nvl(t.penya, 0) <> 0);
+
+      if SQL%ROWCOUNT = 0 then
+        rollback;
+        logger.log_(null,
+                    'C_GET_PAY.GET_MONEY_NAL, Ошибка при вводе оплаты! Повторить ввод!');
+        Raise_application_error(-20000,
+                                'Ошибка при вводе оплаты! Повторить ввод!' ||
+                                c_kwtp_summa_ || ' ' || c_kwtp_mg_summa_);
+      end if;
+      select nvl(sum(t.summa), 0) + nvl(sum(t.penya), 0)
+        into summa_mg_
+        from c_kwtp_temp_dolg t
+       where nvl(t.summa, 0) <> 0
+          or nvl(t.penya, 0) <> 0;
+    elsif c.iscounter <> 0 and c.counter is not null then
+      --расход
+      --последние показания по х.воде-г.воде (обраб в триггере)
+      execute immediate 'update kart k set k.' || c.counter ||
+                        '=:cnt_ where k.lsk=lpad(:lsk_,8,''0'')'
+        using c.cnt_sch, lsk_;
+      insert into c_kwtp_mg
+        (lsk, summa, penya, oper, dopl, cnt_sch, cnt_sch0, nink, nkom, dtek, nkvit, dat_ink, ts, c_kwtp_id)
+        select lpad(lsk_, 8, '0'), t.summa, t.penya, c.oper, p.period, t.cnt_sch, c.cnt_sch0, 0, init.get_nkom(), init.get_date(), nkvit_, null, sysdate, id_
+          from c_kwtp_temp t, params p
+         where t.oper = c.oper
+           and (nvl(t.summa, 0) <> 0 or nvl(t.penya, 0) <> 0);
+      if SQL%ROWCOUNT = 0 then
+        rollback;
+        logger.log_(null,
+                    'C_GET_PAY.GET_MONEY_NAL, Ошибка при вводе оплаты! Повторить ввод!');
+        Raise_application_error(-20000,
+                                'Ошибка при вводе оплаты! Повторить ввод!' ||
+                                c_kwtp_summa_ || ' ' || c_kwtp_mg_summa_);
+      end if;
+
+      select nvl(sum(t.summa), 0) + nvl(sum(t.penya), 0)
+        into summa_mg_
+        from c_kwtp_temp t
+       where t.oper = c.oper
+         and (nvl(t.summa, 0) <> 0 or nvl(t.penya, 0) <> 0);
+    elsif c.iscounter = 2 then
+      --например каб.тел
+      insert into c_kwtp_mg
+        (lsk, summa, penya, oper, dopl, cnt_sch, cnt_sch0, nink, nkom, dtek, nkvit, dat_ink, ts, c_kwtp_id)
+        select lpad(lsk_, 8, '0'), t.summa, t.penya, c.oper, p.period, t.cnt_sch, c.cnt_sch0, 0, init.get_nkom(), init.get_date(), nkvit_, null, sysdate, id_
+          from c_kwtp_temp t, params p
+         where t.oper = c.oper
+           and (nvl(t.summa, 0) <> 0 or nvl(t.penya, 0) <> 0);
+      if SQL%ROWCOUNT = 0 then
+        rollback;
+        logger.log_(null,
+                    'C_GET_PAY.GET_MONEY_NAL, Ошибка при вводе оплаты! Повторить ввод!');
+        Raise_application_error(-20000,
+                                'Ошибка при вводе оплаты! Повторить ввод!' ||
+                                c_kwtp_summa_ || ' ' || c_kwtp_mg_summa_);
+      end if;
+
+      select nvl(sum(t.summa), 0) + nvl(sum(t.penya), 0)
+        into summa_mg_
+        from c_kwtp_temp t
+       where t.oper = c.oper
+         and (nvl(t.summa, 0) <> 0 or nvl(t.penya, 0) <> 0);
+    else
+      Raise_application_error(-20000,
+                              'Не корректно настроен справочник операций!');
+    end if;
+    c_kwtp_mg_summa_ := c_kwtp_mg_summa_ + summa_mg_;
+  end loop;
+  if nvl(c_kwtp_summa_, 0) <> nvl(c_kwtp_mg_summa_, 0) then
+    rollback;
+    logger.log_(null,
+                'C_GET_PAY.GET_MONEY_NAL, Ошибка при вводе оплаты! Повторить ввод!');
+    Raise_application_error(-20000,
+                            'Ошибка при вводе оплаты! Повторить ввод!' ||
+                            c_kwtp_summa_ || ' ' || c_kwtp_mg_summa_);
+  end if;
+  return id_;
+end;
