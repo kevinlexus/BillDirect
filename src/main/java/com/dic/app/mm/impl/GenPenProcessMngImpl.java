@@ -1,9 +1,6 @@
 package com.dic.app.mm.impl;
 
-import com.dic.app.mm.DebitThrMng;
-import com.dic.app.mm.GenPenMng;
-import com.dic.app.mm.GenPenProcessMng;
-import com.dic.app.mm.ReferenceMng;
+import com.dic.app.mm.*;
 import com.dic.bill.dao.*;
 import com.dic.bill.dto.*;
 import com.dic.bill.model.scott.*;
@@ -37,7 +34,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
     private final CorrectPayDAO correctPayDao;
     private final PenUslCorrDAO penUslCorrDao;
     private final ReferenceMng refMng;
-    private final DebitThrMng debitThrMng;
+    private final DebitByLskThrMng debitByLskThrMng;
 
     @PersistenceContext
     private EntityManager em;
@@ -45,7 +42,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
     public GenPenProcessMngImpl(DebDAO debDao, PenDAO penDao, ChargeDAO chargeDao,
                                 VchangeDetDAO vchangeDetDao, KwtpDayDAO kwtpDayDao,
                                 CorrectPayDAO correctPayDao, PenUslCorrDAO penUslCorrDao,
-                                ReferenceMng refMng, DebitThrMng debitThrMng) {
+                                ReferenceMng refMng, DebitByLskThrMng debitByLskThrMng) {
         this.debDao = debDao;
         this.penDao = penDao;
         this.chargeDao = chargeDao;
@@ -54,7 +51,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         this.correctPayDao = correctPayDao;
         this.penUslCorrDao = penUslCorrDao;
         this.refMng = refMng;
-        this.debitThrMng = debitThrMng;
+        this.debitByLskThrMng = debitByLskThrMng;
     }
 
     /**
@@ -109,7 +106,11 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         lstUslOrg.forEach(t-> log.info("usl={}, org={}", t.getUslId(), t.getOrgId()));
 
         // Расчет задолженности, подготовка для расчета пени
-        debitThrMng.genDebitUsl(kart, calcStore, localStore);
+        // версия расчета по услугам (отказался ставить, не продуманно до конца)
+        //debitThrMng.genDebitUsl(kart, calcStore, localStore);
+
+        // версия расчета в целом по лиц.счету
+        debitByLskThrMng.genDebitUsl(kart, calcStore, localStore);
     }
 
 }
