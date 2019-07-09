@@ -178,6 +178,10 @@ public class VchangeDet implements java.io.Serializable {
                 (k, v) -> k, // функция, определяющая, что делать в случае появления одинакового ключа (здесь - взять k значение)
                 HashMap::new // создать HashMap
         ));
+// Инициализировать HashSet значениями
+        new TreeSet<>(Collections.singleton(t.getUsl().getNameShort()))
+// Объеденить элементы в строку через ";"
+        String.join(";", value);
 
         // merge Map - Integer
         mapPenDays.merge(mg, 1, (k,v)->k+1); // увеличить значение на 1 или записать 1 если не было значения

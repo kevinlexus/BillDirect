@@ -172,18 +172,17 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
                 // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE, округлить для ГИС ЖКХ
                 chrgCountAmountLocal.saveChargeAndRound(ko, lstSelUsl);
+
+                // 8. Сохранить короткое описание услуг
+                chrgCountAmountLocal.saveShortKartDescription(ko);
             }
 
             if (reqConf.getTp() == 4) {
-                // 8. по операции - начисление по одной услуге, для автоначисления - по нормативу
+                // 9. по операции - начисление по одной услуге, для автоначисления - по нормативу
                 // заполнить итоговый объем
                 reqConf.getChrgCountAmount().setResultVol(chrgCountAmountLocal.getAmntVolByUsl(reqConf.getUsl()));
             }
 
-/*            if (reqConf.isSingleObjectCalc()) {
-                log.info("****** {} помещения klskId={} - окончание   ******",
-                        reqConf.getTpName(), ko.getId());
-            }*/
         } catch (WrongParam wrongParam) {
             log.error(Utl.getStackTraceString(wrongParam));
             throw new ErrorWhileChrg("Ошибка в использовании параметра");
