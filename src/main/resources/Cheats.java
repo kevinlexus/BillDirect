@@ -35,9 +35,7 @@ public interface AchargeDAO2 extends JpaRepository<Acharge, Integer> {
             + "and NVL(tp.fk_eolink, ?3) = ?3 "
             + "and t.type = 0 "
             + "group by u.id, s.grp) t2 "
-            + "group by t2.id", nativeQuery = true) <--
-    Native Query
-
+            + "group by t2.id", nativeQuery = true) <-- Native Query
     List<SumChrgRec> getChrgGrp(String lsk, Integer period, Integer orgId);
 }
 
