@@ -3,6 +3,7 @@ package com.dic.app.mm;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.dic.app.mm.impl.Cnt;
 import com.dic.bill.dto.SumDebMgRec;
 import com.dic.bill.dto.SumDebUslMgRec;
 

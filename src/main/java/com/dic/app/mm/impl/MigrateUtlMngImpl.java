@@ -11,18 +11,14 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import com.dic.bill.dao.ApenyaDAO;
-import com.dic.bill.dao.PenyaDAO;
 import com.dic.bill.model.scott.Apenya;
-import com.dic.bill.model.scott.Penya;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.dic.app.mm.Cnt;
 import com.dic.app.mm.MigrateUtlMng;
 import com.dic.bill.dao.SaldoUslDAO;
 import com.dic.bill.dto.SumDebMgRec;
 import com.dic.bill.dto.SumDebUslMgRec;
-import com.dic.bill.dto.SumRecMg;
 import com.dic.bill.dto.SumUslOrgRec;
 
 import lombok.extern.slf4j.Slf4j;

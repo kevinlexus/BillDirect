@@ -63,7 +63,6 @@ public class ConfigAppImpl implements ConfigApp {
     }
 
     // Получить Calendar текущего периода
-    ////@Cacheable(cacheNames="Config.getCalendarCurrentPeriod") Пока отключил 24.11.2017
     private List<Calendar> getCalendarCurrentPeriod() {
         List<Calendar> calendarLst = new ArrayList<>();
 

@@ -175,10 +175,13 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
                 // 8. Сохранить короткое описание услуг
                 chrgCountAmountLocal.saveShortKartDescription(ko);
+
+                // 9. Сохранить фактическое наличие счетчика, в случае отсутствия объема, для формирования статистики
+                chrgCountAmountLocal.saveFactMeterTp(ko, lstMeterVol, reqConf.getCalcStore().getCurDt2());
             }
 
             if (reqConf.getTp() == 4) {
-                // 9. по операции - начисление по одной услуге, для автоначисления - по нормативу
+                // 10. по операции - начисление по одной услуге, для автоначисления - по нормативу
                 // заполнить итоговый объем
                 reqConf.getChrgCountAmount().setResultVol(chrgCountAmountLocal.getAmntVolByUsl(reqConf.getUsl()));
             }
