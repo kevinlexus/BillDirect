@@ -320,7 +320,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 BigDecimal dayColdWaterVol = BigDecimal.ZERO;
                 // объем по г.в. для водоотведения
                 BigDecimal dayHotWaterVol = BigDecimal.ZERO;
-                BigDecimal dayVolOverSoc = BigDecimal.ZERO;
+                BigDecimal dayVolOverSoc = BigDecimal.ZERO; // NOTE начать заполнять это поле для ТСЖ, чтоб считать свыше соцнормы!
 
                 // площади (взять с текущего лиц.счета)
                 final BigDecimal kartArea = Utl.nvl(nabor.getKart().getOpl(), BigDecimal.ZERO);
