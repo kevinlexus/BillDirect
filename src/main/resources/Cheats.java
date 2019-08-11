@@ -58,9 +58,9 @@ public interface AchargeDAO2 extends JpaRepository<Acharge, Integer> {
             + "t.mg as mg, 1 as tp from DebPenUsl t where t.period=:period and t.kart.lsk=:lsk ")
     List<SumRec> getDebit(@Param("lsk") String lsk, @Param("period") Integer period);
 
-    ЕСЛИ нужно
-    чтобы поле
-    заполнялось как null в DTO,тогда просто не нужно его указывать в списке алиасов"as",не надо делать null as"blabla"
+   // ЕСЛИ нужно
+   // чтобы поле
+   // заполнялось как null в DTO,тогда просто не нужно его указывать в списке алиасов"as",не надо делать null as"blabla"
 
 // JpaRepostiory DAO - Удалить записи
 @Modifying
