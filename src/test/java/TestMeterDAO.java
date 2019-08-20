@@ -3,7 +3,6 @@ import com.dic.bill.dao.MeterDAO;
 import com.dic.bill.dto.MeterData;
 import com.dic.bill.dto.SumMeterVol;
 import com.dic.bill.mm.MeterMng;
-import com.dic.bill.model.scott.Ko;
 import com.dic.bill.model.scott.Meter;
 import com.ric.cmn.Utl;
 import lombok.extern.slf4j.Slf4j;
@@ -79,7 +78,7 @@ public class TestMeterDAO {
 	public void isWorkFindMeterVolByKlsk() throws Exception {
 		Date dtFrom = Utl.getDateFromStr("01.04.2014");
 		Date dtTo = Utl.getDateFromStr("30.04.2014");
-		List<SumMeterVol> lstVol = meterDao.findMeterVolByKlsk(104882L, dtFrom, dtTo);
+		List<SumMeterVol> lstVol = meterDao.findMeterVolUsingKlsk(104882L, dtFrom, dtTo);
 		lstVol.forEach(t-> {
 				log.info("t.getMeterId()={}, t.getDtFrom={}, t.getDtTo={}, t.getVol()={}",
 						t.getMeterId(), t.getDtFrom(), t.getDtTo(), t.getVol());
@@ -99,7 +98,7 @@ public class TestMeterDAO {
 		log.info("-----------------Begin");
 		String period = "201404";
 		// найти показания счетчиков
-		List<MeterData> lst = meterDao.findMeteringDataTsByUser("GIS", "ins_sch", period);
+		List<MeterData> lst = meterDao.findMeteringDataTsUsingUser("GIS", "ins_sch", period);
 		for (MeterData t : lst) {
 			System.out.println(t.getTs()+" "+t.getGuid());
 			i++;

@@ -67,7 +67,7 @@ public class TestKart {
     public void isWorkKartMngGetKlskByKulNdKw() throws Exception {
 
         log.info("-----------------Begin");
-        Ko ko = kartMng.getKoByKulNdKw("0174", "000012", "0000066");
+        Ko ko = kartMng.getKoPremiseByKulNdKw("0174", "000012", "0000066");
         log.info("Получен klsk={}", ko.getId());
         Assert.assertTrue(ko.getId().equals(105392));
 

@@ -103,7 +103,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             }
 
             // все действующие счетчики объекта и их объемы
-            List<SumMeterVol> lstMeterVol = meterDao.findMeterVolByKlsk(ko.getId(),
+            List<SumMeterVol> lstMeterVol = meterDao.findMeterVolUsingKlsk(ko.getId(),
                     calcStore.getCurDt1(), calcStore.getCurDt2());
             /*System.out.println("Счетчики:");
             for (SumMeterVol t : lstMeterVol) {
