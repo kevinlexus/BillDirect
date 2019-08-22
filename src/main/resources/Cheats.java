@@ -1,3 +1,4 @@
+// Cheats!
 
 // Отношения в Entity:
 // тип лог.счетчика
@@ -192,10 +193,13 @@ public class VchangeDet implements java.io.Serializable {
         // Сортировка без компаратора
         // отсортировать по периоду
         List<SumDebRec> lstSorted=lst.stream().sorted((t1,t2)->
-        t1.getMg().compareTo(t2.getMg())).collect(Collectors.toList());
-
+          t1.getMg().compareTo(t2.getMg())).collect(Collectors.toList());
 
         // Сортировка компаратором
+
+        // по Eolink.id
+        List<Eolink> lstLskForUpdate =
+          lstLskForUpdateBeforeSorting.stream().sorted(Comparator.comparing(Eolink::getId)).collect(Collectors.toList());
 
         // отсортировать по лиц.счету
         Comparator<MeterDTO> byKartLsk=(e1,e2)->e1
