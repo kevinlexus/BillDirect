@@ -1,14 +1,7 @@
 package com.dic.app.mm.impl;
 
 import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
@@ -77,12 +70,12 @@ public class ComprTblImpl implements ComprTbl {
 	 * @param isAllPeriods - использование начального периода:
 	 *    (если false, то месяц -1 от текущего, если true - с первого минимального по услуге)
 	 * @param isByUsl - использовать ли поле "usl" для критерия сжатия
-	 * @throws WrongTableException
 	 */
 	@Override
 	@Async //- Async чтобы организовался поток
     @Transactional
-	public Future<Result> comprTableByLsk(String table, String lsk, Integer backPeriod, Integer curPeriod, boolean isAllPeriods, boolean isByUsl) {
+	public Future<Result> comprTableByLsk(String table, String lsk,
+										  Integer backPeriod, Integer curPeriod, boolean isAllPeriods, boolean isByUsl) {
 		log.trace("Л.с.:{} Начало сжатия!", lsk);
 		this.lsk = lsk;
 		log.trace("1.1");
@@ -90,7 +83,7 @@ public class ComprTblImpl implements ComprTbl {
 		log.trace("1.2");
     	Result res = new Result(0, lsk);
 		log.trace("1.3");
-    	lst = new ArrayList<Compress>(1000);
+    	lst = new ArrayList<>(1000);
 		log.trace("1.4");
     	// Список ключей-услуг
     	Set<String> lstKey = new TreeSet<String>();
@@ -99,47 +92,51 @@ public class ComprTblImpl implements ComprTbl {
     	Integer minPeriod;
 		log.trace("1.6");
  	   	// Получить все элементы по лиц.счету
-    	if (table.equals("anabor")) {
-    		if (isAllPeriods) {
-    			// получить все периоды
-            	lst.addAll(anaborDao.getByLsk(lsk));
-        		log.trace("Л.с.:{} По всем периодам Anabor элементы получены!", lsk, backPeriod);
-    		} else {
-    			// начиная с периода -2
-            	lst.addAll(anaborDao.getByLskPeriod(lsk, backPeriod));
-        		log.trace("Л.с.:{} По по периоду Anabor начиная с -2 элементы получены!", lsk, backPeriod);
-    		}
-    	} else if (table.equals("acharge")) {
-        		if (isAllPeriods) {
-        			// получить все периоды
-                	lst.addAll(achargeDao.getByLsk(lsk));
-            		log.trace("Л.с.:{} По всем периодам Acharge элементы получены!", lsk, backPeriod);
-        		} else {
-        			// начиная с периода -2
-                	lst.addAll(achargeDao.getByLskPeriod(lsk, backPeriod));
-            		log.trace("Л.с.:{} По по периоду Acharge начиная с -2 элементы получены!", lsk, backPeriod);
-        		}
-    	} else if (table.equals("achargeprep")) {
-    		if (isAllPeriods) {
-    			// получить все периоды
-            	lst.addAll(achargePrepDao.getByLsk(lsk));
-        		log.trace("Л.с.:{} По всем периодам AchargePrep элементы получены!", lsk, backPeriod);
-    		} else {
-    			// начиная с периода -2
-            	lst.addAll(achargePrepDao.getByLskPeriod(lsk, backPeriod));
-        		log.trace("Л.с.:{} По по периоду AchargePrep начиная с -2 элементы получены!", lsk, backPeriod);
-    		}
-    	} else {
-    		// Ошибка - не тот класс таблицы
-    		log.error("Л.с.:{} Ошибка! Некорректный класс таблицы!:{}", lsk, table);
-    		res.setErr(2);
-    		return new AsyncResult<Result>(res);
-    	}
+		switch (table) {
+			case "anabor":
+				if (isAllPeriods) {
+					// получить все периоды
+					lst.addAll(anaborDao.getByLsk(lsk));
+					log.trace("Л.с.:{} По всем периодам Anabor элементы получены!", lsk);
+				} else {
+					// начиная с периода -2
+					lst.addAll(anaborDao.getByLskPeriod(lsk, backPeriod));
+					log.trace("Л.с.:{} По по периоду Anabor начиная с -2 элементы получены!", lsk);
+				}
+				break;
+			case "acharge":
+				if (isAllPeriods) {
+					// получить все периоды
+					lst.addAll(achargeDao.getByLsk(lsk));
+					log.trace("Л.с.:{} По всем периодам Acharge элементы получены!", lsk);
+				} else {
+					// начиная с периода -2
+					lst.addAll(achargeDao.getByLskPeriod(lsk, backPeriod));
+					log.trace("Л.с.:{} По по периоду Acharge начиная с -2 элементы получены!", lsk);
+				}
+				break;
+			case "achargeprep":
+				if (isAllPeriods) {
+					// получить все периоды
+					lst.addAll(achargePrepDao.getByLsk(lsk));
+					log.trace("Л.с.:{} По всем периодам AchargePrep элементы получены!", lsk);
+				} else {
+					// начиная с периода -2
+					lst.addAll(achargePrepDao.getByLskPeriod(lsk, backPeriod));
+					log.trace("Л.с.:{} По по периоду AchargePrep начиная с -2 элементы получены!", lsk);
+				}
+				break;
+			default:
+				// Ошибка - не тот класс таблицы
+				log.error("Л.с.:{} Ошибка! Некорректный класс таблицы!:{}", lsk, table);
+				res.setErr(2);
+				return new AsyncResult<Result>(res);
+		}
 
     	// Список всех услуг
-    	lstKey.addAll(lst.stream().map(t -> t.getKey()).distinct().collect(Collectors.toSet()));
+    	lstKey.addAll(lst.stream().map(Compress::getKey).collect(Collectors.toSet()));
 		log.trace("Л.с.:{} список найденных ключей:", lsk);
-		lstKey.stream().forEach(t-> {
+		lstKey.forEach(t-> {
 			log.trace("Л.с.:{} ключ:{}", lsk, t);
 		});
 
@@ -148,10 +145,8 @@ public class ComprTblImpl implements ComprTbl {
     		for (String key :lstKey) {
     			lastUsed = null;
     	    	// Получить все периоды, фильтр - по услуге
-
-    			minPeriod = lst.stream().filter(d -> d.getKey().equals(key)).map(t -> t.getMgFrom()).min(Integer::compareTo).orElse(null);
-    			//maxPeriod = tp.stream().filter(d -> d.getUsl().equals(key) && d.getMgFrom() < curPeriod) // не включая текущий период
-    				//	.map(t -> t.getMgTo()).max(Integer::compareTo).orElse(null);
+    			minPeriod = lst.stream().filter(d -> d.getKey().equals(key))
+						.map(Compress::getMgFrom).min(Integer::compareTo).orElse(null);
     			log.trace("Л.с.:{} мин.период:{}", lsk, minPeriod);
 
     			// Получить все диапазоны периодов mgFrom, mgTo уникальные - по ключу,
@@ -165,9 +160,9 @@ public class ComprTblImpl implements ComprTbl {
     			});
 
     			lstPeriod = new TreeSet<Integer>();
-    			lstPeriod.addAll(lstPeriodPrep.keySet().stream().collect(Collectors.toSet()));
+    			lstPeriod.addAll(new HashSet<>(lstPeriodPrep.keySet()));
 
-    			lstPeriod.stream().forEach(t-> {
+    			lstPeriod.forEach(t-> {
     	    		checkPeriod(t, key);
 
     			});
