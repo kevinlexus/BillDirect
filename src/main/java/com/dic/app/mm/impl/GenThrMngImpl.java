@@ -53,8 +53,8 @@ public class GenThrMngImpl implements GenThrMng {
 			log.info("Выполнился поток распределения объемов во вводе id={}, где есть ОДПУ", id);
 			break;
 		case 3:
-			//**********установить дату формирования, так как новая транзакция (Propagation.REQUIRES_NEW)
-			execMng.setGenDate();
+			//**********установить дату формирования, так как новая транзакция (Propagation.REQUIRES_NEW) - устанавливается в execMng.execProc
+			//execMng.setGenDate();
 
 			log.info("Выполняется поток начисления пени по дому c_house.id={}", id);
 			execMng.execProc(102, id, null);

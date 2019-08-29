@@ -88,8 +88,8 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
             //********** почистить ошибку последнего формирования, % выполнения
             //genMng.clearError(menuGenItg);
 
-            //********** установить дату формирования
-            execMng.setGenDate();
+            //********** установить дату формирования - устанавливается при каждом вызове execMng.execProc
+            //execMng.setGenDate();
 
             //**********Закрыть базу для пользователей, если выбрано итоговое формир
             if (menuGenItg.getSel()) {

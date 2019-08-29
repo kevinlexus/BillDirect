@@ -9,8 +9,7 @@ public interface ExecMng {
 
 	void updateSprGenItem(List<SprGenItm> lst);
 	Integer execProc(Integer var, Long id, Integer sel);
-	void clearError(SprGenItm menuGenItg);
-	void setGenDate();
+	//void setGenDate();
 	void stateBase(int state);
 	void setMenuElemPercent(SprGenItm spr, double proc);
 	void clearPercent();
