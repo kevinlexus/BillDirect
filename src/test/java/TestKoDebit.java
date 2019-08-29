@@ -48,7 +48,9 @@ public class TestKoDebit {
         {
             for (Kart kart: t.getKart()) {
                 Eolink eolink = kart.getEolink();
-                log.info("klsk={}, lsk={}, ЕЛС={}, ", t.getId(), kart.getLsk(), eolink != null ? eolink.getUn() : null);
+                log.info("klsk={}, lsk={}, eolink.id={}, ЕЛС={}, ", t.getId(), kart.getLsk(),
+                        eolink != null ? eolink.getId() : null,
+                        eolink != null ? eolink.getUn() : null);
             }
         }
         );
