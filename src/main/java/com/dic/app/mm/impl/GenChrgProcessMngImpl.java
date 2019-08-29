@@ -174,7 +174,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 chrgCountAmountLocal.saveChargeAndRound(ko, lstSelUsl);
 
                 // 8. Сохранить короткое описание услуг
-                chrgCountAmountLocal.saveShortKartDescription(ko);
+                kartMng.saveShortKartDescription(ko);
 
                 // 9. Сохранить фактическое наличие счетчика, в случае отсутствия объема, для формирования статистики
                 chrgCountAmountLocal.saveFactMeterTp(ko, lstMeterVol, reqConf.getCalcStore().getCurDt2());
