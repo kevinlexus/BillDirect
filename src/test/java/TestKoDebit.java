@@ -1,8 +1,8 @@
 import com.dic.app.Config;
-import com.dic.bill.dao.ApenyaDAO;
+import com.dic.bill.dao.PenyaDAO;
+import com.dic.bill.mm.EolinkMng;
 import com.dic.bill.mm.KartMng;
 import com.dic.bill.model.exs.Eolink;
-import com.dic.bill.model.scott.Kart;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -18,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.util.Optional;
+import java.util.Set;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = Config.class)
@@ -30,7 +32,9 @@ public class TestKoDebit {
     @Autowired
     private KartMng kartMng;
     @Autowired
-    private ApenyaDAO apenyaDAO;
+    private EolinkMng eolinkMng;
+    @Autowired
+    private PenyaDAO penyaDAO;
 
     @PersistenceContext
     private EntityManager em;
@@ -44,13 +48,21 @@ public class TestKoDebit {
     @Transactional
     public void printAllDebits() {
         log.info("Test printAllDebits Start");
-        apenyaDAO.getKoWhereDebitExists("201404").forEach(t->
+        penyaDAO.getKartWhereDebitExists().forEach(kart->
         {
-            for (Kart kart: t.getKart()) {
-                Eolink eolink = kart.getEolink();
-                log.info("klsk={}, lsk={}, eolink.id={}, ЕЛС={}, ", t.getId(), kart.getLsk(),
-                        eolink != null ? eolink.getId() : null,
-                        eolink != null ? eolink.getUn() : null);
+            Set<Eolink> eolinks = kart.getEolink();
+            for (Eolink eolink : eolinks) {
+                if (eolink.isActual()) {
+                    // взять первый актуальный объект лиц.счета
+                    final String[] houseFIAS = {null};
+                    eolinkMng.getEolinkByEolinkUpHierarchy(eolink, "Дом").ifPresent(t->{
+                            houseFIAS[0] = t.getGuid();
+                    });
+
+                    log.info("lsk={}, fio={}, els={}, houseFIAS={}", kart.getLsk(), kart.getOwnerFIO(),
+                            eolink.getUn(), houseFIAS[0]);
+                    break;
+                }
             }
         }
         );
