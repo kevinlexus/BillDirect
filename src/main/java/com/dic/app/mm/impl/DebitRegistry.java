@@ -27,4 +27,10 @@ public class DebitRegistry {
         }
     }
 
+    /**
+     * Инициализировать объект
+     */
+    public void init() {
+        result = new StringBuilder();
+    }
 }
