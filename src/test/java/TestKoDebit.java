@@ -1,4 +1,5 @@
 import com.dic.app.Config;
+import com.dic.app.mm.RegistryMng;
 import com.dic.app.mm.impl.DebitRegistry;
 import com.dic.bill.dao.MeterDAO;
 import com.dic.bill.dao.PenyaDAO;
@@ -34,6 +35,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = Config.class)
@@ -44,109 +47,47 @@ import java.util.Set;
 public class TestKoDebit {
 
     @Autowired
-    private KartMng kartMng;
-    @Autowired
-    private EolinkMng eolinkMng;
-    @Autowired
-    private PenyaDAO penyaDAO;
-    @Autowired
-    private MeterDAO meterDAO;
+    private RegistryMng registryMng;
 
     @PersistenceContext
     private EntityManager em;
 
 
+    public String getNumIndex(String str) {
+        System.out.println("str=" + str);
+        String trimNum = Utl.ltrim(str, "0");
+        //Pattern pattern = Pattern.compile("([/\\\\-].+|[\\d]{1}[^/\\\\-]+)$");
+        Pattern pattern = Pattern.compile("([/\\\\-].+|\\d\\p{L}+)$");
+        Matcher matcher = pattern.matcher(trimNum);
+        if (matcher.find()) {
+            return matcher.group(0);
+        } else {
+            return "";
+        }
+    }
+
     /**
      * Проверка корректности расчета начисления по помещению
      */
     @Test
-    @Rollback()
+    @Rollback(false)
     @Transactional
     public void printAllDebits() {
         log.info("Test printAllDebits Start");
-        Path path = Paths.get("c:\\temp\\reestr1.txt");
-        // дата формирования
-        Date dt = new Date();
-        try (BufferedWriter writer = Files.newBufferedWriter(path)) {
-            DebitRegistry debitRegistry = new DebitRegistry();
-            for (Kart kart : penyaDAO.getKartWhereDebitExists()) {
-                Set<Eolink> eolinks = kart.getEolink();
-                for (Eolink eolink : eolinks) {
-                    if (eolink.isActual()) {
-                        // взять первый актуальный объект лиц.счета
-                        final String[] houseFIAS = {null};
-                        eolinkMng.getEolinkByEolinkUpHierarchy(eolink, "Дом").ifPresent(t -> {
-                            houseFIAS[0] = t.getGuid();
-                        });
 
-                        for (Penya penya : kart.getPenya()) {
-                            if (Utl.nvl(penya.getSumma(), BigDecimal.ZERO).compareTo(BigDecimal.ZERO) != 0) {
-                                // есть задолженность
-                                debitRegistry.init();
-                                debitRegistry.setDelimeter(";");
-                                debitRegistry.addElem(
-                                        kart.getOwnerFIO(), // ФИО собственника
-                                        eolink.getUn(), // ЕЛС
-                                        houseFIAS[0], // GUID дома по ФИАС
-                                        Utl.ltrim(kart.getNum(), "0"), // № квартиры
-                                        kartMng.getAdr(kart), // адрес
-                                        kart.getLsk(), // лиц.счет
-                                        penya.getSumma().toString() // сумма к оплате
-                                );
-                                debitRegistry.setDelimeter(";:[!]");
-                                debitRegistry.addElem(Utl.getPeriodToMonthYear(penya.getMg1()));
-
-                                // счетчики:
-                                List<Meter> lstMeter = meterDAO.findActualByKo(kart.getKoKw().getId(), dt);
-                                int i = 0;
-                                for (Meter meter : lstMeter) {
-                                    i++;
-                                    if (meter.getN1() != null) {
-                                        // если есть последние показания
-                                        debitRegistry.setDelimeter(";");
-                                        debitRegistry.addElem(meter.getId().toString());
-                                        debitRegistry.addElem(meter.getUsl().getNm2());
-                                        if (i == lstMeter.size()) {
-                                            debitRegistry.setDelimeter(":[!]");
-                                        }
-                                        debitRegistry.addElem(meter.getN1().toString());
-                                    }
-                                }
-
-                                debitRegistry.setDelimeter(";");
-                                // услуги:
-                                // код
-                                debitRegistry.addElem(
-                                        kartMng.generateUslNameShort(kart, 2, 3, "_"));
-                                // наименование
-                                debitRegistry.addElem(
-                                        kartMng.generateUslNameShort(kart, 1, 3, ","));
-                                // сумма к оплате
-
-                                debitRegistry.addElem(penya.getSumma().toString());
-                                if (Utl.nvl(penya.getPenya(), BigDecimal.ZERO).compareTo(BigDecimal.ZERO) != 0) {
-                                    // есть пеня
-                                    // код услуги
-                                    debitRegistry.addElem("PEN");
-                                    // наименование
-                                    debitRegistry.addElem("Пени");
-                                }
-
-                                // пустое поле
-                                debitRegistry.addElem("");
-
-                                writer.write(debitRegistry.getResult().toString()+"\n");
-                                log.info("rec={}", debitRegistry.getResult());
-                            }
-                        }
-                        break;
-                    }
-                }
-            }
-        } catch (IOException e) {
-            log.error("ОШИБКА! Ошибка записи в файл c:\\temp\\reestr1.txt");
-            e.printStackTrace();
+        int i=1;
+        try {
+            i--;
+            i = 1 / i;
+        }catch (ArithmeticException e) {
+            java.io.StringWriter sw = new java.io.StringWriter();
+            e.printStackTrace(new java.io.PrintWriter(sw));
+            String trace = sw.getBuffer().toString();
+            log.error("Ошибка! ={}", trace);
         }
+
+        registryMng.genDebitForSberbank();
+
         log.info("Test printAllDebits End");
     }
 }

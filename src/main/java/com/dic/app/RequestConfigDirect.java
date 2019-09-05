@@ -281,7 +281,7 @@ public class RequestConfigDirect implements Cloneable {
         calcStore.setPeriod(Integer.valueOf(config.getPeriod()));
         // период - месяц назад
         calcStore.setPeriodBack(Integer.valueOf(config.getPeriodBack()));
-        log.info("Начало получения справочников");
+        log.trace("Начало получения справочников");
         if (tp == 1) {
             // справочник дат начала пени
             calcStore.setLstSprPen(sprPenDAO.findAll());

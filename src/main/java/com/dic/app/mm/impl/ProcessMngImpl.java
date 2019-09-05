@@ -108,7 +108,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                 if (Utl.in(reqConf.getTp(), 0, 1, 2, 4)) {
                     // расчет начисления, распределение объемов, расчет задолженности и пени
                     reqConf.prepareChrgCountAmount();
-                    log.info("Будет обработано {} объектов", reqConf.getLstItems().size());
+                    log.trace("Будет обработано {} объектов", reqConf.getLstItems().size());
                     ProcessMng processMng = ctx.getBean(ProcessMng.class);
                     processMng.processAll(reqConf);
                 }
@@ -143,7 +143,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
     public void processAll(RequestConfigDirect reqConf) throws ErrorWhileGen {
 
         long startTime = System.currentTimeMillis();
-        log.info("НАЧАЛО процесса {} заданных объектов", reqConf.getTpName());
+        log.trace("НАЧАЛО процесса {} заданных объектов", reqConf.getTpName());
         // заблокировать, если нужно для долго длящегося процесса
         if (reqConf.isLockForLongLastingProcess()) {
             config.getLock().setLockProc(reqConf.getRqn(), reqConf.getStopMark());
@@ -179,10 +179,10 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             totalTime = (endTime - startTime) / 60000L;
             tpTime = "мин.";
         }
-        log.info("");
-        log.info("ОКОНЧАНИЕ процесса {} заданных объектов - Общее время выполнения = {} {}",
+        log.trace("");
+        log.trace("ОКОНЧАНИЕ процесса {} заданных объектов - Общее время выполнения = {} {}",
                 reqConf.getTpName(), totalTime, tpTime);
-        log.info("");
+        log.trace("");
     }
 
 
@@ -197,7 +197,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
             rollbackFor = Exception.class)
     public CompletableFuture<CommonResult> process(RequestConfigDirect reqConf) throws ErrorWhileGen {
         long startTime = System.currentTimeMillis();
-        log.info("НАЧАЛО потока {}", reqConf.getTpName());
+        log.trace("НАЧАЛО потока {}", reqConf.getTpName());
 
         selectInvokeProcess(reqConf);
 
@@ -235,7 +235,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                             if (Utl.in(reqConf.getTp(), 0, 1, 3, 4)) {
                                 // Начисление и начисление для распределения объемов, расчет пени
                                 if (reqConf.isSingleObjectCalc()) {
-                                    log.info("****** {} помещения klskId={} - начало    ******",
+                                    log.trace("****** {} фин.лиц.сч. klskId={} - начало    ******",
                                             reqConf.getTpName(), id);
                                 }
                                 if (Utl.in(reqConf.getTp(), 1)) {
@@ -246,7 +246,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                                     genChrgProcessMng.genChrg(reqConf, id);
                                 }
                                 if (reqConf.isSingleObjectCalc()) {
-                                    log.info("****** {} помещения klskId={} - окончание   ******",
+                                    log.trace("****** {} фин.лиц.сч. klskId={} - окончание   ******",
                                             reqConf.getTpName(), id);
                                 } else if (i == 500L) {
                                     i = 0;

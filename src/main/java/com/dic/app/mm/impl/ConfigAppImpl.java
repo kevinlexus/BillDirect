@@ -5,9 +5,11 @@ import com.dic.bill.Lock;
 import com.dic.bill.model.scott.Param;
 import com.ric.cmn.Utl;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.SpringApplication;
+import org.hibernate.Session;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.context.event.*;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import java.io.File;
 import java.text.ParseException;
 import java.util.*;
 
@@ -50,8 +51,7 @@ public class ConfigAppImpl implements ConfigApp {
     private void setUp() {
         log.info("");
         log.info("-----------------------------------------------------------------");
-        log.info("Версия модуля - {}", "1.0.2");
-
+        log.info("Версия модуля - {}", "1.0.3");
         log.info("Начало расчетного периода = {}", getCurDt1());
         log.info("Конец расчетного периода = {}", getCurDt2());
         log.info("-----------------------------------------------------------------");
@@ -61,6 +61,7 @@ public class ConfigAppImpl implements ConfigApp {
         // блокировщик процессов
         setLock(new Lock());
     }
+
 
     // Получить Calendar текущего периода
     private List<Calendar> getCalendarCurrentPeriod() {
@@ -100,7 +101,7 @@ public class ConfigAppImpl implements ConfigApp {
     }
 
     @Override
-    @Transactional(propagation= Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public String getPeriod() {
         return Utl.getPeriodFromDate(getCalendarCurrentPeriod().get(0).getTime());
     }

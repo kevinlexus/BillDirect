@@ -52,7 +52,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public void invokeThreads(RequestConfigDirect reqConf, int rqn)
             throws ErrorWhileGen {
-        log.info("Будет создано {} потоков", reqConf.getCntThreads());
+        log.trace("Будет создано {} потоков", reqConf.getCntThreads());
         List<CompletableFuture<CommonResult>> lst = new ArrayList<>();
         for (int i = 0; i < reqConf.getCntThreads(); i++) {
             // создать новый поток, передать информацию о % выполнения
@@ -85,7 +85,7 @@ public class ThreadMngImpl<T> implements ThreadMng<T> {
     public void invokeThreads(PrepThread<T> reverse,
                               int cntThreads, List<T> lstItem, boolean isCheckStop, int rqn, String stopMark)
             throws InterruptedException, ExecutionException, WrongParam, ErrorWhileChrg, ErrorWhileGen {
-        log.info("Будет создано {} потоков", cntThreads);
+        log.trace("Будет создано {} потоков", cntThreads);
         long startTime = System.currentTimeMillis();
         // размер очереди
         int lstSize = lstItem.size();

@@ -34,7 +34,7 @@ Ext.define('TestApp.view.main.List', {
     },
 
     columns: [
-        { text: 'Наименование',  dataIndex: 'name', width: 250,
+        { text: 'Наименование',  dataIndex: 'name', width: 350,
                 editor: {
   		    readOnly:true, //только для чтения
                     allowBlank: false

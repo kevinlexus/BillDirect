@@ -3,6 +3,7 @@ package com.dic.app.mm.impl;
 import com.dic.app.mm.*;
 import com.dic.bill.dao.HouseDAO;
 import com.dic.bill.dao.SprGenItmDAO;
+import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.SprParamMng;
 import com.dic.bill.model.scott.House;
 import com.dic.bill.model.scott.Kart;
@@ -16,6 +17,7 @@ import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Scope;
+import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -26,6 +28,7 @@ import javax.persistence.ParameterMode;
 import javax.persistence.PersistenceContext;
 import javax.persistence.StoredProcedureQuery;
 import java.util.Date;
+import java.util.EventListener;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -45,6 +48,8 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
     private final SprGenItmDAO sprGenItmDao;
     private final HouseDAO houseDao;
     private final ExecMng execMng;
+    private final KartMng kartMng;
+    private final RegistryMng registryMng;
     private final MntBase mntBase;
     private final ApplicationContext ctx;
     private final ThreadMng<Long> threadMng;
@@ -52,7 +57,10 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
     @PersistenceContext
     private EntityManager em;
 
-    public GenMainMngImpl(ConfigApp config, SprGenItmDAO sprGenItmDao, HouseDAO houseDao, ExecMng execMng, MntBase mntBase, ApplicationContext ctx, ThreadMng<Long> threadMng, WebController webController, SprParamMng sprParamMng) {
+    public GenMainMngImpl(ConfigApp config, SprGenItmDAO sprGenItmDao, HouseDAO houseDao,
+                          ExecMng execMng, MntBase mntBase, ApplicationContext ctx,
+                          ThreadMng<Long> threadMng, WebController webController,
+                          SprParamMng sprParamMng, KartMng kartMng, RegistryMng registryMng) {
         this.config = config;
         this.sprGenItmDao = sprGenItmDao;
         this.houseDao = houseDao;
@@ -62,6 +70,8 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
         this.threadMng = threadMng;
         this.webController = webController;
         this.sprParamMng = sprParamMng;
+        this.kartMng = kartMng;
+        this.registryMng = registryMng;
     }
 
     /**
@@ -118,6 +128,11 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                 log.info("Generating menu item: {}", itm.getCd());
                 Date dt1;
                 switch (itm.getCd()) {
+                    case "GEN_KART_ORD":
+                        dt1 = new Date();
+                        kartMng.updateKartDetailOrd1();
+                        if (markExecuted(menuGenItg, itm, 0.10D, dt1)) return;
+                        break;
                     case "GEN_ADVANCE":
                         // переформировать авансовые платежи
                         dt1 = new Date();
@@ -242,6 +257,11 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                         dt1 = new Date();
                         execMng.execProc(33, null, null);
                         if (markExecuted(menuGenItg, itm, 0.90D, dt1)) return;
+                        break;
+                    case "GEN_DEB_BANK":
+                        dt1 = new Date();
+                        registryMng.genDebitForSberbank();
+                        if (markExecuted(menuGenItg, itm, 0.95D, dt1)) return;
                         break;
                     case "GEN_COMPRESS_ARCH":
                         // сжатие архивов
