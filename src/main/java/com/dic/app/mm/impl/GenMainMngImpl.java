@@ -17,7 +17,6 @@ import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Scope;
-import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -28,7 +27,6 @@ import javax.persistence.ParameterMode;
 import javax.persistence.PersistenceContext;
 import javax.persistence.StoredProcedureQuery;
 import java.util.Date;
-import java.util.EventListener;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -324,7 +322,8 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
             }
         } catch (Exception e) {
             log.error(Utl.getStackTraceString(e));
-            execMng.setMenuElemState(menuGenItg, "Ошибка! Смотреть логи! ".concat(e.getMessage()));
+            execMng.setMenuElemState(menuGenItg, "Ошибка! Смотреть логи! "
+                    .concat(e.getMessage() != null ? e.getMessage() : ""));
             // прогресс формирования +1, чтоб отобразить ошибку на web странице
             config.incProgress();
 
