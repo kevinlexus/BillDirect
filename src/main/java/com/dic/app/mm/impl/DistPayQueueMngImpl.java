@@ -4,7 +4,6 @@ import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.DistPayMng;
 import com.dic.app.mm.DistPayQueueMng;
 import com.dic.bill.dto.KwtpMgRec;
-import com.dic.bill.model.scott.Param;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileDistPay;
 import lombok.extern.slf4j.Slf4j;
@@ -12,8 +11,6 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -104,7 +101,7 @@ public class DistPayQueueMngImpl implements DistPayQueueMng {
                                                 t.getDopl(), t.getNink(), t.getNkom(), t.getOper(),
                                                 t.getStrDtek(), t.getStrDatInk(), t.isTest());
                                     } catch (ErrorWhileDistPay e) {
-                                        log.error("ERROR! Ошибка в просессе распределения средств по KwtpMg.Id={}", t.getKwtpMgId());
+                                        log.error("ERROR! Ошибка в процессе распределения средств по KwtpMg.Id={}", t.getKwtpMgId());
                                         log.error(Utl.getStackTraceString(e));
                                     }
                                 }

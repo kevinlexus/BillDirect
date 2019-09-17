@@ -1,19 +1,17 @@
 package com.dic.app.mm.impl;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Service;
-
 import com.dic.app.mm.ReferenceMng;
 import com.dic.bill.dao.RedirPayDAO;
 import com.dic.bill.dto.UslOrg;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.RedirPay;
-
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Сервис методов обработки справочников
@@ -43,7 +41,7 @@ public class ReferenceMngImpl implements ReferenceMng {
 			key="{#uslId, #orgId, #kart.getLsk(), #tp}" )
 	public UslOrg getUslOrgRedirect(String uslId, Integer orgId, Kart kart, Integer tp) {
 		UslOrg uo = new UslOrg(null, null);
-		log.info("tp={},getUk()={},getReu()={}, uslId={}, orgId={}", tp,
+		log.info("tp={}, getReu()={}, uslId={}, orgId={}", tp,
 				kart.getUk().getReu(), uslId, orgId);
 		List<RedirPay> lst = redirPayDao.getRedirPayOrd(tp,
 				kart.getUk().getReu(), uslId, orgId) .stream()

@@ -1,14 +1,5 @@
 import com.dic.app.Config;
 import com.dic.app.mm.RegistryMng;
-import com.dic.app.mm.impl.DebitRegistry;
-import com.dic.bill.dao.MeterDAO;
-import com.dic.bill.dao.PenyaDAO;
-import com.dic.bill.mm.EolinkMng;
-import com.dic.bill.mm.KartMng;
-import com.dic.bill.model.exs.Eolink;
-import com.dic.bill.model.scott.Kart;
-import com.dic.bill.model.scott.Meter;
-import com.dic.bill.model.scott.Penya;
 import com.ric.cmn.Utl;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
@@ -25,16 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 

@@ -1,5 +1,6 @@
 package com.dic.app.mm.impl;
 
+import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.RegistryMng;
 import com.dic.bill.dao.MeterDAO;
 import com.dic.bill.dao.OrgDAO;
@@ -47,23 +48,25 @@ public class RegistryMngImpl implements RegistryMng {
     private final OrgDAO orgDAO;
     private final EolinkMng eolinkMng;
     private final KartMng kartMng;
+    private final ConfigApp configApp;
 
 
     public RegistryMngImpl(EntityManager em,
-                           PenyaDAO penyaDAO, MeterDAO meterDAO, OrgDAO orgDAO, EolinkMng eolinkMng, KartMng kartMng) {
+                           PenyaDAO penyaDAO, MeterDAO meterDAO, OrgDAO orgDAO, EolinkMng eolinkMng, KartMng kartMng, ConfigApp configApp) {
         this.em = em;
         this.penyaDAO = penyaDAO;
         this.meterDAO = meterDAO;
         this.orgDAO = orgDAO;
         this.eolinkMng = eolinkMng;
         this.kartMng = kartMng;
+        this.configApp = configApp;
     }
 
     /**
      * Сформировать реест задолженности по лиц.счетам для Сбербанка
      */
     @Override // метод readOnly - иначе вызывается масса hibernate.AutoFlush - тормозит в Полыс, ред.04.09.2019
-    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true, rollbackFor = Exception.class)
     public void genDebitForSberbank() {
         log.info("Начало формирования реестра задолженности по лиц.счетам для Сбербанка");
         List<Org> lstOrg = orgDAO.findAll();
@@ -110,59 +113,62 @@ public class RegistryMngImpl implements RegistryMng {
         log.info("Формирование реестра задолженности в файл: {}", strPath);
         Path path = Paths.get(strPath);
         BigDecimal amount = BigDecimal.ZERO;
-        int i=0;
+        String period = configApp.getPeriod();
+        int i = 0;
         try (BufferedWriter writer = Files.newBufferedWriter(path)) {
-            DebitRegistry debitRegistry = new DebitRegistry();
+            DebitRegistryRec debitRegistryRec = new DebitRegistryRec();
             for (Kart kart : lstKart) {
                 Optional<Eolink> eolink = kart.getEolink().stream().findFirst();
                 EolinkMngImpl.EolinkParams eolinkParams = eolinkMng.getActualEolinkParams(eolink);
+                BigDecimal summDeb = BigDecimal.ZERO;
+                BigDecimal summPen = BigDecimal.ZERO;
                 for (Penya penya : kart.getPenya()) {
-                    BigDecimal summDeb = Utl.nvl(penya.getSumma(), BigDecimal.ZERO);
-                    BigDecimal summPen = Utl.nvl(penya.getPenya(), BigDecimal.ZERO);
+                    summDeb = summDeb.add(Utl.nvl(penya.getSumma(), BigDecimal.ZERO));
+                    summPen = summPen.add(Utl.nvl(penya.getPenya(), BigDecimal.ZERO));
+                }
 
-                    if (kart.isActual() || (summDeb.compareTo(BigDecimal.ZERO) != 0 || summPen.compareTo(BigDecimal.ZERO) != 0)) {
-                        // либо открытый лиц.счет либо есть задолженность
-                        amount = amount.add(summDeb).add(summPen);
-                        i++;
-                        // есть задолженность
-                        debitRegistry.init();
-                        debitRegistry.setDelimeter("|");
-                        debitRegistry.addElem(
-                                kart.getLsk(), // лиц.счет
-                                eolinkParams.getUn() // ЕЛС
-                        );
-                        if (eolinkParams.getHouseGUID().length()>0) {
-                            debitRegistry.setDelimeter(",");
-                            debitRegistry.addElem(eolinkParams.getHouseGUID()); // GUID дома
-                            debitRegistry.setDelimeter("|");
-                            debitRegistry.addElem(Utl.ltrim(kart.getNum(), "0")); // № квартиры, если указан GUID дома
-                        }
-                        debitRegistry.addElem(kart.getOwnerFIO(), // ФИО собственника
-                                kartMng.getAdrWithCity(kart), // адрес
-                                "Квартплата " + kart.getUk().getName(), // УК
-                                Utl.getPeriodToMonthYear(penya.getMg1()), // период
-                                "" // пустое поле
-                        );
-                        debitRegistry.setDelimeter("");
-                        debitRegistry.addElem(
-                                summDeb.add(summPen).multiply(BigDecimal.valueOf(100))
-                                        .setScale(0, BigDecimal.ROUND_HALF_UP).toString() // сумма задолженности с пенёй в копейках
-                        );
-
-                        String result = debitRegistry.getResult().toString();
-                        log.info(result);
-                        writer.write(debitRegistry.getResult().toString() + "\n");
+                if (kart.isActual() || (summDeb.compareTo(BigDecimal.ZERO) != 0 || summPen.compareTo(BigDecimal.ZERO) != 0)) {
+                    // либо открытый лиц.счет либо есть задолженность
+                    amount = amount.add(summDeb).add(summPen);
+                    i++;
+                    // есть задолженность
+                    debitRegistryRec.init();
+                    debitRegistryRec.setDelimeter("|");
+                    debitRegistryRec.addElem(
+                            kart.getLsk(), // лиц.счет
+                            eolinkParams.getUn() // ЕЛС
+                    );
+                    if (eolinkParams.getHouseGUID().length() > 0) {
+                        debitRegistryRec.setDelimeter(",");
+                        debitRegistryRec.addElem(eolinkParams.getHouseGUID()); // GUID дома
+                        debitRegistryRec.setDelimeter("|");
+                        debitRegistryRec.addElem(Utl.ltrim(kart.getNum(), "0")); // № квартиры, если указан GUID дома
                     }
+                    debitRegistryRec.addElem(kart.getOwnerFIO(), // ФИО собственника
+                            kartMng.getAdrWithCity(kart), // адрес
+                            "Квартплата " + kart.getUk().getName(), // УК
+                            Utl.getPeriodToMonthYear(period), // период
+                            "" // пустое поле
+                    );
+                    debitRegistryRec.setDelimeter("");
+                    debitRegistryRec.addElem(
+                            summDeb.add(summPen).multiply(BigDecimal.valueOf(100))
+                                    .setScale(0, BigDecimal.ROUND_HALF_UP).toString() // сумма задолженности с пенёй в копейках
+                    );
+
+                    String result = debitRegistryRec.getResult().toString();
+                    log.info(result);
+                    writer.write(debitRegistryRec.getResult().toString() + "\r\n");
                 }
             }
             // итоговый маркер
-            debitRegistry.init();
-            debitRegistry.setDelimeter("|");
-            debitRegistry.addElem("=");
-            debitRegistry.addElem(String.valueOf(i));
-            debitRegistry.setDelimeter("");
-            debitRegistry.addElem(amount.setScale(0,BigDecimal.ROUND_HALF_UP).toString());
-            writer.write(debitRegistry.getResult().toString() + "\n");
+            debitRegistryRec.init();
+            debitRegistryRec.setDelimeter("|");
+            debitRegistryRec.addElem("=");
+            debitRegistryRec.addElem(String.valueOf(i));
+            debitRegistryRec.setDelimeter("");
+            debitRegistryRec.addElem(amount.setScale(0, BigDecimal.ROUND_HALF_UP).toString());
+            writer.write(debitRegistryRec.getResult().toString() + "\r\n");
 
         } catch (IOException e) {
             log.error("ОШИБКА! Ошибка записи в файл {}", strPath);
@@ -182,7 +188,7 @@ public class RegistryMngImpl implements RegistryMng {
         // дата формирования
         Date dt = new Date();
         try (BufferedWriter writer = Files.newBufferedWriter(path)) {
-            DebitRegistry debitRegistry = new DebitRegistry();
+            DebitRegistryRec debitRegistryRec = new DebitRegistryRec();
             for (Kart kart : lstKart) {
                 Optional<Eolink> eolink = kart.getEolink().stream().findFirst();
                 // взять первый актуальный объект лиц.счета
@@ -200,9 +206,9 @@ public class RegistryMngImpl implements RegistryMng {
 
                     if (summDeb.compareTo(BigDecimal.ZERO) != 0 || summPen.compareTo(BigDecimal.ZERO) != 0) {
                         // есть задолженность
-                        debitRegistry.init();
-                        debitRegistry.setDelimeter(";");
-                        debitRegistry.addElem(
+                        debitRegistryRec.init();
+                        debitRegistryRec.setDelimeter(";");
+                        debitRegistryRec.addElem(
                                 kart.getOwnerFIO(), // ФИО собственника
                                 un[0], // ЕЛС
                                 houseFIAS[0], // GUID дома по ФИАС
@@ -211,8 +217,8 @@ public class RegistryMngImpl implements RegistryMng {
                                 kart.getLsk(), // лиц.счет
                                 summDeb.add(summPen).toString() // сумма задолженности с пенёй
                         );
-                        debitRegistry.setDelimeter(";:[!]");
-                        debitRegistry.addElem(Utl.getPeriodToMonthYear(penya.getMg1()));
+                        debitRegistryRec.setDelimeter(";:[!]");
+                        debitRegistryRec.addElem(Utl.getPeriodToMonthYear(penya.getMg1()));
 
                         if (kart.getTp().getCd().equals("LSK_TP_MAIN")
                                 && penya.getMg1().equals(Utl.getPeriodFromDate(dt))) {
@@ -223,46 +229,46 @@ public class RegistryMngImpl implements RegistryMng {
                                 i++;
                                 if (meter.getN1() != null) {
                                     // если есть последние показания
-                                    debitRegistry.setDelimeter(";");
-                                    debitRegistry.addElem(meter.getId().toString());
-                                    debitRegistry.addElem(meter.getUsl().getNm2());
+                                    debitRegistryRec.setDelimeter(";");
+                                    debitRegistryRec.addElem(meter.getId().toString());
+                                    debitRegistryRec.addElem(meter.getUsl().getNm2());
                                     if (i == lstMeter.size()) {
-                                        debitRegistry.setDelimeter(":[!]");
+                                        debitRegistryRec.setDelimeter(":[!]");
                                     }
-                                    debitRegistry.addElem(meter.getN1().toString());
+                                    debitRegistryRec.addElem(meter.getN1().toString());
                                 }
                             }
                         } else {
                             // долг прошлого периода - поставить флаг окончания блока счетчиков
-                            debitRegistry.addElem(":[!]");
+                            debitRegistryRec.addElem(":[!]");
                         }
                         // основной долг
                         if (summDeb.compareTo(BigDecimal.ZERO) != 0) {
-                            debitRegistry.setDelimeter(";");
+                            debitRegistryRec.setDelimeter(";");
                             // код услуги
-                            debitRegistry.addElem(
+                            debitRegistryRec.addElem(
                                     kartMng.generateUslNameShort(kart, 2, 3, "_"));
                             // наименование
-                            debitRegistry.addElem(
+                            debitRegistryRec.addElem(
                                     kartMng.generateUslNameShort(kart, 1, 3, ","));
                             // сумма к оплате
-                            debitRegistry.addElem(summDeb.toString());
+                            debitRegistryRec.addElem(summDeb.toString());
                         }
                         // пеня
                         if (summPen.compareTo(BigDecimal.ZERO) != 0) {
                             // код услуги
-                            debitRegistry.addElem("PEN");
+                            debitRegistryRec.addElem("PEN");
                             // наименование
-                            debitRegistry.addElem("Пени");
+                            debitRegistryRec.addElem("Пени");
                             // сумма к оплате
-                            debitRegistry.addElem(summPen.toString());
+                            debitRegistryRec.addElem(summPen.toString());
                         }
 
                         // пустое поле
-                        debitRegistry.addElem("");
-                        String result = debitRegistry.getResult().toString();
+                        debitRegistryRec.addElem("");
+                        String result = debitRegistryRec.getResult().toString();
                         //log.info(result);
-                        writer.write(debitRegistry.getResult().toString() + "\n");
+                        writer.write(debitRegistryRec.getResult().toString() + "\n");
                     }
                 }
             }

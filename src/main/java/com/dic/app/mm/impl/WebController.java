@@ -2,6 +2,7 @@ package com.dic.app.mm.impl;
 
 import com.dic.app.mm.*;
 import com.dic.bill.dao.OrgDAO;
+import com.dic.bill.dao.PenyaDAO;
 import com.dic.bill.dao.PrepErrDAO;
 import com.dic.bill.dao.SprGenItmDAO;
 import com.dic.bill.dto.KwtpMgRec;
@@ -49,6 +50,7 @@ public class WebController implements CommonConstants {
     private final DistPayMng distPayMng;
     private final DistPayQueueMng distPayQueueMng;
     private final CorrectsMng correctsMng;
+    private final PenyaDAO penyaDAO;
 
     public WebController(NaborMng naborMng, MigrateMng migrateMng, ExecMng execMng,
                          SprGenItmDAO sprGenItmDao, PrepErrDAO prepErrDao,
@@ -56,7 +58,7 @@ public class WebController implements CommonConstants {
                          DistPayMng distPayMng,
                          DistPayQueueMng distPayQueueMng,
                          ProcessMng processMng,
-                         CorrectsMng correctsMng) {
+                         CorrectsMng correctsMng, PenyaDAO penyaDAO) {
         this.naborMng = naborMng;
         this.migrateMng = migrateMng;
         this.execMng = execMng;
@@ -69,6 +71,7 @@ public class WebController implements CommonConstants {
         this.ctx = ctx;
         this.processMng = processMng;
         this.correctsMng = correctsMng;
+        this.penyaDAO = penyaDAO;
     }
 
     /**
@@ -329,6 +332,18 @@ public class WebController implements CommonConstants {
         return "ok";
     }
 
+/*
+    @RequestMapping("/check")
+    @ResponseBody
+    public String check() {
+        List<Kart> lstKart = penyaDAO.getKartWhereDebitExistsByGrpDeb(1);
+        for (Kart kart : lstKart) {
+            log.info("lsk={}", kart.getLsk());
+        }
+        return "ok";
+    }
+
+*/
     /**
      * Остановить итоговое формирование
      */

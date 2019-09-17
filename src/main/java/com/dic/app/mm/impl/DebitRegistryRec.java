@@ -4,12 +4,12 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Реестр задолженности для отправки в банк
+ * Запись реестра задолженности для отправки в банк
  *
  * @version 1.00
  */
 @Getter @Setter
-public class DebitRegistry {
+public class DebitRegistryRec {
 
     // элемент реестра
     String elem;
