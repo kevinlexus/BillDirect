@@ -52,7 +52,7 @@ public class DistPayQueueMngImpl implements DistPayQueueMng {
      * @param kwtpMgRec - строка KwtpMg
      */
     @Override
-    public synchronized void queueKwtpMg(KwtpMgRec kwtpMgRec) {
+    public void queueKwtpMg(KwtpMgRec kwtpMgRec) {
         synchronized (lstKwtpMgRec) {
             lstKwtpMgRec.add(kwtpMgRec);
         }
@@ -133,7 +133,7 @@ public class DistPayQueueMngImpl implements DistPayQueueMng {
      *
      * @param cnt - кол-во записей
      */
-    private synchronized List<KwtpMgRec> getNext(int cnt) {
+    private List<KwtpMgRec> getNext(int cnt) {
 
         synchronized (lstKwtpMgRec) {
             if (lstKwtpMgRec.size() > 0) {

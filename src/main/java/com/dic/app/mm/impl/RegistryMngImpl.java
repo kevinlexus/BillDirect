@@ -24,6 +24,7 @@ import javax.persistence.PersistenceContext;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -115,11 +116,12 @@ public class RegistryMngImpl implements RegistryMng {
         BigDecimal amount = BigDecimal.ZERO;
         String period = configApp.getPeriod();
         int i = 0;
-        try (BufferedWriter writer = Files.newBufferedWriter(path)) {
+        try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
             DebitRegistryRec debitRegistryRec = new DebitRegistryRec();
             for (Kart kart : lstKart) {
                 Optional<Eolink> eolink = kart.getEolink().stream().findFirst();
                 EolinkMngImpl.EolinkParams eolinkParams = eolinkMng.getActualEolinkParams(eolink);
+                // суммировать долг по лиц.счету
                 BigDecimal summDeb = BigDecimal.ZERO;
                 BigDecimal summPen = BigDecimal.ZERO;
                 for (Penya penya : kart.getPenya()) {
@@ -135,17 +137,22 @@ public class RegistryMngImpl implements RegistryMng {
                     debitRegistryRec.init();
                     debitRegistryRec.setDelimeter("|");
                     debitRegistryRec.addElem(
-                            kart.getLsk(), // лиц.счет
-                            eolinkParams.getUn() // ЕЛС
+                            kart.getLsk() // лиц.счет
                     );
-                    if (eolinkParams.getHouseGUID().length() > 0) {
+                    if (eolinkParams.getHouseGUID().length() > 0 || eolinkParams.getUn().length() > 0) {
+                        debitRegistryRec.addElem(eolinkParams.getUn()); // ЕЛС
                         debitRegistryRec.setDelimeter(",");
                         debitRegistryRec.addElem(eolinkParams.getHouseGUID()); // GUID дома
                         debitRegistryRec.setDelimeter("|");
                         debitRegistryRec.addElem(Utl.ltrim(kart.getNum(), "0")); // № квартиры, если указан GUID дома
+                    } else {
+                        // нет ЕЛС или GUID дома,- поставить два пустых элемента
+                        debitRegistryRec.addElem("");
+                        debitRegistryRec.addElem("");
                     }
                     debitRegistryRec.addElem(kart.getOwnerFIO(), // ФИО собственника
                             kartMng.getAdrWithCity(kart), // адрес
+                            "1", // тип услуги
                             "Квартплата " + kart.getUk().getName(), // УК
                             Utl.getPeriodToMonthYear(period), // период
                             "" // пустое поле

@@ -259,7 +259,7 @@ public class TestKart {
         Vvod vvod = em.find(Vvod.class, 6050);
         List<Long> lstItem = kartMng.getKoByVvod(vvod).stream().map(Ko::getId).collect(Collectors.toList());
         for (Long id : lstItem) {
-            log.info("test id={}", id);
+            log.info("check id={}", id);
         }
     }
 

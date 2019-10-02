@@ -1,1 +1,0 @@
-start sencha web start 

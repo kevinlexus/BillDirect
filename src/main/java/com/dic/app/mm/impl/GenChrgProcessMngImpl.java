@@ -529,15 +529,14 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // водоотведение, добавить составляющие по х.в. и г.в.
                     // было ли учтено кол-во проживающих? для устранения удвоения в стате по водоотведению
                     boolean isKprTaken = false;
-                    //if (dayColdWaterVol.compareTo(BigDecimal.ZERO) != 0) {//note  ред. 05.04.19 закомментировал - Кис. попросили делать пустую строку, даже если нет объема, для статы
+                    // ред. 05.04.19 - Кис. попросили делать пустую строку, даже если нет объема, для статы
                     uslPriceVolKart = buildVol(curDt, calcStore, nabor, null, null,
                             kartMain, detailUslPrice, countPers, socStandart, isColdMeterExist,
                             dayColdWaterVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
                     // сгруппировать по лиц.счету, услуге, для распределения по вводу
                     chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
                     isKprTaken = true;
-                    //}
-                    //if (dayHotWaterVol.compareTo(BigDecimal.ZERO) != 0) {//note  ред. 05.04.19 закомментировал - Кис. попросили делать пустую строку, даже если нет объема, для статы
+                    // ред. 05.04.19 - Кис. попросили делать пустую строку, даже если нет объема, для статы
                     if (isKprTaken) {
                         // уже были учтены проживающие
                         countPers.kpr = 0;
@@ -550,7 +549,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             dayHotWaterVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
                     // сгруппировать по лиц.счету, услуге, для распределения по вводу
                     chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
-                    //}
                 } else {
                     // прочие услуги
                     uslPriceVolKart = buildVol(curDt, calcStore, nabor, isLinkedEmpty, isLinkedExistMeter,
