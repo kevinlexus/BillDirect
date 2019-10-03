@@ -165,7 +165,7 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                         .filter(t ->
                                                 t.getKart().getNabor().stream()
                                                         .anyMatch((d ->
-                                                                distTp!=8 && d.getUsl().equals(t.getUsl().getUslChild()) ||
+                                                                distTp!=8 && d.getUsl().equals(t.getUsl().getUslChild()) || // должна быть дочерняя услуга в карточках! например 011->124 для Кис! ред.03.10.2019
                                                                         distTp==8 && d.getUsl().equals(t.getUsl()) // распределение только для информации
                                                         )) // где есть наборы по дочерним усл.
                                                         && getIsCountOpl(tp, distTp, isUseSch, t)
