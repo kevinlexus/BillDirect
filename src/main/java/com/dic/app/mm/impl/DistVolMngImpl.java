@@ -3,7 +3,6 @@ package com.dic.app.mm.impl;
 import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.DistVolMng;
-import com.dic.app.mm.GenChrgProcessMng;
 import com.dic.app.mm.ProcessMng;
 import com.dic.bill.dao.VvodDAO;
 import com.dic.bill.dto.UslVolKart;
@@ -12,7 +11,10 @@ import com.dic.bill.mm.ObjParMng;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
-import com.ric.cmn.excp.*;
+import com.ric.cmn.excp.ErrorWhileDist;
+import com.ric.cmn.excp.ErrorWhileGen;
+import com.ric.cmn.excp.WrongGetMethod;
+import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.javatuples.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +27,10 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -170,6 +175,11 @@ public class DistVolMngImpl implements DistVolMng, CommonConstants {
                                                         )) // где есть наборы по дочерним усл.
                                                         && getIsCountOpl(tp, distTp, isUseSch, t)
                                         ).collect(Collectors.toList());
+                        if (lstUslVolKartStat.size() == 0) {
+                            log.warn("ВНИМАНИЕ! По вводу vvodId={} не были получены характеристики " +
+                                    "(кол-во прож, м2 и т.п.)! Возможно отсутствует дочерние услуги " +
+                                    "в карточках лиц.счетов, например для 011 услуги должна быть 124.", vvodId);
+                        }
                         for (UslVolKart uslVolKartGrp : lstUslVolKartStat) {
                             // сохранить объемы по вводу для статистики
                             if (uslVolKartGrp.isResidental()) {
