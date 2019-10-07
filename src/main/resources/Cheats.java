@@ -2,6 +2,10 @@
 
 // Отношения в Entity:
 // тип лог.счетчика
+
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+
 @ManyToOne(fetch = FetchType.LAZY)
 @JoinColumn(name = "FK_TP", referencedColumnName = "ID")
 private Lst tp;
@@ -70,6 +74,11 @@ public interface AchargeDAO2 extends JpaRepository<Acharge, Integer> {
         + " t.kart.lsk=:lsk) "
 )
     void delByLskPeriod(@Param("lsk") String lsk,@Param("period") Integer period);
+
+// JpaRepostiory DAO - Обновить записи - int - возвращает, сколько записей обновлено
+@Modifying
+@org.springframework.data.jpa.repository.Query("update KartDetail t set t.ord1=null")
+int updateOrd1ToNull();
 
 // JpaRepostiory DAO - Удалить записи с EXISTS
 
