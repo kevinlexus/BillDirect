@@ -1,11 +1,12 @@
 // Cheats!
 
+// Получить результат ввода в CMD
+System.out.println("Are you sure that filenames are correct? (y/n):");
+        Scanner sc = new Scanner(System.in);
+        String answ = sc.nextLine();
+
 // Отношения в Entity:
 // тип лог.счетчика
-
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-
 @ManyToOne(fetch = FetchType.LAZY)
 @JoinColumn(name = "FK_TP", referencedColumnName = "ID")
 private Lst tp;
@@ -16,6 +17,27 @@ private Lst tp;
 @BatchSize(size = 50)
 @Fetch(FetchMode.SUBSELECT) // убрал subselect, так как внезапно начало тормозить
 private List<MeterLogGraph> inside=new ArrayList<MeterLogGraph>(0);
+
+// получить Immutable Map
+Collections.singletonMap
+// Инициализировать HashSet значениями
+new TreeSet<>(Collections.singleton(t.getUsl().getNameShort()))
+
+// запрос в PostgreSQL с использованием выражения IN и MAP
+return getTemplate().query(
+"select \n" +
+" fsc.id, fsc.name,fsc.version ,ffr.ref_type_id\n" +
+" from \n" +
+" spr_form_stat_card fsc\n" +
+" left join \n" +
+" form_filter_req ffr \n" +
+" on ffr.form_version = fsc.version\n" +
+" where fsc.indate<localtimestamp and fsc.outdate>localtimestamp " +
+" and ffr.ref_type_id is not null" +
+" and ffr.ref_type_id in (:keys)" +
+" order by fsc.ord",
+Collections.singletonMap("keys", filterTypes.stream().map(FilterType::getKey).collect(Collectors.toList())),
+new IncidentTypeResultSetExtractor());
 
 
 // JpaRepostiory DAO - Native Query
@@ -186,8 +208,6 @@ public class VchangeDet implements java.io.Serializable {
                 (k, v) -> k, // функция, определяющая, что делать в случае появления одинакового ключа (здесь - взять k значение)
                 HashMap::new // создать HashMap
         ));
-// Инициализировать HashSet значениями
-        new TreeSet<>(Collections.singleton(t.getUsl().getNameShort()))
 // Объеденить элементы в строку через ";"
         String.join(";", value);
 
