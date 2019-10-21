@@ -6,7 +6,7 @@ import com.dic.bill.dto.SumDebUslMgRec;
 import java.util.List;
 
 /**
- * подсчет
+ * подсчет кол-ва
  */
 public class Cnt {
 
@@ -14,5 +14,5 @@ public class Cnt {
 	long cntDeb = 0L;
 	List<SumDebUslMgRec> lstSalNd;
 	List<SumDebMgRec> lstDebNd;
-	
+
 }

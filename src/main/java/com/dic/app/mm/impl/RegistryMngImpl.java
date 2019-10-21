@@ -120,7 +120,7 @@ public class RegistryMngImpl implements RegistryMng {
             DebitRegistryRec debitRegistryRec = new DebitRegistryRec();
             for (Kart kart : lstKart) {
                 Optional<Eolink> eolink = kart.getEolink().stream().findFirst();
-                EolinkMngImpl.EolinkParams eolinkParams = eolinkMng.getActualEolinkParams(eolink);
+                EolinkMngImpl.EolinkParams eolinkParams = eolinkMng.getActualEolinkParams(eolink, kart);
                 // суммировать долг по лиц.счету
                 BigDecimal summDeb = BigDecimal.ZERO;
                 BigDecimal summPen = BigDecimal.ZERO;
@@ -144,7 +144,7 @@ public class RegistryMngImpl implements RegistryMng {
                         debitRegistryRec.setDelimeter(",");
                         debitRegistryRec.addElem(eolinkParams.getHouseGUID()); // GUID дома
                         debitRegistryRec.setDelimeter("|");
-                        debitRegistryRec.addElem(Utl.ltrim(kart.getNum(), "0")); // № квартиры, если указан GUID дома
+                        debitRegistryRec.addElem(Utl.ltrim(kart.getNum(), "0")); // № квартиры
                     } else {
                         // нет ЕЛС или GUID дома,- поставить два пустых элемента
                         debitRegistryRec.addElem("");
