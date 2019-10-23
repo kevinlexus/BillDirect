@@ -5,11 +5,7 @@ import com.dic.bill.Lock;
 import com.dic.bill.model.scott.Param;
 import com.ric.cmn.Utl;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.Session;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.event.*;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,7 +47,7 @@ public class ConfigAppImpl implements ConfigApp {
     private void setUp() {
         log.info("");
         log.info("-----------------------------------------------------------------");
-        log.info("Версия модуля - {}", "1.0.3");
+        log.info("Версия модуля - {}", "1.0.4");
         log.info("Начало расчетного периода = {}", getCurDt1());
         log.info("Конец расчетного периода = {}", getCurDt2());
         log.info("-----------------------------------------------------------------");

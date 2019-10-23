@@ -1,4 +1,14 @@
 // Cheats!
+// потоки (Парма)
+ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+List<Future<MapSqlParameterSource>> futureList = executor.invokeAll(todo);
+for (Future<MapSqlParameterSource> future : futureList) {
+    // вызвать что нить в потоке
+    MapSqlParameterSource source = future.get();
+    sourcesList.add(source);
+}
+executor.shutdown(); // не принимать новые потоки
+executor.awaitTermination(5, TimeUnit.SECONDS);// ожидать заыершения
 
 // Получить результат ввода в CMD
 System.out.println("Are you sure that filenames are correct? (y/n):");

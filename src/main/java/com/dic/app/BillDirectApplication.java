@@ -1,4 +1,4 @@
-package com.dic.app;
+package com.dic.app; 
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
