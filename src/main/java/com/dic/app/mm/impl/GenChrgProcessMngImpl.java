@@ -304,11 +304,16 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     }
                 }
 */
-                CountPers countPers = getCountPersAmount(parVarCntKpr, parCapCalcKprTp, curDt, nabor, kartMain);
+                // наличие счетчика
+                boolean isMeterExist = false;
+                if (Utl.in(fkCalcTp, 17, 18, 31)) {
+                    // х.в.,г.в узнать, работал ли хоть один счетчик в данном дне
+                    isMeterExist = meterMng.isExistAnyMeter(lstMeterVol, factUslVol.getId(), curDt);
+                }
+                CountPers countPers = getCountPersAmount(parVarCntKpr, parCapCalcKprTp, curDt,
+                        nabor, kartMain, isMeterExist);
 
                 SocStandart socStandart = null;
-                // получить наличие счетчика
-                boolean isMeterExist = false;
                 // наличие счетчика х.в.
                 boolean isColdMeterExist = false;
                 // наличие счетчика г.в.
@@ -362,8 +367,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 } else if (Utl.in(fkCalcTp, 17, 18, 31)) {
                     // Х.В., Г.В., без уровня соцнормы/свыше, электроэнергия
                     // получить объем по нормативу в доле на 1 день
-                    // узнать, работал ли хоть один счетчик в данном дне
-                    isMeterExist = meterMng.isExistAnyMeter(lstMeterVol, factUslVol.getId(), curDt);
                     if (Utl.in(fkCalcTp, 17, 31) || (Utl.in(fkCalcTp, 18) &&
                             (!Utl.nvl(kartMain.getIsKran1(), false) ||
                                     isMeterExist || Utl.between(curDt, sprParamMng.getD1("MONTH_HEAT1"),// кран из системы отопления (не счетчик) -
@@ -664,37 +667,49 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
     /**
      * Получить совокупное кол-во проживающих (родительский и дочерний лиц.счета)
-     *
-     * @param parVarCntKpr    - тип подсчета кол-во проживающих
+     *  @param parVarCntKpr    - тип подсчета кол-во проживающих
      * @param parCapCalcKprTp - тип подсчета кол-во проживающих для капремонта
      * @param curDt           - дата расчета
      * @param nabor           - строка услуги
      * @param kartMain        - основной лиц.счет
+     * @param isMeterExist    - наличие счетчика в расчетный день (работает только в КИС)
      */
     private CountPers getCountPersAmount(int parVarCntKpr, int parCapCalcKprTp,
-                                         Date curDt, Nabor nabor, Kart kartMain) {
+                                         Date curDt, Nabor nabor, Kart kartMain, boolean isMeterExist) {
         CountPers countPers;
         countPers = kartPrMng.getCountPersByDate(kartMain, nabor,
-                parVarCntKpr, parCapCalcKprTp, curDt);
+                parVarCntKpr, parCapCalcKprTp, curDt, isMeterExist);
 
         if (nabor.getKart().getParentKart() != null) {
             // в дочернем лиц.счете (привязка)
             // для определения расценки по родительскому (если указан по parentKart) или текущему лиц.счету
             CountPers countPersParent = kartPrMng.getCountPersByDate(nabor.getKart().getParentKart(), nabor,
-                    parVarCntKpr, parCapCalcKprTp, curDt);
+                    parVarCntKpr, parCapCalcKprTp, curDt, isMeterExist);
             countPers.kpr = countPersParent.kpr;
             countPers.isEmpty = countPersParent.isEmpty;
 
             // алгоритм взят из C_KART, строка 786
             if (parVarCntKpr == 0
-                    && countPers.kprNorm == 0
-                    && countPers.kprOt == 0 && !kartMain.getStatus().getCd().equals("MUN")) {
+                    && countPers.kprNorm == 0 &&
+                    !kartMain.getStatus().getCd().equals("MUN")) {
                 // вариант Кис.
-                // в РСО счетах и кол-во временно отсут.=0
-                countPers.kprNorm = 1;
+                if (countPers.kprOt == 0) {
+                    // в РСО счетах и кол-во временно отсут.=0
+                    countPers.kprNorm = 1;
+                } else {
+                    if (Utl.in(nabor.getUsl().getFkCalcTp(),17,18,19)) {
+                        if (isMeterExist) {
+                            // х.в. г.в. водоотв., есть только ВО и только если счетчики
+                            // (по сути здесь kprNorm ни на что не влияет, но решил заполнять)
+                            // - КИС согласно ТЗ на 22.10.2019
+                            countPers.kprNorm = countPers.kprOt;
+                        }
+                    }
+                }
             }
+
         } else {
-            // в родительском лиц.счете
+            // в родительском лиц.счете (может быть Основным, РСО и прочее, НЕ привязка)
             if (countPers.kprNorm == 0) {
                 if (parVarCntKpr == 0) {
                     // Киселёвск
@@ -713,16 +728,24 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             countPers.kprNorm = 1;
                         } */
 
-                    if (nabor.getUsl().getFkCalcTp().equals(49)) {
+                    if (Utl.in(nabor.getUsl().getFkCalcTp(),17,18,19)) {
+                        if (isMeterExist && countPers.kprOt >= 0) {
+                            // х.в. г.в. водоотв., есть только ВО и только если счетчики
+                            // (по сути здесь kprNorm ни на что не влияет, но решил заполнять)
+                            // - КИС согласно ТЗ на 22.10.2019
+                            countPers.kprNorm = countPers.kprOt;
+                        } else if (countPers.kprOt == 0) {
+                            countPers.kprNorm = 1;
+                        }
+                    } else if (nabor.getUsl().getFkCalcTp().equals(49)) {
                         // услуга по обращению с ТКО
                         countPers.kpr = 1;
                         countPers.kprNorm = 1;
-                    } else if (Utl.in(nabor.getUsl().getFkCalcTp(),17,18,19)) {
-                        // х.в. г.в. водоотв.
-                        countPers.kprNorm = 1;
                     } else if (countPers.kprOt == 0) {
+                        // прочие услуги
                         countPers.kprNorm = 1;
                     }
+
                 } else if (parVarCntKpr == 1 && countPers.kprOt == 0) {
                     // Полысаево
                     countPers.kprNorm = 1;

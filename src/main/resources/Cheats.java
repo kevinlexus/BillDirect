@@ -8,7 +8,7 @@ for (Future<MapSqlParameterSource> future : futureList) {
     sourcesList.add(source);
 }
 executor.shutdown(); // не принимать новые потоки
-executor.awaitTermination(5, TimeUnit.SECONDS);// ожидать заыершения
+executor.awaitTermination(5, TimeUnit.SECONDS);// ожидать завершения
 
 // Получить результат ввода в CMD
 System.out.println("Are you sure that filenames are correct? (y/n):");
