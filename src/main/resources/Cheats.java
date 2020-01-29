@@ -272,6 +272,28 @@ public class VchangeDet implements java.io.Serializable {
         .sorted(Comparator.comparing(d->d.getUsl().getId())) // сортировать по коду услуги
         .collect(Collectors.toList())
 
+        // Группировки
+        List<Employee> lst = new ArrayList<>(10);
+        lst.add(new Employee(1,2,"Jeff"));
+        lst.add(new Employee(2,1,"Bezos"));
+        lst.add(new Employee(3,3,"Bill"));
+        lst.add(new Employee(4,2,"Gates"));
+
+        // группировка в Map, используя groupId в качестве key
+        Map<Integer, List<Employee>> a = lst.stream()
+        .collect(Collectors.groupingBy(Employee::getGroupId));
+        System.out.println(a);
+
+        // группировка в Map, используя groupId в качестве key, а так же маппинг getId во вложенный List<Integer>
+        Map<Integer, List<Integer>> b = lst.stream()
+        .collect(Collectors.groupingBy(Employee::getGroupId,
+        Collectors.mapping(Employee::getId, Collectors.toList())));
+        System.out.println(b);
+
+        // группировка в Map, используя groupId в качестве key, а так же маппинг getId во вложенный Map<Integer>
+        Map<Integer, Map<Integer, String>> d = lst.stream()
+        .collect(Collectors.groupingBy(Employee::getGroupId,
+        Collectors.toMap(Employee::getId, Employee::getName)));
 
 
 // Транзакция
