@@ -146,6 +146,19 @@ public interface SumDebitRec {
 
 }
 
+// Работа с датами:
+if (start.toLocalDate().isBefore(finish.toLocalDate())) {
+        if (start.toLocalDate().isEqual(genSer.toLocalDate())) {
+        finish = genSer.withHour(23).withMinute(59);
+        } else if (finish.toLocalDate().isEqual(genSer.toLocalDate())) {
+        start = genSer.withHour(0).withMinute(0);
+        } else {
+        start = genSer;
+        finish = genSer;
+        event.setAllDay(true);
+        }
+        }
+
 // Суррогатный ключ:
 
 @IdClass(ApenyaId.class) // суррогатный первичный ключ
