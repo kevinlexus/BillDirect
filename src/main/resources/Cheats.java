@@ -86,7 +86,7 @@ public interface AchargeDAO2 extends JpaRepository<Acharge, Integer> {
             "	and t.lsk=:lsk", nativeQuery = true)
 
 
-// JpaRepostiory DAO - Запрос по параметру:
+    // JpaRepostiory DAO - Запрос по параметру:
     @Query("select t from User t where t.cd = :cd")
     User getByCd(@Param("cd") String cd);
 
@@ -94,6 +94,10 @@ public interface AchargeDAO2 extends JpaRepository<Acharge, Integer> {
     @Query(value = "select t.usl.id as uslId, t.org.id as orgId, t.summa as summa, t.penya as penya, "
             + "t.mg as mg, 1 as tp from DebPenUsl t where t.period=:period and t.kart.lsk=:lsk ")
     List<SumRec> getDebit(@Param("lsk") String lsk, @Param("period") Integer period);
+
+    // JpaRepostiory DAO - Получение результата по списку id в List
+    @Query( "select o from MyObject o where inventoryId in :ids" )
+    List<MyObject> findByInventoryIds(@Param("ids") List<Long> inventoryIdList);
 
    // ЕСЛИ нужно
    // чтобы поле
