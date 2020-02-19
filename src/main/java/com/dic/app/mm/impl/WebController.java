@@ -2,7 +2,6 @@ package com.dic.app.mm.impl;
 
 import com.dic.app.mm.*;
 import com.dic.bill.dao.OrgDAO;
-import com.dic.bill.dao.PenyaDAO;
 import com.dic.bill.dao.PrepErrDAO;
 import com.dic.bill.dao.SprGenItmDAO;
 import com.dic.bill.dto.KwtpMgRec;
@@ -50,7 +49,7 @@ public class WebController implements CommonConstants {
     private final DistPayMng distPayMng;
     private final DistPayQueueMng distPayQueueMng;
     private final CorrectsMng correctsMng;
-    private final PenyaDAO penyaDAO;
+    private final RegistryMng registryMng;
 
     public WebController(NaborMng naborMng, MigrateMng migrateMng, ExecMng execMng,
                          SprGenItmDAO sprGenItmDao, PrepErrDAO prepErrDao,
@@ -58,7 +57,7 @@ public class WebController implements CommonConstants {
                          DistPayMng distPayMng,
                          DistPayQueueMng distPayQueueMng,
                          ProcessMng processMng,
-                         CorrectsMng correctsMng, PenyaDAO penyaDAO) {
+                         CorrectsMng correctsMng, RegistryMng registryMng) {
         this.naborMng = naborMng;
         this.migrateMng = migrateMng;
         this.execMng = execMng;
@@ -71,7 +70,7 @@ public class WebController implements CommonConstants {
         this.ctx = ctx;
         this.processMng = processMng;
         this.correctsMng = correctsMng;
-        this.penyaDAO = penyaDAO;
+        this.registryMng = registryMng;
     }
 
     /**
@@ -130,7 +129,7 @@ public class WebController implements CommonConstants {
                         "strPenya={}, strDebt={}, dopl={}, nink={}, nkom={}, oper={}, strDtek={}, strDtInk={}," +
                         "useQueue={}",
                 kwtpMgId, lsk, strSumma, strPenya, strDebt, dopl, nink, nkom, oper, strDtek, strDtInk, useQueue);
-        if (useQueue==1) {
+        if (useQueue == 1) {
             // использовать очередь (асинхронно)
             distPayQueueMng.queueKwtpMg(new KwtpMgRec(kwtpMgId, lsk, strSumma, strPenya, strDebt,
                     dopl, nink, nkom, oper, strDtek, strDtInk, false));
@@ -238,10 +237,9 @@ public class WebController implements CommonConstants {
                     retStatus = "ERROR! Задан некорректный uslId=" + uslId;
                     return retStatus;
                 }
-                msg = msg.concat(", по услуге uslId=" + uslId);
             }
 
-            Date genDt = null;
+            Date genDt;
             try {
                 genDt = genDtStr != null ? Utl.getDateFromStr(genDtStr) : null;
                 retStatus = processMng.processWebRequest(tp, debugLvl, genDt, house, vvod, ko, uk, usl);
@@ -344,6 +342,7 @@ public class WebController implements CommonConstants {
     }
 
 */
+
     /**
      * Остановить итоговое формирование
      */
@@ -465,6 +464,44 @@ public class WebController implements CommonConstants {
         em.refresh(param);
         log.info("refreshed period={}", config.getPeriod());
         log.info("ВНИМАНИЕ! Сущность Params перезагружена!");
+        return "OK";
+    }
+
+
+
+    /**
+     * Загрузить файл внешних лиц счетов во временную таблицу
+     * @param fileName - имя файла
+     */
+    @RequestMapping(value = "/loadFileKartExt/{fileName}", method = RequestMethod.GET)
+    @ResponseBody
+    public String loadFileKartExt(@PathVariable String fileName) {
+        if (config.getLock().setLockProc(1, "loadFileKartExt")) {
+            int cntLoaded;
+            try {
+                // todo исправить reu, тип лиц.сч. и путь
+                cntLoaded = registryMng.loadFileKartExt("г Полысаево", "001", "LSK_TP_MAIN",
+                        "c:\\temp\\" + fileName, "windows-1251");
+            } catch (Exception e) {
+                config.getLock().unlockProc(1, "loadFileKartExt");
+                log.error(Utl.getStackTraceString(e));
+                return "ERROR";
+            }
+            config.getLock().unlockProc(1, "loadFileKartExt");
+            if (cntLoaded > 0) {
+                return "OK";
+            } else {
+                return "ERROR";
+            }
+        } else {
+            return "PROCESS";
+        }
+    }
+
+    @RequestMapping(value = "/loadApprovedKartExt", method = RequestMethod.GET)
+    @ResponseBody
+    public String loadApprovedKartExt() {
+        registryMng.loadApprovedKartExt();
         return "OK";
     }
 

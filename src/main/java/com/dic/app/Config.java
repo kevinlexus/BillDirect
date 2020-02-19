@@ -47,6 +47,7 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 				new ConcurrentMapCache("NaborMng.getCached"),
 				new ConcurrentMapCache("KartMng.getKartMainLsk"),
 				new ConcurrentMapCache("PriceMng.multiplyPrice"),
+				new ConcurrentMapCache("HouseMng.findByGuid"),
 				new ConcurrentMapCache("ReferenceMng.getUslOrgRedirect")));
 		return cacheManager;
 	}
