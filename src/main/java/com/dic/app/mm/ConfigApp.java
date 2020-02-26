@@ -1,9 +1,11 @@
 package com.dic.app.mm;
 
-import java.util.Date;
-
 import com.dic.bill.Lock;
+import com.dic.bill.model.scott.Tuser;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Date;
 
 public interface ConfigApp {
 
@@ -11,7 +13,10 @@ public interface ConfigApp {
 
     String getPeriod();
 
-	String getPeriodNext();
+    @Transactional(propagation = Propagation.REQUIRED)
+	Tuser getCurUser();
+
+    String getPeriodNext();
 
 	String getPeriodBack();
 

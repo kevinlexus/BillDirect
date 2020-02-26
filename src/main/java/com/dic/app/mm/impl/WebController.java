@@ -498,6 +498,34 @@ public class WebController implements CommonConstants {
         }
     }
 
+    /**
+     * Загрузить файл показаний по счетчикам
+     * @param fileName - имя файла
+     */
+    @RequestMapping(value = "/loadFileMeterVal/{fileName}", method = RequestMethod.GET)
+    @ResponseBody
+    public String loadFileMeterVal(@PathVariable String fileName) {
+        if (config.getLock().setLockProc(1, "loadFileMeterVal")) {
+            int cntLoaded;
+            try {
+                cntLoaded = registryMng.loadFileMeterVal(
+                        "c:\\temp\\" + fileName, "windows-1251");
+            } catch (Exception e) {
+                config.getLock().unlockProc(1, "loadFileMeterVal");
+                log.error(Utl.getStackTraceString(e));
+                return "ERROR";
+            }
+            config.getLock().unlockProc(1, "loadFileMeterVal");
+            if (cntLoaded > 0) {
+                return "OK";
+            } else {
+                return "ERROR";
+            }
+        } else {
+            return "PROCESS";
+        }
+    }
+
     @RequestMapping(value = "/loadApprovedKartExt", method = RequestMethod.GET)
     @ResponseBody
     public String loadApprovedKartExt() {

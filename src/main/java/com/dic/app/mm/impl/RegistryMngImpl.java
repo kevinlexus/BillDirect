@@ -5,6 +5,7 @@ import com.dic.app.mm.RegistryMng;
 import com.dic.bill.dao.*;
 import com.dic.bill.mm.EolinkMng;
 import com.dic.bill.mm.KartMng;
+import com.dic.bill.mm.MeterMng;
 import com.dic.bill.mm.impl.EolinkMngImpl;
 import com.dic.bill.model.exs.Eolink;
 import com.dic.bill.model.scott.*;
@@ -45,6 +46,7 @@ public class RegistryMngImpl implements RegistryMng {
     private final OrgDAO orgDAO;
     private final EolinkMng eolinkMng;
     private final KartMng kartMng;
+    private final MeterMng meterMng;
     private final KartDAO kartDAO;
     private final ConfigApp configApp;
     private final LoadKartExtDAO loadKartExtDAO;
@@ -54,14 +56,15 @@ public class RegistryMngImpl implements RegistryMng {
 
     public RegistryMngImpl(EntityManager em,
                            PenyaDAO penyaDAO, MeterDAO meterDAO, OrgDAO orgDAO, EolinkMng eolinkMng,
-                           KartMng kartMng, KartDAO kartDAO, ConfigApp configApp,
-                           LoadKartExtDAO loadKartExtDAO, com.dic.bill.dao.KartExtDAO kartExtDAO, HouseDAO houseDAO) {
+                           KartMng kartMng, MeterMng meterMng, KartDAO kartDAO, ConfigApp configApp,
+                           LoadKartExtDAO loadKartExtDAO, KartExtDAO kartExtDAO, HouseDAO houseDAO) {
         this.em = em;
         this.penyaDAO = penyaDAO;
         this.meterDAO = meterDAO;
         this.orgDAO = orgDAO;
         this.eolinkMng = eolinkMng;
         this.kartMng = kartMng;
+        this.meterMng = meterMng;
         this.kartDAO = kartDAO;
         this.configApp = configApp;
         this.loadKartExtDAO = loadKartExtDAO;
@@ -292,11 +295,11 @@ public class RegistryMngImpl implements RegistryMng {
 
     }
 
-    class KartExtInfo {
+    private class KartExtInfo {
         String reu;
         String lskTp;
-        Optional<House> house;
-        Optional<String> kw;
+        House house;
+        String kw;
         String extLsk;
         String address;
         Integer code;
@@ -310,9 +313,10 @@ public class RegistryMngImpl implements RegistryMng {
 
     /**
      * Загрузить файл внешних лиц счетов во временную таблицу
+     *
      * @param cityName - наименование города
-     * @param reu - код УК
-     * @param lskTp - тип лиц.счетов
+     * @param reu      - код УК
+     * @param lskTp    - тип лиц.счетов
      * @param fileName - путь и имя файла
      * @param codePage - кодовая страница
      * @return - кол-во успешно обработанных записей
@@ -334,9 +338,9 @@ public class RegistryMngImpl implements RegistryMng {
             Scanner sc = new Scanner(s);
             sc.useDelimiter(";");
             KartExtInfo kartExtInfo = new KartExtInfo();
-            kartExtInfo.dt=new Date();
-            kartExtInfo.reu=reu;
-            kartExtInfo.lskTp=lskTp;
+            kartExtInfo.dt = new Date();
+            kartExtInfo.reu = reu;
+            kartExtInfo.lskTp = lskTp;
             // перебрать элементы строки
             boolean foundCity = false;
             while (sc.hasNext()) {
@@ -364,7 +368,7 @@ public class RegistryMngImpl implements RegistryMng {
                     if (city.isPresent() && city.get().equals(cityName)) {
                         if (town.isPresent() && town.get().length() == 0) {
                             foundCity = true;
-                            kartExtInfo.house = Optional.ofNullable(mapHouse.get(kartExtInfo.guid));
+                            kartExtInfo.house = mapHouse.get(kartExtInfo.guid);
                         }
                     }
                     if (!foundCity) {
@@ -372,7 +376,7 @@ public class RegistryMngImpl implements RegistryMng {
                     }
                     kartExtInfo.address = elem;
                     // № помещения
-                    kartExtInfo.kw = getAddressElemByIdx(elem, ",", 4);
+                    getAddressElemByIdx(elem, ",", 4).ifPresent(t -> kartExtInfo.kw = t);
                 } else if (i == 5) {
                     // код услуги
                     kartExtInfo.code = Integer.parseInt(elem);
@@ -399,6 +403,60 @@ public class RegistryMngImpl implements RegistryMng {
         return cntLoaded;
     }
 
+
+    @Override
+    @Transactional
+    public int loadFileMeterVal(String fileName, String codePage) throws FileNotFoundException {
+        log.info("Начало загрузки файла показаний по счетчикам fileName={}", fileName);
+/*
+        try {
+            byte[] ttt = fileName.getBytes("cp1251");
+            log.info("check="+new String(ttt, StandardCharsets.UTF_8));
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+*/
+        String strPathBad = fileName.substring(0, fileName.length()-4)+".BAD";
+        Path pathBad = Paths.get(strPathBad);
+        Scanner scanner = new Scanner(new File(fileName), codePage);
+        int cntLoaded = 0;
+        try (BufferedWriter writer = Files.newBufferedWriter(pathBad, Charset.forName("windows-1251"))) {
+            while (scanner.hasNextLine()) {
+                String s = scanner.nextLine();
+                // пропустить заголовок
+                if (cntLoaded++ > 0) {
+                    log.info("s={}", s);
+                    // перебрать элементы строки
+                    Scanner sc = new Scanner(s);
+                    sc.useDelimiter(";");
+                    String lsk = null;
+                    int i = 0;
+                    String strUsl = null;
+                    while (sc.hasNext()) {
+                        i++;
+                        String elem = sc.next();
+                        if (i == 1) {
+                            lsk = elem;
+                        } else if (Utl.in(i, 3, 8, 13)) {
+                            // услуга
+                            strUsl = elem;
+                        } else if (Utl.in(i, 5, 10, 15)) {
+                            // отправить показания
+                            int ret = meterMng.sendMeterVal(writer, lsk, strUsl, elem, configApp.getPeriod(), configApp.getCurUser().getId());
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        scanner.close();
+        log.info("Окончание загрузки файла показаний по счетчикам fileName={}, загружено {} строк", fileName, cntLoaded);
+        return cntLoaded;
+    }
+
+
+
     /**
      * Загрузить успешно обработанные лиц.счета в таблицу внешних лиц.счетов
      */
@@ -418,8 +476,9 @@ public class RegistryMngImpl implements RegistryMng {
 
     /**
      * Создать подготовительную запись внешнего лиц.счета
+     *
      * @param kartExtInfo - информация для создания вн.лиц.счета
-     * @param setExt - уже обработанные вн.лиц.счета
+     * @param setExt      - уже обработанные вн.лиц.счета
      */
     private void buildLoadKartExt(KartExtInfo kartExtInfo, Set<String> setExt) {
         String comm = "";
@@ -430,12 +489,12 @@ public class RegistryMngImpl implements RegistryMng {
             status = 2;
         } else {
             setExt.add(kartExtInfo.extLsk);
-            if (kartExtInfo.house.isPresent()) {
+            if (kartExtInfo.house != null) {
                 List<Kart> lstKart;
                 String strKw;
-                if (kartExtInfo.kw.isPresent() && kartExtInfo.kw.get().length() > 0) {
+                if (kartExtInfo.kw != null && kartExtInfo.kw.length() > 0) {
                     // помещение
-                    strKw = Utl.lpad(kartExtInfo.kw.get(), "0", 7).toUpperCase();
+                    strKw = Utl.lpad(kartExtInfo.kw, "0", 7).toUpperCase();
                 } else {
                     // нет помещения, частный дом?
                     strKw = "0000000";
@@ -443,7 +502,7 @@ public class RegistryMngImpl implements RegistryMng {
                 }
 
                 lstKart = kartDAO.findActualByReuHouseIdTpKw(kartExtInfo.reu,
-                        kartExtInfo.lskTp, kartExtInfo.house.get().getId(), strKw);
+                        kartExtInfo.lskTp, kartExtInfo.house.getId(), strKw);
                 if (lstKart.size() > 0) {
                     // взять первый лиц.счет в списке
                     kart = lstKart.get(0);

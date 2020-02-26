@@ -2,9 +2,12 @@ package com.dic.app.mm.impl;
 
 import com.dic.app.mm.ConfigApp;
 import com.dic.bill.Lock;
+import com.dic.bill.dao.TuserDAO;
 import com.dic.bill.model.scott.Param;
+import com.dic.bill.model.scott.Tuser;
 import com.ric.cmn.Utl;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -29,7 +32,8 @@ public class ConfigAppImpl implements ConfigApp {
     private final ApplicationContext ctx;
     @PersistenceContext
     private EntityManager em;
-
+    @Autowired
+    private TuserDAO tuserDAO;
     // номер текущего запроса
     private int reqNum = 0;
 
@@ -47,7 +51,7 @@ public class ConfigAppImpl implements ConfigApp {
     private void setUp() {
         log.info("");
         log.info("-----------------------------------------------------------------");
-        log.info("Версия модуля - {}", "1.0.4");
+        log.info("Версия модуля - {}", "1.0.6");
         log.info("Начало расчетного периода = {}", getCurDt1());
         log.info("Конец расчетного периода = {}", getCurDt2());
         log.info("-----------------------------------------------------------------");
@@ -100,6 +104,12 @@ public class ConfigAppImpl implements ConfigApp {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public String getPeriod() {
         return Utl.getPeriodFromDate(getCalendarCurrentPeriod().get(0).getTime());
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public Tuser getCurUser() {
+        return tuserDAO.findByCd("GEN");
     }
 
     @Override

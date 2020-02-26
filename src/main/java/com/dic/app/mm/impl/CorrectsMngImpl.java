@@ -71,7 +71,7 @@ public class CorrectsMngImpl implements CorrectsMng {
         // период +1 месяц
         String periodNext = configApp.getPeriodNext();
         // пользователь
-        Tuser user = tuserDAO.getByCd("GEN");
+        Tuser user = tuserDAO.findByCd("GEN");
         String cdTp = null;
         if (var == 1) {
             cdTp = "JavaCorrPayByCreditSal-1";

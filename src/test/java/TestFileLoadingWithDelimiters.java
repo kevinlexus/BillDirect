@@ -33,7 +33,7 @@ public class TestFileLoadingWithDelimiters {
      */
     @Test
     @Rollback(false)
-    public void fileLoad() throws FileNotFoundException {
+    public void fileLoadKartExt() throws FileNotFoundException {
         // загрузить файл во временную таблицу LOAD_KART_EXT
         registryMng.loadFileKartExt("г Полысаево", "001", "LSK_TP_MAIN",
                 "d:\\temp\\#46\\1.txt", "windows-1251");
@@ -41,5 +41,14 @@ public class TestFileLoadingWithDelimiters {
         registryMng.loadApprovedKartExt();
     }
 
+    /**
+     * Загрузить файл с показаниями по счетчикам
+     */
+    @Test
+    @Rollback(false)
+    public void fileLoadMeterVal() throws FileNotFoundException {
+        registryMng.loadFileMeterVal("d:\\temp\\#46\\Форма для подачи показаний х.в,г.в. в элек.виде.csv",
+                "windows-1251");
+    }
 
 }
