@@ -501,15 +501,22 @@ public class WebController implements CommonConstants {
     /**
      * Загрузить файл показаний по счетчикам
      * @param fileName - имя файла
+     * @param isSetPrevious - установить предыдущее показание? (1-да, 0-нет) ВНИМАНИЕ! Текущие введёные показания будут сброшены назад
      */
-    @RequestMapping(value = "/loadFileMeterVal/{fileName}", method = RequestMethod.GET)
+    @RequestMapping(value = "/loadFileMeterVal/{fileName}/{isSetPrevious}", method = RequestMethod.GET)
     @ResponseBody
-    public String loadFileMeterVal(@PathVariable String fileName) {
+    public String loadFileMeterVal(@PathVariable String fileName, @PathVariable String isSetPrevious) {
         if (config.getLock().setLockProc(1, "loadFileMeterVal")) {
             int cntLoaded;
             try {
+                boolean isSetPrev = false;
+                if (isSetPrevious!=null && isSetPrevious.equals("1")) {
+                    isSetPrev = true;
+                }
                 cntLoaded = registryMng.loadFileMeterVal(
-                        "c:\\temp\\" + fileName, "windows-1251");
+                        "c:\\temp\\" + fileName, "windows-1251",
+                        isSetPrev
+                );
             } catch (Exception e) {
                 config.getLock().unlockProc(1, "loadFileMeterVal");
                 log.error(Utl.getStackTraceString(e));

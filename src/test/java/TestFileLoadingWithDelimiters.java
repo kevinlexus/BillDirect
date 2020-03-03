@@ -48,7 +48,7 @@ public class TestFileLoadingWithDelimiters {
     @Rollback(false)
     public void fileLoadMeterVal() throws FileNotFoundException {
         registryMng.loadFileMeterVal("d:\\temp\\#46\\Форма для подачи показаний х.в,г.в. в элек.виде.csv",
-                "windows-1251");
+                "windows-1251", false);
     }
 
 }

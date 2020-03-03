@@ -404,18 +404,16 @@ public class RegistryMngImpl implements RegistryMng {
     }
 
 
+    /**
+     * Загрузить показания по счетчикам
+     * @param fileName - имя файла, включая путь
+     * @param codePage - кодовая страница
+     * @param isSetPreviousVal - установить предыдущее показание? ВНИМАНИЕ! Текущие введёные показания будут сброшены назад
+     */
     @Override
     @Transactional
-    public int loadFileMeterVal(String fileName, String codePage) throws FileNotFoundException {
+    public int loadFileMeterVal(String fileName, String codePage, boolean isSetPreviousVal) throws FileNotFoundException {
         log.info("Начало загрузки файла показаний по счетчикам fileName={}", fileName);
-/*
-        try {
-            byte[] ttt = fileName.getBytes("cp1251");
-            log.info("check="+new String(ttt, StandardCharsets.UTF_8));
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
-*/
         String strPathBad = fileName.substring(0, fileName.length()-4)+".BAD";
         Path pathBad = Paths.get(strPathBad);
         Scanner scanner = new Scanner(new File(fileName), codePage);
@@ -432,6 +430,7 @@ public class RegistryMngImpl implements RegistryMng {
                     String lsk = null;
                     int i = 0;
                     String strUsl = null;
+                    String prevVal = null;
                     while (sc.hasNext()) {
                         i++;
                         String elem = sc.next();
@@ -440,9 +439,13 @@ public class RegistryMngImpl implements RegistryMng {
                         } else if (Utl.in(i, 3, 8, 13)) {
                             // услуга
                             strUsl = elem;
+                        } else if (Utl.in(i, 4, 9, 14)) {
+                            // установить предыдущие показания
+                            prevVal = elem;
                         } else if (Utl.in(i, 5, 10, 15)) {
-                            // отправить показания
-                            int ret = meterMng.sendMeterVal(writer, lsk, strUsl, elem, configApp.getPeriod(), configApp.getCurUser().getId());
+                            // отправить текущие показания
+                            meterMng.sendMeterVal(writer, lsk, strUsl,
+                                    prevVal, elem, configApp.getPeriod(), configApp.getCurUser().getId(), isSetPreviousVal);
                         }
                     }
                 }
