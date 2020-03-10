@@ -1,32 +1,27 @@
 package com.dic.app.mm.impl;
 
-import java.text.ParseException;
-import java.util.*;
-import java.util.concurrent.Future;
-import java.util.stream.Collectors;
-
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.collections4.Equator;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Scope;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.AsyncResult;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.dic.app.mm.ComprTbl;
 import com.dic.bill.Compress;
 import com.dic.bill.dao.AchargeDAO;
 import com.dic.bill.dao.AchargePrepDAO;
 import com.dic.bill.dao.AnaborDAO;
 import com.ric.cmn.Utl;
-import com.ric.cmn.excp.WrongTableException;
 import com.ric.dto.Result;
-
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.Equator;
+import org.springframework.context.annotation.Scope;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.AsyncResult;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import java.text.ParseException;
+import java.util.*;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 /**
  * Сервис сжатия таблиц
@@ -38,28 +33,26 @@ import lombok.extern.slf4j.Slf4j;
 @Scope("prototype")
 public class ComprTblImpl implements ComprTbl {
 
-	//EntityManager - EM нужен на каждый DAO или сервис свой!
     @PersistenceContext
     private EntityManager em;
-	@Autowired
-	private AnaborDAO anaborDao;
-	@Autowired
-	private AchargeDAO achargeDao;
-	@Autowired
-	private AchargePrepDAO achargePrepDao;
+	private final AnaborDAO anaborDao;
+	private final AchargeDAO achargeDao;
+	private final AchargePrepDAO achargePrepDao;
 
 	// Все элементы по лиц.счету по всем периодам
 	List<Compress> lst;
-	// отсортированный список периодов
-	SortedSet<Integer> lstPeriod;
 	// периоды последнего обработанного массива
 	private Integer lastUsed;
-	// isByUsl - использовать ли поле "usl" для критерия сжатия
-	boolean isByUsl;
 	// массив диапазонов периодов mg1, mg2
 	private Map<Integer, Integer> lstPeriodPrep;
 	// текущий л.с.
 	String lsk;
+
+	public ComprTblImpl(AnaborDAO anaborDao, AchargeDAO achargeDao, AchargePrepDAO achargePrepDao) {
+		this.anaborDao = anaborDao;
+		this.achargeDao = achargeDao;
+		this.achargePrepDao = achargePrepDao;
+	}
 
 	/**
      * Сжать таблицу, содержащую mg1, mg2
@@ -79,14 +72,14 @@ public class ComprTblImpl implements ComprTbl {
 		log.trace("Л.с.:{} Начало сжатия!", lsk);
 		this.lsk = lsk;
 		log.trace("1.1");
-		this.isByUsl = isByUsl;
+		// isByUsl - использовать ли поле "usl" для критерия сжатия
 		log.trace("1.2");
     	Result res = new Result(0, lsk);
 		log.trace("1.3");
     	lst = new ArrayList<>(1000);
 		log.trace("1.4");
     	// Список ключей-услуг
-    	Set<String> lstKey = new TreeSet<String>();
+    	Set<String> lstKey = new TreeSet<>();
 		log.trace("1.5");
     	// Минимальный период
     	Integer minPeriod;
@@ -130,15 +123,13 @@ public class ComprTblImpl implements ComprTbl {
 				// Ошибка - не тот класс таблицы
 				log.error("Л.с.:{} Ошибка! Некорректный класс таблицы!:{}", lsk, table);
 				res.setErr(2);
-				return new AsyncResult<Result>(res);
+				return new AsyncResult<>(res);
 		}
 
     	// Список всех услуг
     	lstKey.addAll(lst.stream().map(Compress::getKey).collect(Collectors.toSet()));
 		log.trace("Л.с.:{} список найденных ключей:", lsk);
-		lstKey.forEach(t-> {
-			log.trace("Л.с.:{} ключ:{}", lsk, t);
-		});
+		lstKey.forEach(t-> log.trace("Л.с.:{} ключ:{}", lsk, t));
 
     	if (isByUsl) {
     		// Сжимать с использованием ключа
@@ -151,7 +142,7 @@ public class ComprTblImpl implements ComprTbl {
 
     			// Получить все диапазоны периодов mgFrom, mgTo уникальные - по ключу,
     	    	// отсортированные
-    			lstPeriodPrep = new HashMap<Integer, Integer>();
+    			lstPeriodPrep = new HashMap<>();
 
     			lst.stream().filter(t -> t.getKey().equals(key) && t.getMgFrom() < curPeriod).forEach(t-> {
     				if (lstPeriodPrep.get(t.getMgFrom()) == null) {
@@ -159,13 +150,10 @@ public class ComprTblImpl implements ComprTbl {
     				}
     			});
 
-    			lstPeriod = new TreeSet<Integer>();
-    			lstPeriod.addAll(new HashSet<>(lstPeriodPrep.keySet()));
+				// отсортированный список периодов
+				SortedSet<Integer> lstPeriod = new TreeSet<>(new HashSet<>(lstPeriodPrep.keySet()));
 
-    			lstPeriod.forEach(t-> {
-    	    		checkPeriod(t, key);
-
-    			});
+    			lstPeriod.forEach(t-> checkPeriod(t, key));
 
     			// Проверить, установить в последнем обработанном массиве корректность замыкающего периода mg2
     			replacePeriod(lastUsed, lstPeriodPrep.get(lastUsed), key);
@@ -174,7 +162,7 @@ public class ComprTblImpl implements ComprTbl {
 		}
 		log.trace("Л.с.:{} Окончание сжатия!", lsk);
 
-    	return new AsyncResult<Result>(res);
+    	return new AsyncResult<>(res);
     }
 
     /**
@@ -197,29 +185,32 @@ public class ComprTblImpl implements ComprTbl {
     		// последнего массива нет, сохраняем как новый
     		lastUsed = period;
     		log.trace("Л.с.:{}, key={} последнего периода нет, сохранили:{}", this.lsk, key, period);
-    	} else if (lastUsed != null && !chkPeriod.equals(lastUsedMg2)) {
-    		// последний массив есть, но проверяемый период имеет дату начала большую чем на 1 месяц относительно последнего массива (GAP)
-    		// проставить в заключительном периоде последнего массива замыкающий месяц
-			replacePeriod(lastUsed, lstPeriodPrep.get(lastUsed), key);
-			lastUsed = period;
-    		log.trace("Л.с.:{}, key={} найден GAP:{}", this.lsk, key, period);
     	} else {
-    		// сравнить новый массив с последним
-    		if (comparePeriod(period, lastUsed, key)) {
-    			// элементы совпали, удалить элементы сравниваемого массива
-    			delPeriod(period, key);
-    			// Расширить заключительный период последнего массива на mg2 сравниваемого массива
-    			lstPeriodPrep.put(lastUsed, lstPeriodPrep.get(period));
-        		log.trace("Л.с.:{}, key={} элементы совпали:{}", this.lsk, key, period);
-    		} else {
-    			// элементы разные, закрыть в последнем период действия
-    			replacePeriod(lastUsed, lstPeriodPrep.get(lastUsed), key);
-    			// пометить период нового массива как замыкающий
-    			lastUsed = period;
-    			// сохранять не надо mg2, так как уже записано это при инициализации массива
-        		log.trace("Л.с.:{}, key={} элементы разные:{}", this.lsk, key, period);
-    		}
-    	}
+			assert chkPeriod != null;
+			if (!chkPeriod.equals(lastUsedMg2)) {
+				// последний массив есть, но проверяемый период имеет дату начала большую чем на 1 месяц относительно последнего массива (GAP)
+				// проставить в заключительном периоде последнего массива замыкающий месяц
+				replacePeriod(lastUsed, lstPeriodPrep.get(lastUsed), key);
+				lastUsed = period;
+				log.trace("Л.с.:{}, key={} найден GAP:{}", this.lsk, key, period);
+			} else {
+				// сравнить новый массив с последним
+				if (comparePeriod(period, lastUsed, key)) {
+					// элементы совпали, удалить элементы сравниваемого массива
+					delPeriod(period, key);
+					// Расширить заключительный период последнего массива на mg2 сравниваемого массива
+					lstPeriodPrep.put(lastUsed, lstPeriodPrep.get(period));
+					log.trace("Л.с.:{}, key={} элементы совпали:{}", this.lsk, key, period);
+				} else {
+					// элементы разные, закрыть в последнем период действия
+					replacePeriod(lastUsed, lstPeriodPrep.get(lastUsed), key);
+					// пометить период нового массива как замыкающий
+					lastUsed = period;
+					// сохранять не надо mg2, так как уже записано это при инициализации массива
+					log.trace("Л.с.:{}, key={} элементы разные:{}", this.lsk, key, period);
+				}
+			}
+		}
     }
 
 	/**
@@ -232,8 +223,8 @@ public class ComprTblImpl implements ComprTbl {
     			.filter(t -> key == null || t.getKey().equals(key))
     			.filter(t -> t.getMgFrom().equals(period)).collect(Collectors.toList());
 
-		for (Iterator<Compress> iterator = lstDel.iterator(); iterator.hasNext();) {
-			em.remove(iterator.next());
+		for (Compress compress : lstDel) {
+			em.remove(compress);
 		}
 
 	}
@@ -248,17 +239,14 @@ public class ComprTblImpl implements ComprTbl {
     	// Найти массив по period1, и чтобы он еще не был расширен до period2
 		lst.stream()
 			.filter(t -> key == null || t.getKey().equals(key))
-		    .filter(t -> t.getMgFrom().equals(period1) && !t.getMgTo().equals(period2)).forEach(d -> {
-			d.setMgTo(period2);
-		});
+		    .filter(t -> t.getMgFrom().equals(period1) && !t.getMgTo().equals(period2)).forEach(d -> d.setMgTo(period2));
 	}
 
     /**
      * Сравнить элементы одного массива с другим
      * @param period1 - Период 1
-     * @param period1 - Период 2
+     * @param period2 - Период 2
      * @param key - код ключа
-     * @return
      */
     private boolean comparePeriod(Integer period1, Integer period2, String key) {
     	List<Compress> filtLst1 = lst.stream()
@@ -276,15 +264,6 @@ public class ComprTblImpl implements ComprTbl {
 		// Сравнить своим компаратором
 		Eq equator = new Eq();
 		return CollectionUtils.isEqualCollection(filtLst1, filtLst2, equator);
-
-		// Получить коллекции hash и сравнить их между собой оставил пока
-/*    	List<Integer> filtLst1 = tp.stream()
-				.filter(t -> key == null || t.getUsl().equals(key))
-				.filter(t -> t.getMgFrom().equals(period1)).map(t-> t.getHash()).collect(Collectors.toList());
-		List<Integer> filtLst2 = tp.stream()
-				.filter(t -> key == null || t.getUsl().equals(key))
-				.filter(t -> t.getMgFrom().equals(period2)).map(t-> t.getHash()).collect(Collectors.toList());
-*/
 	}
 
     public static class Eq implements Equator<Compress> {
