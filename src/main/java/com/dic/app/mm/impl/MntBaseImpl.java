@@ -130,7 +130,7 @@ public class MntBaseImpl implements MntBase {
 			// Начать потоки
 			for (String lsk : batch) {
 				ComprTbl comprTbl = ctx.getBean(ComprTbl.class);
-				Future<Result> fut = comprTbl.comprTableByLsk(table, lsk, backPeriod, curPeriod, isAllPeriods, true);
+				Future<Result> fut = comprTbl.comprTableByLsk(table, lsk, backPeriod, curPeriod, isAllPeriods);
 				frl.add(fut);
 				if (cnt == 1000) {
 					log.info("Последний лс на обработке={}", lsk);

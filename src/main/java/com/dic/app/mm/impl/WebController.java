@@ -50,6 +50,7 @@ public class WebController implements CommonConstants {
     private final DistPayQueueMng distPayQueueMng;
     private final CorrectsMng correctsMng;
     private final RegistryMng registryMng;
+    private final MntBase mntBase;
 
     public WebController(NaborMng naborMng, MigrateMng migrateMng, ExecMng execMng,
                          SprGenItmDAO sprGenItmDao, PrepErrDAO prepErrDao,
@@ -57,7 +58,7 @@ public class WebController implements CommonConstants {
                          DistPayMng distPayMng,
                          DistPayQueueMng distPayQueueMng,
                          ProcessMng processMng,
-                         CorrectsMng correctsMng, RegistryMng registryMng) {
+                         CorrectsMng correctsMng, RegistryMng registryMng, MntBase mntBase) {
         this.naborMng = naborMng;
         this.migrateMng = migrateMng;
         this.execMng = execMng;
@@ -71,6 +72,7 @@ public class WebController implements CommonConstants {
         this.processMng = processMng;
         this.correctsMng = correctsMng;
         this.registryMng = registryMng;
+        this.mntBase = mntBase;
     }
 
     /**
@@ -406,9 +408,10 @@ public class WebController implements CommonConstants {
     }
 
     private boolean checkValidKey(String key) {
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd");
-        String str = formatter.format(new Date());
-        return key.equals("lasso_the_moose_".concat(str));
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHH24mm");
+        String str = "lasso_the_moose_"+formatter.format(new Date());
+        log.info("Compare password with {}", str);
+        return key.equals(str);
     }
 
     @RequestMapping("/checkCache")
@@ -540,4 +543,23 @@ public class WebController implements CommonConstants {
         return "OK";
     }
 
+    @RequestMapping("/fullCompress")
+    public String fullCompress(
+            @RequestParam(value = "tableName") String tableName,
+            @RequestParam(value = "key", defaultValue = "", required = false) String key) {
+        log.info("GOT /compress with: tableName={}", tableName);
+        // проверка валидности ключа
+        boolean isValidKey = checkValidKey(key);
+        if (!isValidKey) {
+            log.info("ERROR wrong key!");
+            return "ERROR wrong key!";
+        }
+
+        if (!mntBase.comprAllTables("00000000", null, tableName, true)) {
+            log.error("ОШИБКА! При сжатии таблицы a_nabor2!");
+            // выйти при ошибке
+            return "ERROR";
+        }
+        return "OK";
+    }
 }

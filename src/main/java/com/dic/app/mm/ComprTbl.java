@@ -7,6 +7,6 @@ import com.ric.dto.Result;
 
 public interface ComprTbl {
 
-	public Future<Result> comprTableByLsk(String table, String lsk, Integer backPeriod, Integer curPeriod, boolean isAllPeriods, boolean isByUsl);
+	public Future<Result> comprTableByLsk(String table, String lsk, Integer backPeriod, Integer curPeriod, boolean isAllPeriods);
 
 }
