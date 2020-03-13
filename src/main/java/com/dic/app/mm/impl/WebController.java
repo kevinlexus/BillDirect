@@ -555,10 +555,29 @@ public class WebController implements CommonConstants {
             return "ERROR wrong key!";
         }
 
-        if (!mntBase.comprAllTables("00000000", null, tableName, true)) {
-            log.error("ОШИБКА! При сжатии таблицы a_nabor2!");
-            // выйти при ошибке
-            return "ERROR";
+        if (tableName.equals("all")) {
+            // все таблицы по очереди
+            if (!mntBase.comprAllTables("00000000", null, "acharge", true)) {
+                log.error("ОШИБКА! При сжатии таблицы {}!", tableName);
+                // выйти при ошибке
+                return "ERROR";
+            }
+            if (!mntBase.comprAllTables("00000000", null, "anabor", true)) {
+                log.error("ОШИБКА! При сжатии таблицы {}!", tableName);
+                // выйти при ошибке
+                return "ERROR";
+            }
+            if (!mntBase.comprAllTables("00000000", null, "achargeprep", true)) {
+                log.error("ОШИБКА! При сжатии таблицы {}!", tableName);
+                // выйти при ошибке
+                return "ERROR";
+            }
+        } else {
+            if (!mntBase.comprAllTables("00000000", null, tableName, true)) {
+                log.error("ОШИБКА! При сжатии таблицы {}!", tableName);
+                // выйти при ошибке
+                return "ERROR";
+            }
         }
         return "OK";
     }

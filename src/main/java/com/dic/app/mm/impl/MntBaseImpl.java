@@ -169,7 +169,7 @@ public class MntBaseImpl implements MntBase {
 
 			endTime2 = System.currentTimeMillis();
 			batchTime = (int) ((endTime2 - startTime2) / cntThread);
-			log.info("Выполнение одного лс используя {} потоков заняло {} мс", cntThread, batchTime);
+			//log.info("Выполнение одного лс используя {} потоков заняло {} мс", cntThread, batchTime);
 
 			// проверить время выполнения пачки
 			if (!setBestCntThread) {
@@ -214,7 +214,7 @@ public class MntBaseImpl implements MntBase {
 	 */
 	@Override
 	public boolean comprAllTables(String firstLsk, String oneLsk, String table, boolean isAllPeriods) {
-		log.info("===Version 2.0.1===");
+		log.info("**************** СomprAllTables Version 2.0.2 ****************");
 		this.isAllPeriods = isAllPeriods;
 		// Получить параметры
 		// параметры

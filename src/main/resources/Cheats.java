@@ -312,6 +312,11 @@ public class VchangeDet implements java.io.Serializable {
         .collect(Collectors.groupingBy(Employee::getGroupId,
         Collectors.toMap(Employee::getId, Employee::getName)));
 
+        // конвертирование в Map списка из List, по определённому ключу
+        Map<String, List<Compress>> mapElem = anaborDao.getByLsk(lsk)
+        .stream().collect(Collectors.groupingBy(Anabor::getKey,
+        Collectors.mapping(t -> t, Collectors.toList())));
+
 
 // Транзакция
 @Transactional(readOnly = false, propagation = Propagation.REQUIRED)
