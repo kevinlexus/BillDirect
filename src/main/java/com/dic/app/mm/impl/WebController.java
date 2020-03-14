@@ -543,6 +543,11 @@ public class WebController implements CommonConstants {
         return "OK";
     }
 
+    /**
+     * Выполнение сжатия по всем таблицам и всем периодам, кроме текущего
+     * @param tableName имя таблицы, если "all", то взять все
+     * @param key - ключ для выполнения
+     */
     @RequestMapping("/fullCompress")
     public String fullCompress(
             @RequestParam(value = "tableName") String tableName,
