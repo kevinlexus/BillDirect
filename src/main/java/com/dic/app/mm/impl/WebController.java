@@ -509,6 +509,7 @@ public class WebController implements CommonConstants {
     @RequestMapping(value = "/loadFileMeterVal/{fileName}/{isSetPrevious}", method = RequestMethod.GET)
     @ResponseBody
     public String loadFileMeterVal(@PathVariable String fileName, @PathVariable String isSetPrevious) {
+        log.info("GOT /loadFileMeterVal/{}/{}", fileName, isSetPrevious);
         if (config.getLock().setLockProc(1, "loadFileMeterVal")) {
             int cntLoaded;
             try {
@@ -516,6 +517,7 @@ public class WebController implements CommonConstants {
                 if (isSetPrevious!=null && isSetPrevious.equals("1")) {
                     isSetPrev = true;
                 }
+                log.info("fileName={}", fileName);
                 cntLoaded = registryMng.loadFileMeterVal(
                         "c:\\temp\\" + fileName, "windows-1251",
                         isSetPrev
@@ -526,6 +528,36 @@ public class WebController implements CommonConstants {
                 return "ERROR";
             }
             config.getLock().unlockProc(1, "loadFileMeterVal");
+            if (cntLoaded > 0) {
+                return "OK";
+            } else {
+                return "ERROR";
+            }
+        } else {
+            return "PROCESS";
+        }
+    }
+
+    /**
+     * Выгрузить файл показаний по счетчикам
+     * @param fileName - имя файла
+     */
+    @RequestMapping(value = "/unloadFileMeterVal/{fileName}/{strUk}", method = RequestMethod.GET)
+    @ResponseBody
+    public String unloadFileMeterVal(@PathVariable String fileName, @PathVariable String strUk) {
+        log.info("GOT /unloadFileMeterVal/{}/{}", fileName, strUk);
+        if (config.getLock().setLockProc(1, "unloadFileMeterVal")) {
+            int cntLoaded=1;
+            try {
+                cntLoaded = registryMng.unloadFileMeterVal(
+                        "c:\\temp\\" + fileName, "windows-1251", strUk
+                );
+            } catch (Exception e) {
+                config.getLock().unlockProc(1, "unloadFileMeterVal");
+                log.error(Utl.getStackTraceString(e));
+                return "ERROR";
+            }
+            config.getLock().unlockProc(1, "unloadFileMeterVal");
             if (cntLoaded > 0) {
                 return "OK";
             } else {

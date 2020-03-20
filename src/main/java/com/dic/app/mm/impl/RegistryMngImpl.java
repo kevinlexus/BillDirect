@@ -229,7 +229,7 @@ public class RegistryMngImpl implements RegistryMng {
                                 un[0], // ЕЛС
                                 houseFIAS[0], // GUID дома по ФИАС
                                 Utl.ltrim(kart.getNum(), "0"), // № квартиры
-                                kartMng.getAdr(kart), // адрес
+                                kart.getAdr(), // адрес
                                 kart.getLsk(), // лиц.счет
                                 summDeb.add(summPen).toString() // сумма задолженности с пенёй
                         );
@@ -406,26 +406,29 @@ public class RegistryMngImpl implements RegistryMng {
 
     /**
      * Загрузить показания по счетчикам
-     * @param fileName - имя файла, включая путь
-     * @param codePage - кодовая страница
+     *
+     * @param filePath         - имя файла, включая путь
+     * @param codePage         - кодовая страница
      * @param isSetPreviousVal - установить предыдущее показание? ВНИМАНИЕ! Текущие введёные показания будут сброшены назад
      */
     @Override
     @Transactional
-    public int loadFileMeterVal(String fileName, String codePage, boolean isSetPreviousVal) throws FileNotFoundException {
-        log.info("Начало загрузки файла показаний по счетчикам fileName={}", fileName);
-        String strPathBad = fileName.substring(0, fileName.length()-4)+".BAD";
+    public int loadFileMeterVal(String filePath, String codePage, boolean isSetPreviousVal) throws FileNotFoundException {
+        log.info("Начало загрузки файла показаний по счетчикам filePath={}", filePath);
+        String strPathBad = filePath.substring(0, filePath.length() - 4) + ".BAD";
         Path pathBad = Paths.get(strPathBad);
-        Scanner scanner = new Scanner(new File(fileName), codePage);
+        Scanner scanner = new Scanner(new File(filePath), codePage);
         int cntLoaded = 0;
         try (BufferedWriter writer = Files.newBufferedWriter(pathBad, Charset.forName("windows-1251"))) {
             while (scanner.hasNextLine()) {
-                String s = scanner.nextLine();
+                String line = scanner.nextLine();
+                line = line.replaceAll("\t", "");
+                line = line.replaceAll("\"", "");
                 // пропустить заголовок
                 if (cntLoaded++ > 0) {
-                    log.info("s={}", s);
+                    log.info("s={}", line);
                     // перебрать элементы строки
-                    Scanner sc = new Scanner(s);
+                    Scanner sc = new Scanner(line);
                     sc.useDelimiter(";");
                     String lsk = null;
                     int i = 0;
@@ -454,11 +457,58 @@ public class RegistryMngImpl implements RegistryMng {
             e.printStackTrace();
         }
         scanner.close();
-        log.info("Окончание загрузки файла показаний по счетчикам fileName={}, загружено {} строк", fileName, cntLoaded);
+        log.info("Окончание загрузки файла показаний по счетчикам filePath={}, загружено {} строк", filePath, cntLoaded);
         return cntLoaded;
     }
 
+    /**
+     * Выгрузить показания по счетчикам
+     *
+     * @param filePath - имя файла, включая путь
+     * @param codePage - кодовая страница
+     */
+    @Override
+    @Transactional
+    public int unloadFileMeterVal(String filePath, String codePage, String strUk) throws IOException {
+        log.info("Начало выгрузки файла показаний по счетчикам filePath={}, по УК={}", filePath, strUk);
+        String[] parts = strUk.substring(1).split(";");
+        String strPath;
+        Date dt = new Date();
+        Map<String, String> mapMeter = new HashMap<>();
+        int cntLoaded = 0;
+        for (String codeUk : parts) {
+            codeUk = codeUk.replaceAll("'", "");
+            log.info("Обрабатывается УК={}", codeUk);
+            strPath = filePath + "_" + codeUk + ".csv";
+            Path path = Paths.get(strPath);
+            try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
+                writer.write("\tЛиц.сч.;Адр.;Услуга;Показ.пред;Показ.тек.;Расход;\tЛиц.сч.;Услуга;Показ.пред;" +
+                        "Показ.тек.;Расход;\tЛиц.сч.;Услуга;Показ.пред;Показ.тек.;Расход" + "\r\n");
+                List<Kart> lstKart = kartDAO.findActualByUkOrderedByAddress(codeUk, "LSK_TP_MAIN");
+                for (Kart kart : lstKart) {
+                    cntLoaded++;
+                    mapMeter.put("011", "Нет счетчика" + ";" + ";" + ";" + ";");
+                    mapMeter.put("015", "Нет счетчика" + ";" + ";" + ";" + ";");
+                    mapMeter.put("038", "Нет счетчика" + ";" + ";" + ";" + ";");
+                    for (Meter meter : kart.getKoKw().getMeterByKo()) {
+                        if (meter.getIsMeterActual(dt)) {
+                            mapMeter.put(meter.getUsl().getId(),
+                                    meter.getUsl().getId() + " " +
+                                            meter.getUsl().getName().trim() + ";"
+                                            + (meter.getN1() != null ? meter.getN1().toString() : "0")
+                                            + ";" + ";" + ";"
+                            );
+                        }
+                    }
+                    writer.write("\t" + kart.getLsk() + ";" + kart.getAdr() + ";" + mapMeter.get("011") + "\t" + kart.getLsk() + ";"
+                            + mapMeter.get("015") + "\t" + kart.getLsk() + ";" + mapMeter.get("038") + "\r\n");
+                }
+            }
 
+            log.info("Окончание выгрузки файла показаний по счетчикам filePath={}, выгружено {} строк", filePath, cntLoaded);
+        }
+        return cntLoaded;
+    }
 
     /**
      * Загрузить успешно обработанные лиц.счета в таблицу внешних лиц.счетов
