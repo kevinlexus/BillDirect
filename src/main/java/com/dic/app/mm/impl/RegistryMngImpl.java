@@ -478,13 +478,15 @@ public class RegistryMngImpl implements RegistryMng {
         int cntLoaded = 0;
         for (String codeUk : parts) {
             codeUk = codeUk.replaceAll("'", "");
-            log.info("Обрабатывается УК={}", codeUk);
+            Org uk = orgDAO.getByReu(codeUk);
+            log.info("Обрабатывается УК={}-{}", codeUk, uk.getName());
             strPath = filePath + "_" + codeUk + ".csv";
             Path path = Paths.get(strPath);
             try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
                 writer.write("\tЛиц.сч.;Адр.;Услуга;Показ.пред;Показ.тек.;Расход;\tЛиц.сч.;Услуга;Показ.пред;" +
                         "Показ.тек.;Расход;\tЛиц.сч.;Услуга;Показ.пред;Показ.тек.;Расход" + "\r\n");
-                List<Kart> lstKart = kartDAO.findActualByUkOrderedByAddress(codeUk, "LSK_TP_MAIN");
+                List<Kart> lstKart = kartDAO.findActualByUkOrderedByAddress(codeUk,
+                        uk.isRSO() ? "LSK_TP_RSO" : "LSK_TP_MAIN");
                 for (Kart kart : lstKart) {
                     cntLoaded++;
                     mapMeter.put("011", "Нет счетчика" + ";" + ";" + ";" + ";");
