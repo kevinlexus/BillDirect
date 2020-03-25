@@ -470,7 +470,6 @@ public class RegistryMngImpl implements RegistryMng {
     @Override
     @Transactional
     public int unloadFileMeterVal(String filePath, String codePage, String strUk) throws IOException {
-        log.info("Начало выгрузки файла показаний по счетчикам filePath={}, по УК={}", filePath, strUk);
         String[] parts = strUk.substring(1).split(";");
         String strPath;
         Date dt = new Date();
@@ -479,8 +478,8 @@ public class RegistryMngImpl implements RegistryMng {
         for (String codeUk : parts) {
             codeUk = codeUk.replaceAll("'", "");
             Org uk = orgDAO.getByReu(codeUk);
-            log.info("Обрабатывается УК={}-{}", codeUk, uk.getName());
             strPath = filePath + "_" + codeUk + ".csv";
+            log.info("Начало выгрузки файла показаний по счетчикам filePath={}, по УК={}-{}", filePath, strUk, uk.getName());
             Path path = Paths.get(strPath);
             try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
                 writer.write("\tЛиц.сч.;Адр.;Услуга;Показ.пред;Показ.тек.;Расход;\tЛиц.сч.;Услуга;Показ.пред;" +
