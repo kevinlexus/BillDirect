@@ -414,7 +414,13 @@ public class RegistryMngImpl implements RegistryMng {
     @Override
     @Transactional
     public int loadFileMeterVal(String filePath, String codePage, boolean isSetPreviousVal) throws FileNotFoundException {
-        log.info("Начало загрузки файла показаний по счетчикам filePath={}", filePath);
+        DocPar docPar = DocPar.DocParBuilder.aDocPar().withTuser(configApp.getCurUser()).build();
+        docPar.setComm("файл: "+filePath);
+        docPar.setIsSetPreviousVal(isSetPreviousVal);
+        em.persist(docPar); // persist - так как получаем Id
+        em.flush(); // сохранить запись DocPar до вызова процедуры, иначе не найдет foreign key
+        docPar.setCd("Registry_Meter_val_"+Utl.getStrFromDate(new Date())+"_"+docPar.getId());
+        log.info("Начало загрузки файла показаний по счетчикам filePath={} CD={}", filePath, docPar.getCd());
         String strPathBad = filePath.substring(0, filePath.length() - 4) + ".BAD";
         Path pathBad = Paths.get(strPathBad);
         Scanner scanner = new Scanner(new File(filePath), codePage);
@@ -448,7 +454,8 @@ public class RegistryMngImpl implements RegistryMng {
                         } else if (Utl.in(i, 5, 10, 15)) {
                             // отправить текущие показания
                             meterMng.sendMeterVal(writer, lsk, strUsl,
-                                    prevVal, elem, configApp.getPeriod(), configApp.getCurUser().getId(), isSetPreviousVal);
+                                    prevVal, elem, configApp.getPeriod(), configApp.getCurUser().getId(),
+                                    docPar.getId(), isSetPreviousVal);
                         }
                     }
                 }
