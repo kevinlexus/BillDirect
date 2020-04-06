@@ -2,9 +2,6 @@ import com.dic.app.Config;
 import com.dic.bill.dao.EolinkDAO2;
 import com.dic.bill.dto.HouseUkTaskRec;
 import com.dic.bill.mm.EolinkMng;
-import com.dic.bill.model.bs.Lst2;
-import com.dic.bill.model.exs.Eolink;
-import com.dic.bill.model.exs.Task;
 import com.dic.bill.model.scott.Kart;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
@@ -17,7 +14,6 @@ import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -87,7 +83,7 @@ public class TestEolinkDAO {
 				.withErrAckCnt(0)
 				.withProcUk(procUk)
 				.withTrace(0).build();
-		em.persist(task);
+		em.persist(task); // note Используй crud.save
 		eolinkDAO2.getHouseByTpWoTaskTp(null, null);
 */
 	}

@@ -269,7 +269,7 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
                         .withMg(mg)
                         .build();
                 kart.getDeb().add(deb);
-                em.persist(deb);
+                em.persist(deb); // note Используй crud.save
             }
         }
     }
@@ -408,7 +408,7 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
             penCur.setDt1(t.getDt1());
             penCur.setDt2(t.getDt2());
             kart.getPenCur().add(penCur);
-            em.persist(penCur);
+            em.persist(penCur); // note Используй crud.save
             log.info("C_PEN_CUR: период={}, тек.пеня={}, тек.дней={}", t.mg, t.pen, t.getCurDays());
         });
 
@@ -437,7 +437,7 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
             if (Utl.nvl(mapDeb.get(k), BigDecimal.ZERO).compareTo(BigDecimal.ZERO) != 0) {
                 penya.setDays(mapDebDays.get(k));
             }
-            em.persist(penya);
+            em.persist(penya); // note Используй crud.save
             log.info("C_PENYA: mg1={}, penya={}, summa={}, days={}",
                     penya.getMg1(), penya.getPenya(), penya.getSumma(), penya.getDays());
         });

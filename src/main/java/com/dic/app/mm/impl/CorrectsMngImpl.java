@@ -113,7 +113,7 @@ public class CorrectsMngImpl implements CorrectsMng {
                         .withCdTp(cdTp)
                         .withText("Корректировка кредитового сальдо при наличии дебетового по УК:" + uk)
                         .withUser(user).build();
-                em.persist(changeDoc);
+                em.persist(changeDoc); // note Используй crud.save
                 log.info("документ по корректировке сохранен с id={}", changeDoc.getId());
 
                 for (Kart kart : mapSal.keySet()) {
@@ -208,7 +208,7 @@ public class CorrectsMngImpl implements CorrectsMng {
                         .withText("Корректировка кредитового сальдо по 003 услуге, при наличии дебетового по другим " +
                                 "услугам и при отсутствии оплаты по УК:" + uk)
                         .withUser(user).build();
-                em.persist(changeDoc);
+                em.persist(changeDoc); // note Используй crud.save
                 log.info("документ по корректировке сохранен с id={}", changeDoc.getId());
                 log.info("кол-во записей в сальдо:{}", mapSal.size());
 
@@ -321,7 +321,7 @@ public class CorrectsMngImpl implements CorrectsMng {
                 .withSumma(summa)
                 .withUser(user)
                 .build();
-        em.persist(corrPay);
+        em.persist(corrPay); // note Используй crud.save
     }
 
 }

@@ -59,7 +59,7 @@ public class TestKartPrMng {
 		CalcStore calcStore = processMng.buildCalcStore(Utl.getDateFromStr("15.04.2014"), 0);
 		// построить лиц.счет
 		Kart kart = testDataBuilder.buildKartForTest("0000000X", true, true, true);
-		em.persist(kart);
+		em.persist(kart); // note Используй crud.save
 
 		List<StatePr> lstStatesPr = statesPrDao.findByDate(kart.getLsk(),
 				calcStore.getCurDt1(), calcStore.getCurDt2());

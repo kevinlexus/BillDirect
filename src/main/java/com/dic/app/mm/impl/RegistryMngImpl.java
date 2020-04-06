@@ -450,7 +450,7 @@ public class RegistryMngImpl implements RegistryMng {
         doc.setComm("файл: " + filePath);
         doc.setIsSetPreviousVal(isSetPreviousVal);
         doc.setMg(configApp.getPeriod());
-        em.persist(doc); // persist - так как получаем Id
+        em.persist(doc); // persist - так как получаем Id // note Используй crud.save
         em.flush(); // сохранить запись Doc до вызова процедуры, иначе не найдет foreign key
         doc.setCd("Registry_Meter_val_" + Utl.getStrFromDate(new Date()) + "_" + doc.getId());
         log.info("Начало загрузки файла показаний по счетчикам filePath={} CD={}", filePath, doc.getCd());
@@ -569,7 +569,7 @@ public class RegistryMngImpl implements RegistryMng {
                     .withFio(loadKartExt.getFio())
                     .withV(1)
                     .build();
-            em.persist(kartExt);
+            em.persist(kartExt); // note Используй crud.save
         }
     }
 
@@ -649,7 +649,7 @@ public class RegistryMngImpl implements RegistryMng {
                         .withComm(comm)
                         .withStatus(status)
                         .build();
-        em.persist(loadKartExt);
+        em.persist(loadKartExt); // note Используй crud.save
     }
 
     /**

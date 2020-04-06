@@ -98,19 +98,19 @@ public class TestDistPay {
         // дом
         House house = new House();
         Ko houseKo = new Ko();
-        em.persist(houseKo);
+        em.persist(houseKo); // note Используй crud.save
 
         house.setKo(houseKo);
         house.setKul("0001");
         house.setNd("000001");
-        em.persist(house);
+        em.persist(house); // note Используй crud.save
 
         // построить лицевые счета по помещению
         int ukId = 12; // УК 14,15
         //int ukId = 547; // общий тип распределения
         Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),
                 3, true, true, 1, 1, ukId);
-        em.persist(ko);
+        em.persist(ko); // note Используй crud.save
         String lsk = "ОСН_0001";
         Kart kart = em.find(Kart.class, lsk);
 
