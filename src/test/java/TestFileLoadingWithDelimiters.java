@@ -14,6 +14,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes=Config.class)
@@ -36,9 +37,18 @@ public class TestFileLoadingWithDelimiters {
     public void fileLoadKartExt() throws FileNotFoundException {
         // загрузить файл во временную таблицу LOAD_KART_EXT
         registryMng.loadFileKartExt("г Полысаево", "001", "LSK_TP_MAIN",
-                "d:\\temp\\#46\\1.txt", "windows-1251");
+                "d:\\temp\\#46\\1.txt");
         // загрузить успешно обработанные лиц.счета в таблицу внешних лиц.счетов
         registryMng.loadApprovedKartExt();
+    }
+
+    /**
+     * Выгрузить файл платежей по внешними лиц.счетами
+     */
+    @Test
+    @Rollback(false)
+    public void fileUnloadPaymentKartExt() throws IOException {
+        registryMng.unloadPaymentFileKartExt("c:\\temp\\3216613_20200403_1.txt", "001");
     }
 
     /**

@@ -318,14 +318,13 @@ public class RegistryMngImpl implements RegistryMng {
      * @param reu      - код УК
      * @param lskTp    - тип лиц.счетов
      * @param fileName - путь и имя файла
-     * @param codePage - кодовая страница
      * @return - кол-во успешно обработанных записей
      */
     @Override
     @Transactional
-    public int loadFileKartExt(String cityName, String reu, String lskTp, String fileName, String codePage) throws FileNotFoundException {
+    public int loadFileKartExt(String cityName, String reu, String lskTp, String fileName) throws FileNotFoundException {
         log.info("Начало загрузки файла внешних лиц.счетов fileName={}", fileName);
-        Scanner scanner = new Scanner(new File(fileName), codePage);
+        Scanner scanner = new Scanner(new File(fileName), "windows-1251");
         loadKartExtDAO.deleteAll();
         Set<String> setExt = new HashSet<>(); // уже обработанные внешние лиц.сч.
         List<House> lstHouse = houseDAO.findByGuidIsNotNull();
@@ -395,11 +394,44 @@ public class RegistryMngImpl implements RegistryMng {
             }
             if (foundCity) {
                 cntLoaded++;
-                buildLoadKartExt(kartExtInfo, setExt);
+                createLoadKartExt(kartExtInfo, setExt);
             }
         }
         scanner.close();
         log.info("Окончание загрузки файла внешних лиц.счетов fileName={}, загружено {} строк", fileName, cntLoaded);
+        return cntLoaded;
+    }
+
+    /**
+     * Выгрузить файл платежей по внешними лиц.счетами
+     *
+     * @param filePath - имя файла, включая путь
+     * @param codeUk   - код УК
+     */
+    @Override
+    @Transactional
+    public int unloadPaymentFileKartExt(String filePath, String codeUk) throws IOException {
+        Org uk = orgDAO.getByReu(codeUk);
+        int cntLoaded = 0;
+        log.info("Начало выгрузки файла платежей по внешним лиц.счетам filePath={}, по УК={}-{}", filePath, codeUk, uk.getName());
+        Path path = Paths.get(filePath);
+        List<Kwtp> lstKwpt = kartExtDAO.getKwtpKartExtByUk(codeUk);
+        if (lstKwpt.size() > 0) {
+            try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
+                for (Kwtp kwtp : lstKwpt) {
+                    Kart kart = kwtp.getKart();
+                    for (KartExt kartExt : kart.getKartExt()) {
+                        if (kartExt.isActual()) {
+                            writer.write(Utl.getStrFromDate(kwtp.getDt(), "ddMMyyyy") + ";" +
+                                    kartExt.getExtLsk() + ";1;" + kwtp.getSumma().toString() + ";" +
+                                    kwtp.getId() + "\r\n");
+                            break; // сделать для первого актуального лиц счета
+                        }
+                    }
+                }
+            }
+        }
+        log.info("Окончание выгрузки файла платежей по внешним лиц.счетам filePath={}, выгружено {} строк", filePath, cntLoaded);
         return cntLoaded;
     }
 
@@ -414,16 +446,18 @@ public class RegistryMngImpl implements RegistryMng {
     @Override
     @Transactional
     public int loadFileMeterVal(String filePath, String codePage, boolean isSetPreviousVal) throws FileNotFoundException {
-        DocPar docPar = DocPar.DocParBuilder.aDocPar().withTuser(configApp.getCurUser()).build();
-        docPar.setComm("файл: "+filePath);
-        docPar.setIsSetPreviousVal(isSetPreviousVal);
-        em.persist(docPar); // persist - так как получаем Id
-        em.flush(); // сохранить запись DocPar до вызова процедуры, иначе не найдет foreign key
-        docPar.setCd("Registry_Meter_val_"+Utl.getStrFromDate(new Date())+"_"+docPar.getId());
-        log.info("Начало загрузки файла показаний по счетчикам filePath={} CD={}", filePath, docPar.getCd());
+        Doc doc = Doc.DocParBuilder.aDocPar().withTuser(configApp.getCurUser()).build();
+        doc.setComm("файл: " + filePath);
+        doc.setIsSetPreviousVal(isSetPreviousVal);
+        doc.setMg(configApp.getPeriod());
+        em.persist(doc); // persist - так как получаем Id
+        em.flush(); // сохранить запись Doc до вызова процедуры, иначе не найдет foreign key
+        doc.setCd("Registry_Meter_val_" + Utl.getStrFromDate(new Date()) + "_" + doc.getId());
+        log.info("Начало загрузки файла показаний по счетчикам filePath={} CD={}", filePath, doc.getCd());
         String strPathBad = filePath.substring(0, filePath.length() - 4) + ".BAD";
         Path pathBad = Paths.get(strPathBad);
         Scanner scanner = new Scanner(new File(filePath), codePage);
+        int cntRec = 0;
         int cntLoaded = 0;
         try (BufferedWriter writer = Files.newBufferedWriter(pathBad, Charset.forName("windows-1251"))) {
             while (scanner.hasNextLine()) {
@@ -431,7 +465,7 @@ public class RegistryMngImpl implements RegistryMng {
                 line = line.replaceAll("\t", "");
                 line = line.replaceAll("\"", "");
                 // пропустить заголовок
-                if (cntLoaded++ > 0) {
+                if (cntRec++ > 0) {
                     log.info("s={}", line);
                     // перебрать элементы строки
                     Scanner sc = new Scanner(line);
@@ -453,9 +487,12 @@ public class RegistryMngImpl implements RegistryMng {
                             prevVal = elem;
                         } else if (Utl.in(i, 5, 10, 15)) {
                             // отправить текущие показания
-                            meterMng.sendMeterVal(writer, lsk, strUsl,
+                            int ret = meterMng.sendMeterVal(writer, lsk, strUsl,
                                     prevVal, elem, configApp.getPeriod(), configApp.getCurUser().getId(),
-                                    docPar.getId(), isSetPreviousVal);
+                                    doc.getId(), isSetPreviousVal);
+                            if (ret == 0) {
+                                cntLoaded++;
+                            }
                         }
                     }
                 }
@@ -530,6 +567,7 @@ public class RegistryMngImpl implements RegistryMng {
                     .withExtLsk(loadKartExt.getExtLsk())
                     .withKart(loadKartExt.getKart())
                     .withFio(loadKartExt.getFio())
+                    .withV(1)
                     .build();
             em.persist(kartExt);
         }
@@ -541,12 +579,12 @@ public class RegistryMngImpl implements RegistryMng {
      * @param kartExtInfo - информация для создания вн.лиц.счета
      * @param setExt      - уже обработанные вн.лиц.счета
      */
-    private void buildLoadKartExt(KartExtInfo kartExtInfo, Set<String> setExt) {
+    private void createLoadKartExt(KartExtInfo kartExtInfo, Set<String> setExt) {
         String comm = "";
         int status = 0;
         Kart kart = null;
         if (setExt.contains(kartExtInfo.extLsk)) {
-            comm = "Дублируется внешний лиц.счет";
+            comm = "В файле дублируется внешний лиц.счет";
             status = 2;
         } else {
             setExt.add(kartExtInfo.extLsk);
@@ -562,19 +600,34 @@ public class RegistryMngImpl implements RegistryMng {
                     comm = "Частный дом?";
                 }
 
-                lstKart = kartDAO.findActualByReuHouseIdTpKw(kartExtInfo.reu,
-                        kartExtInfo.lskTp, kartExtInfo.house.getId(), strKw);
-                if (lstKart.size() > 0) {
-                    // взять первый лиц.счет в списке
-                    kart = lstKart.get(0);
-                } else {
-                    comm = "Не найдено помещение с номером=" + strKw;
-                    status = 2;
-                }
                 Optional<KartExt> kartExt = kartExtDAO.findByExtLsk(kartExtInfo.extLsk);
                 if (kartExt.isPresent()) {
-                    comm = "Уже загружен";
+                    comm = "Внешний лиц.счет уже создан";
                     status = 1;
+                } else {
+                    lstKart = kartDAO.findActualByReuHouseIdTpKw(kartExtInfo.reu,
+                            kartExtInfo.lskTp, kartExtInfo.house.getId(), strKw);
+                    if (lstKart.size() == 1) {
+                        kart = lstKart.get(0);
+                    } else if (lstKart.size() > 1) {
+                        // могут быть два и больше открытых лиц.счета - поделены судом,
+                        // в таком случае пользователь сам редактирует поле лиц.счета и делает статус = 0
+                        comm = "Присутствуют более одного открытого лиц.сч. по данному адресу, " +
+                                "необходимо определить лиц.сч. вручную и поставить статус=0";
+                        status = 2;
+                    } else {
+                        comm = "Не найдено помещение с номером=" + strKw;
+                        status = 2;
+                    }
+
+                    // проверка на существование внешнего лиц.счета по данному адресу
+                    List<KartExt> lstKartExt = kartExtDAO.getKartExtByHouseIdAndKw(kartExtInfo.house.getId(), strKw);
+                    if (lstKartExt.size() > 0) {
+                        comm = "Внешний лиц.счет по данному адресу уже существует (" +
+                                lstKartExt.get(0).getExtLsk() + "), возможно его необходимо закрыть?";
+                        status = 2;
+                    }
+
                 }
             } else {
                 comm = "Не найден дом с данным GUID в C_HOUSES!";

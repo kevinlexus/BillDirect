@@ -409,7 +409,7 @@ public class WebController implements CommonConstants {
 
     private boolean checkValidKey(String key) {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHH24mm");
-        String str = "lasso_the_moose_"+formatter.format(new Date());
+        String str = "lasso_the_moose_" + formatter.format(new Date());
         log.info("Compare password with {}", str);
         return key.equals(str);
     }
@@ -471,20 +471,25 @@ public class WebController implements CommonConstants {
     }
 
 
-
     /**
      * Загрузить файл внешних лиц счетов во временную таблицу
+     *
      * @param fileName - имя файла
      */
     @RequestMapping(value = "/loadFileKartExt/{fileName}", method = RequestMethod.GET)
     @ResponseBody
     public String loadFileKartExt(@PathVariable String fileName) {
+        log.info("GOT /loadFileKartExt/ with {}", fileName);
         if (config.getLock().setLockProc(1, "loadFileKartExt")) {
-            int cntLoaded;
+            int cntLoaded=0;
             try {
-                // todo исправить reu, тип лиц.сч. и путь
-                cntLoaded = registryMng.loadFileKartExt("г Полысаево", "001", "LSK_TP_MAIN",
-                        "c:\\temp\\" + fileName, "windows-1251");
+                List<Org> lstOrg = orgDAO.findByIsExchangeExt(true);
+                for (Org org : lstOrg) {
+                    cntLoaded = registryMng.loadFileKartExt("г Полысаево", org.getReu(),
+                            org.isRSO() ? "LSK_TP_RSO" : "LSK_TP_MAIN",
+                            "c:\\temp\\" + fileName);
+                    break;
+                }
             } catch (Exception e) {
                 config.getLock().unlockProc(1, "loadFileKartExt");
                 log.error(Utl.getStackTraceString(e));
@@ -503,7 +508,8 @@ public class WebController implements CommonConstants {
 
     /**
      * Загрузить файл показаний по счетчикам
-     * @param fileName - имя файла
+     *
+     * @param fileName      - имя файла
      * @param isSetPrevious - установить предыдущее показание? (1-да, 0-нет) ВНИМАНИЕ! Текущие введёные показания будут сброшены назад
      */
     @RequestMapping(value = "/loadFileMeterVal/{fileName}/{isSetPrevious}", method = RequestMethod.GET)
@@ -514,7 +520,7 @@ public class WebController implements CommonConstants {
             int cntLoaded;
             try {
                 boolean isSetPrev = false;
-                if (isSetPrevious!=null && isSetPrevious.equals("1")) {
+                if (isSetPrevious != null && isSetPrevious.equals("1")) {
                     isSetPrev = true;
                 }
                 log.info("fileName={}", fileName);
@@ -528,11 +534,7 @@ public class WebController implements CommonConstants {
                 return "ERROR";
             }
             config.getLock().unlockProc(1, "loadFileMeterVal");
-            if (cntLoaded > 0) {
-                return "OK";
-            } else {
-                return "ERROR";
-            }
+            return String.valueOf(cntLoaded);
         } else {
             return "PROCESS";
         }
@@ -540,6 +542,7 @@ public class WebController implements CommonConstants {
 
     /**
      * Выгрузить файл показаний по счетчикам
+     *
      * @param fileName - имя файла
      */
     @RequestMapping(value = "/unloadFileMeterVal/{fileName}/{strUk}", method = RequestMethod.GET)
@@ -547,7 +550,7 @@ public class WebController implements CommonConstants {
     public String unloadFileMeterVal(@PathVariable String fileName, @PathVariable String strUk) {
         log.info("GOT /unloadFileMeterVal/{}/{}", fileName, strUk);
         if (config.getLock().setLockProc(1, "unloadFileMeterVal")) {
-            int cntLoaded=1;
+            int cntLoaded = 1;
             try {
                 cntLoaded = registryMng.unloadFileMeterVal(
                         "c:\\temp\\" + fileName, "windows-1251", strUk
@@ -558,11 +561,7 @@ public class WebController implements CommonConstants {
                 return "ERROR";
             }
             config.getLock().unlockProc(1, "unloadFileMeterVal");
-            if (cntLoaded > 0) {
-                return "OK";
-            } else {
-                return "ERROR";
-            }
+            return String.valueOf(cntLoaded);
         } else {
             return "PROCESS";
         }
@@ -577,8 +576,9 @@ public class WebController implements CommonConstants {
 
     /**
      * Выполнение сжатия по всем таблицам и всем периодам, кроме текущего
+     *
      * @param tableName имя таблицы, если "all", то взять все
-     * @param key - ключ для выполнения
+     * @param key       - ключ для выполнения
      */
     @RequestMapping("/fullCompress")
     public String fullCompress(
