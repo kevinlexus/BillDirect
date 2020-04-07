@@ -81,7 +81,7 @@ public class RegistryMngImpl implements RegistryMng {
         log.info("Начало формирования реестра задолженности по лиц.счетам для Сбербанка");
         List<Org> lstOrg = orgDAO.findAll();
         // формировать задолженность по УК
-        lstOrg.stream().filter(t -> t.getReu() != null && t.getGrpDeb() == null).forEach(this::genDebitForSberbankByUk);
+        lstOrg.stream().filter(t -> t.getReu() != null && t.getGrpDeb() == null).forEach(this::genDebitForSberbankByReu);
         // формировать задолженность по группам
         lstOrg.stream().filter(t -> t.getReu() != null && t.getGrpDeb() != null).map(Org::getGrpDeb).distinct()
                 .forEach(this::genDebitForSberbankByGrpDeb);
@@ -93,10 +93,10 @@ public class RegistryMngImpl implements RegistryMng {
      *
      * @param uk - УК
      */
-    private void genDebitForSberbankByUk(Org uk) {
+    private void genDebitForSberbankByReu(Org uk) {
         // префикс для файла
         String prefix = uk.getReu();
-        List<Kart> lstKart = penyaDAO.getKartWhereDebitExistsByUk(uk.getId());
+        List<Kart> lstKart = penyaDAO.getKartWhereDebitExistsByReu(uk.getId());
         genDebitForSberbankVar1(prefix, lstKart);
     }
 
@@ -406,16 +406,17 @@ public class RegistryMngImpl implements RegistryMng {
      * Выгрузить файл платежей по внешними лиц.счетами
      *
      * @param filePath - имя файла, включая путь
-     * @param codeUk   - код УК
+     * @param reu   - код УК
      */
     @Override
     @Transactional
-    public int unloadPaymentFileKartExt(String filePath, String codeUk) throws IOException {
-        Org uk = orgDAO.getByReu(codeUk);
-        int cntLoaded = 0;
-        log.info("Начало выгрузки файла платежей по внешним лиц.счетам filePath={}, по УК={}-{}", filePath, codeUk, uk.getName());
+    public int unloadPaymentFileKartExt(String filePath, String reu) throws IOException {
+        Org uk = orgDAO.getByReu(reu);
+        log.info("Начало выгрузки файла платежей по внешним лиц.счетам filePath={}, по УК={}-{}", filePath, reu, uk.getName());
         Path path = Paths.get(filePath);
-        List<Kwtp> lstKwpt = kartExtDAO.getKwtpKartExtByUk(codeUk);
+        List<Kwtp> lstKwpt = kartExtDAO.getKwtpKartExtByReu(reu);
+        int cntLoaded = 0;
+        BigDecimal amount = BigDecimal.ZERO;
         if (lstKwpt.size() > 0) {
             try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
                 for (Kwtp kwtp : lstKwpt) {
@@ -425,10 +426,13 @@ public class RegistryMngImpl implements RegistryMng {
                             writer.write(Utl.getStrFromDate(kwtp.getDt(), "ddMMyyyy") + ";" +
                                     kartExt.getExtLsk() + ";1;" + kwtp.getSumma().toString() + ";" +
                                     kwtp.getId() + "\r\n");
-                            break; // сделать для первого актуального лиц счета
+                            amount = amount.add(kwtp.getSumma());
+                            cntLoaded++;
+                            break; // сделать для первого актуального внешнего лиц.сч.
                         }
                     }
                 }
+                writer.write("=;"+ cntLoaded +";"+amount.toString());
             }
         }
         log.info("Окончание выгрузки файла платежей по внешним лиц.счетам filePath={}, выгружено {} строк", filePath, cntLoaded);
@@ -519,16 +523,16 @@ public class RegistryMngImpl implements RegistryMng {
         Date dt = new Date();
         Map<String, String> mapMeter = new HashMap<>();
         int cntLoaded = 0;
-        for (String codeUk : parts) {
-            codeUk = codeUk.replaceAll("'", "");
-            Org uk = orgDAO.getByReu(codeUk);
-            strPath = filePath + "_" + codeUk + ".csv";
+        for (String reu : parts) {
+            reu = reu.replaceAll("'", "");
+            Org uk = orgDAO.getByReu(reu);
+            strPath = filePath + "_" + reu + ".csv";
             log.info("Начало выгрузки файла показаний по счетчикам filePath={}, по УК={}-{}", filePath, strUk, uk.getName());
             Path path = Paths.get(strPath);
             try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
                 writer.write("\tЛиц.сч.;Адр.;Услуга;Показ.пред;Показ.тек.;Расход;\tЛиц.сч.;Услуга;Показ.пред;" +
                         "Показ.тек.;Расход;\tЛиц.сч.;Услуга;Показ.пред;Показ.тек.;Расход" + "\r\n");
-                List<Kart> lstKart = kartDAO.findActualByUkOrderedByAddress(codeUk,
+                List<Kart> lstKart = kartDAO.findActualByReuOrderedByAddress(reu,
                         uk.isRSO() ? "LSK_TP_RSO" : "LSK_TP_MAIN");
                 for (Kart kart : lstKart) {
                     cntLoaded++;

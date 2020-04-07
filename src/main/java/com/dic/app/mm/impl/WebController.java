@@ -472,7 +472,7 @@ public class WebController implements CommonConstants {
 
 
     /**
-     * Загрузить файл внешних лиц счетов во временную таблицу
+     * Загрузить файл внешних лиц.сч. во временную таблицу
      *
      * @param fileName - имя файла
      */
@@ -481,7 +481,7 @@ public class WebController implements CommonConstants {
     public String loadFileKartExt(@PathVariable String fileName) {
         log.info("GOT /loadFileKartExt/ with {}", fileName);
         if (config.getLock().setLockProc(1, "loadFileKartExt")) {
-            int cntLoaded=0;
+            int cntLoaded = 0;
             try {
                 List<Org> lstOrg = orgDAO.findByIsExchangeExt(true);
                 for (Org org : lstOrg) {
@@ -496,11 +496,40 @@ public class WebController implements CommonConstants {
                 return "ERROR";
             }
             config.getLock().unlockProc(1, "loadFileKartExt");
-            if (cntLoaded > 0) {
-                return "OK";
-            } else {
+            return String.valueOf(cntLoaded);
+        } else {
+            return "PROCESS";
+        }
+    }
+
+    /**
+     * Выгрузить файл платежей по внешнним лиц.сч.
+     *
+     * @param ordNum - порядковый номер файла за день
+     */
+    @RequestMapping(value = "/unloadPaymentFileKartExt/{ordNum}", method = RequestMethod.GET)
+    @ResponseBody
+    public String unloadPaymentFileKartExt(@PathVariable String ordNum) {
+        log.info("GOT /unloadPaymentFileKartExt/ with {}", ordNum);
+        if (config.getLock().setLockProc(1, "unloadPaymentFileKartExt")) {
+            int cntLoaded = 0;
+            try {
+                Org rkc = orgDAO.getByOrgTp("РКЦ");
+                List<Org> lstOrg = orgDAO.findByIsExchangeExt(true);
+                for (Org org : lstOrg) {
+                    cntLoaded = registryMng.unloadPaymentFileKartExt(
+                            "c:\\temp\\" + rkc.getInn()+"_"+Utl.getStrFromDate(new Date(), "yyyyMMdd")
+                                    + "_" + ordNum,
+                            org.getReu());
+                    break;
+                }
+            } catch (Exception e) {
+                config.getLock().unlockProc(1, "unloadPaymentFileKartExt");
+                log.error(Utl.getStackTraceString(e));
                 return "ERROR";
             }
+            config.getLock().unlockProc(1, "unloadPaymentFileKartExt");
+            return String.valueOf(cntLoaded);
         } else {
             return "PROCESS";
         }

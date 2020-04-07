@@ -225,7 +225,7 @@ public class RequestConfigDirect implements Cloneable {
                 cntThreads=1;
             } else if (uk != null) {
                 // по УК
-                lstItems = vvodDAO.findVvodByUk(uk.getReu())
+                lstItems = vvodDAO.findVvodByReu(uk.getReu())
                         .stream().map(BigDecimal::longValue).collect(Collectors.toList());
                 cntThreads = CNT_THREADS_FOR_COMMON_TASKS;
             } else if (house != null) {
