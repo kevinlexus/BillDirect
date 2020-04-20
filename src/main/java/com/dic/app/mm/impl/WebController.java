@@ -511,16 +511,16 @@ public class WebController implements CommonConstants {
     @ResponseBody
     public String unloadPaymentFileKartExt(@PathVariable String ordNum) {
         log.info("GOT /unloadPaymentFileKartExt/ with {}", ordNum);
+        String fileName = "";
         if (config.getLock().setLockProc(1, "unloadPaymentFileKartExt")) {
             int cntLoaded = 0;
             try {
                 Org rkc = orgDAO.getByOrgTp("РКЦ");
                 List<Org> lstOrg = orgDAO.findByIsExchangeExt(true);
                 for (Org org : lstOrg) {
-                    cntLoaded = registryMng.unloadPaymentFileKartExt(
-                            "c:\\temp\\" + rkc.getInn()+"_"+Utl.getStrFromDate(new Date(), "yyyyMMdd")
-                                    + "_" + ordNum,
-                            org.getReu());
+                    fileName = "c:\\temp\\" + rkc.getInn() + "_" + Utl.getStrFromDate(new Date(), "yyyyMMdd")
+                            + "_" + ordNum + ".txt";
+                    cntLoaded = registryMng.unloadPaymentFileKartExt(fileName, org.getReu());
                     break;
                 }
             } catch (Exception e) {
@@ -529,7 +529,8 @@ public class WebController implements CommonConstants {
                 return "ERROR";
             }
             config.getLock().unlockProc(1, "unloadPaymentFileKartExt");
-            return String.valueOf(cntLoaded);
+            // вернуть кол-во выгружено, путь и имя файла
+            return cntLoaded +"_"+fileName;
         } else {
             return "PROCESS";
         }

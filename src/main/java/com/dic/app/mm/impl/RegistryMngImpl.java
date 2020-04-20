@@ -328,12 +328,14 @@ public class RegistryMngImpl implements RegistryMng {
         loadKartExtDAO.deleteAll();
         Set<String> setExt = new HashSet<>(); // уже обработанные внешние лиц.сч.
         List<House> lstHouse = houseDAO.findByGuidIsNotNull();
+        lstHouse.forEach(t -> log.info("House.id={}, House.guid={}", t.getId(), t.getGuid()));
         Map<String, House> mapHouse = lstHouse.stream().collect(Collectors.toMap(House::getGuid, v -> v));
         int cntLoaded = 0;
         while (scanner.hasNextLine()) {
             String s = scanner.nextLine();
             //log.trace("s={}", s);
             int i = 0;
+            int j = 0;
             Scanner sc = new Scanner(s);
             sc.useDelimiter(";");
             KartExtInfo kartExtInfo = new KartExtInfo();
@@ -344,6 +346,11 @@ public class RegistryMngImpl implements RegistryMng {
             boolean foundCity = false;
             while (sc.hasNext()) {
                 i++;
+                j++;
+                if (j > 100) {
+                    j = 1;
+                    log.info("Обработано {} записей", i);
+                }
                 String elem = sc.next();
                 if (i == 1) {
                     // внешний лиц.счет
@@ -358,16 +365,26 @@ public class RegistryMngImpl implements RegistryMng {
                 } else if (i == 4) {
                     // город
                     Optional<String> city = getAddressElemByIdx(elem, ",", 0);
-                    // поселок, если имеется
-                    Optional<String> town = getAddressElemByIdx(elem, ",", 1);
+                    // поселок, если имеется todo временно убрал посёлок - разобраться потом ред.17.04.20
+                    // Optional<String> town = getAddressElemByIdx(elem, ",", 1);
 
                     // проверить найден ли нужный город
                     //city.ifPresent(t->log.info("city={}", t));
                     //town.ifPresent(t->log.info("town={}", t));
                     if (city.isPresent() && city.get().equals(cityName)) {
-                        if (town.isPresent() && town.get().length() == 0) {
-                            foundCity = true;
-                            kartExtInfo.house = mapHouse.get(kartExtInfo.guid);
+                        //if (town.isPresent() && town.get().length() == 0) { todo временно убрал посёлок - разобраться потом ред.17.04.20
+                        foundCity = true;
+                        kartExtInfo.house = mapHouse.get(kartExtInfo.guid);
+                        if (kartExtInfo.house == null) {
+                            log.error("Не найден дом по guid={}", kartExtInfo.guid);
+                        }
+                        //}
+                    } else {
+                        if (city.isPresent()) {
+                            log.error("Наименование города={} не соответстует ключевому наименованию города={}",
+                                    city.get(), cityName);
+                        } else {
+                            log.error("Наименование города {} не получено из строки файла", cityName);
                         }
                     }
                     if (!foundCity) {
@@ -406,7 +423,7 @@ public class RegistryMngImpl implements RegistryMng {
      * Выгрузить файл платежей по внешними лиц.счетами
      *
      * @param filePath - имя файла, включая путь
-     * @param reu   - код УК
+     * @param reu      - код УК
      */
     @Override
     @Transactional
@@ -432,7 +449,7 @@ public class RegistryMngImpl implements RegistryMng {
                         }
                     }
                 }
-                writer.write("=;"+ cntLoaded +";"+amount.toString());
+                writer.write("=;" + cntLoaded + ";" + amount.toString());
             }
         }
         log.info("Окончание выгрузки файла платежей по внешним лиц.счетам filePath={}, выгружено {} строк", filePath, cntLoaded);
