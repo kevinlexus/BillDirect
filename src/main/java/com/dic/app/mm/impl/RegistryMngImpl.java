@@ -300,6 +300,7 @@ public class RegistryMngImpl implements RegistryMng {
         String lskTp;
         House house;
         String kw;
+        String uslId;
         String extLsk;
         String address;
         Integer code;
@@ -316,13 +317,14 @@ public class RegistryMngImpl implements RegistryMng {
      *
      * @param cityName - наименование города
      * @param reu      - код УК
+     * @param uslId      - код услуги
      * @param lskTp    - тип лиц.счетов
      * @param fileName - путь и имя файла
      * @return - кол-во успешно обработанных записей
      */
     @Override
     @Transactional
-    public int loadFileKartExt(String cityName, String reu, String lskTp, String fileName) throws FileNotFoundException {
+    public int loadFileKartExt(String cityName, String reu, String uslId, String lskTp, String fileName) throws FileNotFoundException {
         log.info("Начало загрузки файла внешних лиц.счетов fileName={}", fileName);
         Scanner scanner = new Scanner(new File(fileName), "windows-1251");
         loadKartExtDAO.deleteAll();
@@ -341,6 +343,7 @@ public class RegistryMngImpl implements RegistryMng {
             KartExtInfo kartExtInfo = new KartExtInfo();
             kartExtInfo.dt = new Date();
             kartExtInfo.reu = reu;
+            kartExtInfo.uslId = uslId;
             kartExtInfo.lskTp = lskTp;
             // перебрать элементы строки
             boolean foundCity = false;
@@ -381,8 +384,8 @@ public class RegistryMngImpl implements RegistryMng {
                         //}
                     } else {
                         if (city.isPresent()) {
-                            log.error("Наименование города={} не соответстует ключевому наименованию города={}",
-                                    city.get(), cityName);
+                            //log.error("Наименование города={} не соответстует ключевому наименованию города={}",
+                            //        city.get(), cityName);
                         } else {
                             log.error("Наименование города {} не получено из строки файла", cityName);
                         }
@@ -626,8 +629,15 @@ public class RegistryMngImpl implements RegistryMng {
                     comm = "Внешний лиц.счет уже создан";
                     status = 1;
                 } else {
+                    // поиск по kart.reu
                     lstKart = kartDAO.findActualByReuHouseIdTpKw(kartExtInfo.reu,
                             kartExtInfo.lskTp, kartExtInfo.house.getId(), strKw);
+                    if (lstKart.size()==0) {
+                        // поиск по nabor.usl, если не найдено по kart.reu
+                        lstKart = kartDAO.findActualByUslHouseIdTpKw(
+                                kartExtInfo.lskTp, kartExtInfo.uslId, kartExtInfo.house.getId(), strKw);
+                    }
+
                     if (lstKart.size() == 1) {
                         kart = lstKart.get(0);
                     } else if (lstKart.size() > 1) {
@@ -635,7 +645,7 @@ public class RegistryMngImpl implements RegistryMng {
                         // в таком случае пользователь сам редактирует поле лиц.счета и делает статус = 0
                         comm = "Присутствуют более одного открытого лиц.сч. по данному адресу, " +
                                 "необходимо определить лиц.сч. вручную и поставить статус=0";
-                        status = 2;
+                        status = 4;
                     } else {
                         comm = "Не найдено помещение с номером=" + strKw;
                         status = 2;
@@ -652,7 +662,7 @@ public class RegistryMngImpl implements RegistryMng {
                 }
             } else {
                 comm = "Не найден дом с данным GUID в C_HOUSES!";
-                status = 2;
+                status = 3;
             }
         }
 

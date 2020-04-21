@@ -486,6 +486,7 @@ public class WebController implements CommonConstants {
                 List<Org> lstOrg = orgDAO.findByIsExchangeExt(true);
                 for (Org org : lstOrg) {
                     cntLoaded = registryMng.loadFileKartExt("г Полысаево", org.getReu(),
+                            "107", // услуга Вывоз ТКО и утил.
                             org.isRSO() ? "LSK_TP_RSO" : "LSK_TP_MAIN",
                             "c:\\temp\\" + fileName);
                     break;

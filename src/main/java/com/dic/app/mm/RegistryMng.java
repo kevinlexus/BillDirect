@@ -6,7 +6,7 @@ import java.io.IOException;
 public interface RegistryMng {
 
     void genDebitForSberbank();
-    int loadFileKartExt(String cityName, String reu, String lskTp, String fileName) throws FileNotFoundException;
+    int loadFileKartExt(String cityName, String reu, String uslId, String lskTp, String fileName) throws FileNotFoundException;
 
     int unloadPaymentFileKartExt(String filePath, String codeUk) throws IOException;
 

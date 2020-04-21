@@ -36,7 +36,7 @@ public class TestFileLoadingWithDelimiters {
     @Rollback(false)
     public void fileLoadKartExt() throws FileNotFoundException {
         // загрузить файл во временную таблицу LOAD_KART_EXT
-        registryMng.loadFileKartExt("г Полысаево", "001", "LSK_TP_MAIN",
+        registryMng.loadFileKartExt("г Полысаево", "001", "107", "LSK_TP_MAIN",
                 "d:\\temp\\#46\\1.txt");
         // загрузить успешно обработанные лиц.счета в таблицу внешних лиц.счетов
         registryMng.loadApprovedKartExt();
