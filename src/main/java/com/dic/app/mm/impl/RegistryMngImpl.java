@@ -51,13 +51,16 @@ public class RegistryMngImpl implements RegistryMng {
     private final ConfigApp configApp;
     private final LoadKartExtDAO loadKartExtDAO;
     private final KartExtDAO kartExtDAO;
+    private final KwtpDAO kwtpDAO;
+    private final AkwtpDAO akwtpDAO;
     private final HouseDAO houseDAO;
 
 
     public RegistryMngImpl(EntityManager em,
                            PenyaDAO penyaDAO, MeterDAO meterDAO, OrgDAO orgDAO, EolinkMng eolinkMng,
                            KartMng kartMng, MeterMng meterMng, KartDAO kartDAO, ConfigApp configApp,
-                           LoadKartExtDAO loadKartExtDAO, KartExtDAO kartExtDAO, HouseDAO houseDAO) {
+                           LoadKartExtDAO loadKartExtDAO, KartExtDAO kartExtDAO, KwtpDAO kwtpDAO,
+                           AkwtpDAO akwtpDAO, HouseDAO houseDAO) {
         this.em = em;
         this.penyaDAO = penyaDAO;
         this.meterDAO = meterDAO;
@@ -69,6 +72,8 @@ public class RegistryMngImpl implements RegistryMng {
         this.configApp = configApp;
         this.loadKartExtDAO = loadKartExtDAO;
         this.kartExtDAO = kartExtDAO;
+        this.kwtpDAO = kwtpDAO;
+        this.akwtpDAO = akwtpDAO;
         this.houseDAO = houseDAO;
     }
 
@@ -424,24 +429,45 @@ public class RegistryMngImpl implements RegistryMng {
 
     /**
      * Выгрузить файл платежей по внешними лиц.счетами
-     *
      * @param filePath - имя файла, включая путь
      * @param reu      - код УК
+     * @param genDt1   - начало периода
+     * @param genDt2   - окончание периода
      */
     @Override
     @Transactional
-    public int unloadPaymentFileKartExt(String filePath, String reu) throws IOException {
+    public int unloadPaymentFileKartExt(String filePath, String reu, Date genDt1, Date genDt2) throws IOException {
         Org uk = orgDAO.getByReu(reu);
-        log.info("Начало выгрузки файла платежей по внешним лиц.счетам filePath={}, по УК={}-{}", filePath, reu, uk.getName());
+        log.info("Начало выгрузки файла платежей по внешним лиц.счетам filePath={}, " +
+                "по УК={}-{}, genDt1={} genDt2={}", filePath, reu, uk.getName(), genDt1, genDt2);
         Path path = Paths.get(filePath);
-        List<Kwtp> lstKwpt = kartExtDAO.getKwtpKartExtByReu(reu);
+        // внешние лиц.счета привязаны через LSK
+        List<KwtpPay> lstKwtpPay = null;
+        if (Utl.getPeriodFromDate(genDt1).equals(configApp.getPeriod())) {
+            // текущий период
+            List<Kwtp> lstKwpt = kwtpDAO.getKwtpKartExtByReuWithLsk(reu, genDt1, genDt2);
+            lstKwtpPay = new ArrayList<>(lstKwpt);
+            // внешние лиц.счета привязаны через FK_KLSK_PREMISE
+            lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithPremise(reu, genDt1, genDt2));
+        } else {
+            // архивный период
+            List<Akwtp> lstKwpt = akwtpDAO.getKwtpKartExtByReuWithLsk(reu, genDt1, genDt2);
+            lstKwtpPay = new ArrayList<>(lstKwpt);
+            // внешние лиц.счета привязаны через FK_KLSK_PREMISE
+            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithPremise(reu, genDt1, genDt2));
+        }
         int cntLoaded = 0;
         BigDecimal amount = BigDecimal.ZERO;
-        if (lstKwpt.size() > 0) {
+        if (lstKwtpPay.size() > 0) {
             try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
-                for (Kwtp kwtp : lstKwpt) {
+                for (KwtpPay kwtp : lstKwtpPay) {
                     Kart kart = kwtp.getKart();
-                    for (KartExt kartExt : kart.getKartExt()) {
+                    // через LSK
+                    List<KartExt> lstKart = kart.getKartExt();
+                    // через FK_KLSK_PREMISE
+                    lstKart.addAll(kart.getKoPremise().getKartExtByPremise());
+
+                    for (KartExt kartExt : lstKart) {
                         if (kartExt.isActual()) {
                             writer.write(Utl.getStrFromDate(kwtp.getDt(), "ddMMyyyy") + ";" +
                                     kartExt.getExtLsk() + ";1;" + kwtp.getSumma().toString() + ";" +
@@ -458,6 +484,8 @@ public class RegistryMngImpl implements RegistryMng {
         log.info("Окончание выгрузки файла платежей по внешним лиц.счетам filePath={}, выгружено {} строк", filePath, cntLoaded);
         return cntLoaded;
     }
+
+
 
 
     /**
@@ -590,6 +618,7 @@ public class RegistryMngImpl implements RegistryMng {
             KartExt kartExt = KartExt.KartExtBuilder.aKartExt()
                     .withExtLsk(loadKartExt.getExtLsk())
                     .withKart(loadKartExt.getKart())
+                    .withKoPremise(loadKartExt.getKoPremise())
                     .withFio(loadKartExt.getFio())
                     .withV(1)
                     .build();

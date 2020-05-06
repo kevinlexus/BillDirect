@@ -1,5 +1,6 @@
 import com.dic.app.Config;
 import com.dic.app.mm.RegistryMng;
+import com.ric.cmn.Utl;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,7 +49,8 @@ public class TestFileLoadingWithDelimiters {
     @Test
     @Rollback(false)
     public void fileUnloadPaymentKartExt() throws IOException {
-        registryMng.unloadPaymentFileKartExt("c:\\temp\\3216613_20200403_.txt", "001");
+        registryMng.unloadPaymentFileKartExt("c:\\temp\\3216613_20200403_.txt", "001",
+                Utl.getFirstDt(), Utl.getLastDt());
     }
 
     /**

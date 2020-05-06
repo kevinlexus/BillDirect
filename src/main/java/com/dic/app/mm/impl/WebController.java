@@ -508,12 +508,22 @@ public class WebController implements CommonConstants {
      *
      * @param ordNum - порядковый номер файла за день
      */
-    @RequestMapping(value = "/unloadPaymentFileKartExt/{ordNum}", method = RequestMethod.GET)
+    @RequestMapping(value = "/unloadPaymentFileKartExt/{ordNum}/{strDt1}/{strDt2}", method = RequestMethod.GET)
     @ResponseBody
-    public String unloadPaymentFileKartExt(@PathVariable String ordNum) {
+    public String unloadPaymentFileKartExt(@PathVariable String ordNum,
+                                           @PathVariable String strDt1, @PathVariable String strDt2) {
         log.info("GOT /unloadPaymentFileKartExt/ with {}", ordNum);
         String fileName = "";
         if (config.getLock().setLockProc(1, "unloadPaymentFileKartExt")) {
+            Date genDt1;
+            Date genDt2;
+            try {
+                genDt1 = strDt1 != null ? Utl.getDateFromStr(strDt1) : null;
+                genDt2 = strDt2 != null ? Utl.getDateFromStr(strDt2) : null;
+            } catch (ParseException e) {
+                log.error(Utl.getStackTraceString(e));
+                return "ERROR";
+            }
             int cntLoaded = 0;
             try {
                 Org rkc = orgDAO.getByOrgTp("РКЦ");
@@ -521,7 +531,7 @@ public class WebController implements CommonConstants {
                 for (Org org : lstOrg) {
                     fileName = "c:\\temp\\" + rkc.getInn() + "_" + Utl.getStrFromDate(new Date(), "yyyyMMdd")
                             + "_" + ordNum + ".txt";
-                    cntLoaded = registryMng.unloadPaymentFileKartExt(fileName, org.getReu());
+                    cntLoaded = registryMng.unloadPaymentFileKartExt(fileName, org.getReu(), genDt1, genDt2);
                     break;
                 }
             } catch (Exception e) {
