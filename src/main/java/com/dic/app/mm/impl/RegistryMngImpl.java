@@ -447,14 +447,23 @@ public class RegistryMngImpl implements RegistryMng {
             // текущий период
             List<Kwtp> lstKwpt = kwtpDAO.getKwtpKartExtByReuWithLsk(reu, genDt1, genDt2);
             lstKwtpPay = new ArrayList<>(lstKwpt);
+            // лиц.счета привязаны через LSK и nabor
+            lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithLsk(reu, uk.getId(), genDt1, genDt2));
             // внешние лиц.счета привязаны через FK_KLSK_PREMISE
             lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithPremise(reu, genDt1, genDt2));
+            // внешние лиц.счета привязаны через FK_KLSK_PREMISE и nabor
+            lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithPremise(reu, uk.getId(), genDt1, genDt2));
         } else {
             // архивный период
-            List<Akwtp> lstKwpt = akwtpDAO.getKwtpKartExtByReuWithLsk(reu, genDt1, genDt2);
+            String period = Utl.getPeriodFromDate(genDt1);
+            List<Akwtp> lstKwpt = akwtpDAO.getKwtpKartExtByReuWithLsk(reu, period, genDt1, genDt2);
             lstKwtpPay = new ArrayList<>(lstKwpt);
+            // лиц.счета привязаны через LSK и nabor
+            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithLsk(reu, period, uk.getId(), genDt1, genDt2));
             // внешние лиц.счета привязаны через FK_KLSK_PREMISE
-            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithPremise(reu, genDt1, genDt2));
+            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithPremise(reu, period, genDt1, genDt2));
+            // внешние лиц.счета привязаны через FK_KLSK_PREMISE и nabor
+            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithPremise(reu, period, uk.getId(), genDt1, genDt2));
         }
         int cntLoaded = 0;
         BigDecimal amount = BigDecimal.ZERO;
