@@ -322,7 +322,7 @@ public class RegistryMngImpl implements RegistryMng {
      *
      * @param cityName - наименование города
      * @param reu      - код УК
-     * @param uslId      - код услуги
+     * @param uslId    - код услуги
      * @param lskTp    - тип лиц.счетов
      * @param fileName - путь и имя файла
      * @return - кол-во успешно обработанных записей
@@ -429,6 +429,7 @@ public class RegistryMngImpl implements RegistryMng {
 
     /**
      * Выгрузить файл платежей по внешними лиц.счетами
+     *
      * @param filePath - имя файла, включая путь
      * @param reu      - код УК
      * @param genDt1   - начало периода
@@ -445,25 +446,25 @@ public class RegistryMngImpl implements RegistryMng {
         List<KwtpPay> lstKwtpPay = null;
         if (Utl.getPeriodFromDate(genDt1).equals(configApp.getPeriod())) {
             // текущий период
-            List<Kwtp> lstKwpt = kwtpDAO.getKwtpKartExtByReuWithLsk(reu, genDt1, genDt2);
+            List<Kwtp> lstKwpt = kwtpDAO.getKwtpKartExtByReuWithLsk(uk.getId(), genDt1, genDt2);
             lstKwtpPay = new ArrayList<>(lstKwpt);
             // лиц.счета привязаны через LSK и nabor
-            lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithLsk(reu, uk.getId(), genDt1, genDt2));
-            // внешние лиц.счета привязаны через FK_KLSK_PREMISE
-            lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithPremise(reu, genDt1, genDt2));
+            lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithLsk(uk.getId(), genDt1, genDt2));
             // внешние лиц.счета привязаны через FK_KLSK_PREMISE и nabor
-            lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithPremise(reu, uk.getId(), genDt1, genDt2));
+            lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithPremise(uk.getId(), genDt1, genDt2));
+            // внешние лиц.счета привязаны через FK_KLSK_ID и nabor
+            lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithKoKw(uk.getId(), genDt1, genDt2));
         } else {
             // архивный период
             String period = Utl.getPeriodFromDate(genDt1);
-            List<Akwtp> lstKwpt = akwtpDAO.getKwtpKartExtByReuWithLsk(reu, period, genDt1, genDt2);
+            List<Akwtp> lstKwpt = akwtpDAO.getKwtpKartExtByReuWithLsk(period, uk.getId(), genDt1, genDt2);
             lstKwtpPay = new ArrayList<>(lstKwpt);
             // лиц.счета привязаны через LSK и nabor
-            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithLsk(reu, period, uk.getId(), genDt1, genDt2));
-            // внешние лиц.счета привязаны через FK_KLSK_PREMISE
-            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithPremise(reu, period, genDt1, genDt2));
+            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithLsk(period, uk.getId(), genDt1, genDt2));
             // внешние лиц.счета привязаны через FK_KLSK_PREMISE и nabor
-            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithPremise(reu, period, uk.getId(), genDt1, genDt2));
+            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithPremise(period, uk.getId(), genDt1, genDt2));
+            // внешние лиц.счета привязаны через FK_KLSK_ID и nabor
+            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithKoKw(period, uk.getId(), genDt1, genDt2));
         }
         int cntLoaded = 0;
         BigDecimal amount = BigDecimal.ZERO;
@@ -493,8 +494,6 @@ public class RegistryMngImpl implements RegistryMng {
         log.info("Окончание выгрузки файла платежей по внешним лиц.счетам filePath={}, выгружено {} строк", filePath, cntLoaded);
         return cntLoaded;
     }
-
-
 
 
     /**
@@ -627,6 +626,7 @@ public class RegistryMngImpl implements RegistryMng {
             KartExt kartExt = KartExt.KartExtBuilder.aKartExt()
                     .withExtLsk(loadKartExt.getExtLsk())
                     .withKart(loadKartExt.getKart())
+                    .withKoKw(loadKartExt.getKoKw())
                     .withKoPremise(loadKartExt.getKoPremise())
                     .withFio(loadKartExt.getFio())
                     .withV(1)
@@ -670,7 +670,7 @@ public class RegistryMngImpl implements RegistryMng {
                     // поиск по kart.reu
                     lstKart = kartDAO.findActualByReuHouseIdTpKw(kartExtInfo.reu,
                             kartExtInfo.lskTp, kartExtInfo.house.getId(), strKw);
-                    if (lstKart.size()==0) {
+                    if (lstKart.size() == 0) {
                         // поиск по nabor.usl, если не найдено по kart.reu
                         lstKart = kartDAO.findActualByUslHouseIdTpKw(
                                 kartExtInfo.lskTp, kartExtInfo.uslId, kartExtInfo.house.getId(), strKw);
@@ -680,9 +680,9 @@ public class RegistryMngImpl implements RegistryMng {
                         kart = lstKart.get(0);
                     } else if (lstKart.size() > 1) {
                         // могут быть два и больше открытых лиц.счета - поделены судом,
-                        // в таком случае пользователь сам редактирует поле лиц.счета и делает статус = 0
+                        // в таком случае пользователь сам редактирует поле фин.лиц.счета и делает статус = 0
                         comm = "Присутствуют более одного открытого лиц.сч. по данному адресу, " +
-                                "необходимо определить лиц.сч. вручную и поставить статус=0";
+                                "необходимо определить K_LSK_ID вручную и поставить статус=0";
                         status = 4;
                     } else {
                         comm = "Не найдено помещение с номером=" + strKw;
@@ -704,21 +704,26 @@ public class RegistryMngImpl implements RegistryMng {
             }
         }
 
-        LoadKartExt loadKartExt =
-                LoadKartExt.LoadKartExtBuilder.aLoadKartExt()
-                        .withExtLsk(kartExtInfo.extLsk)
-                        .withKart(kart)
-                        .withAddress(kartExtInfo.address)
-                        .withCode(kartExtInfo.code)
-                        .withPeriodDeb(kartExtInfo.periodDeb)
-                        .withGuid(kartExtInfo.guid)
-                        .withFio(kartExtInfo.fio)
-                        .withNm(kartExtInfo.nm)
-                        .withSumma(kartExtInfo.summa)
-                        .withComm(comm)
-                        .withStatus(status)
-                        .build();
-        em.persist(loadKartExt); // note Используй crud.save
+        if (kart != null) {
+            LoadKartExt loadKartExt =
+                    LoadKartExt.LoadKartExtBuilder.aLoadKartExt()
+                            .withExtLsk(kartExtInfo.extLsk)
+                            //.withKart(kart)
+                            .withKoKw(kart.getKoKw())
+                            .withAddress(kartExtInfo.address)
+                            .withCode(kartExtInfo.code)
+                            .withPeriodDeb(kartExtInfo.periodDeb)
+                            .withGuid(kartExtInfo.guid)
+                            .withFio(kartExtInfo.fio)
+                            .withNm(kartExtInfo.nm)
+                            .withSumma(kartExtInfo.summa)
+                            .withComm(comm)
+                            .withStatus(status)
+                            .build();
+            em.persist(loadKartExt); // note Используй crud.save
+        } else {
+            log.error("Ошибка при загрузке внешнего лиц. счета.");
+        }
     }
 
     /**
