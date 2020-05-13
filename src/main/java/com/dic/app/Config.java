@@ -41,6 +41,7 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 	}
 
 	// Добавил новый коммментарий
+	// Еще одну строку
 	@Bean
 	public CacheManager cacheManager() {
 		SimpleCacheManager cacheManager = new SimpleCacheManager();
