@@ -40,9 +40,9 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 		ctx = context;
 	}
 
-	// проверка нового комментария
-	// Добавил новый коммментарий
-	// Еще одну строку
+	// проверка нового комментария 3
+	// Добавил новый коммментарий 3
+	// Еще одну строку 3
 	@Bean
 	public CacheManager cacheManager() {
 		SimpleCacheManager cacheManager = new SimpleCacheManager();
