@@ -33,8 +33,6 @@ import java.util.concurrent.Executor;
 @ImportResource("file:.\\config\\spring.xml")
 public class Config  implements ApplicationContextAware, AsyncConfigurer {
 
-	// продолжаю комментировать файл
-
 	private static ApplicationContext ctx = null;
 
 	@Override
@@ -42,7 +40,6 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 		ctx = context;
 	}
 
-	// комментарий удалить проверка git-2
 	@Bean
 	public CacheManager cacheManager() {
 		SimpleCacheManager cacheManager = new SimpleCacheManager();
