@@ -33,7 +33,8 @@ import java.util.concurrent.Executor;
 @ImportResource("file:.\\config\\spring.xml")
 public class Config  implements ApplicationContextAware, AsyncConfigurer {
 
-	// комментарий - удалить, сделан для проверки git
+	// комментарий - удалить, сделан для проверки git-1
+	// удалить этот коммент! 13.05.2020
 
 	private static ApplicationContext ctx = null;
 
