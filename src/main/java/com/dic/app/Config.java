@@ -40,6 +40,7 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 		ctx = context;
 	}
 
+	// комментарий удалить проверка git-2
 	@Bean
 	public CacheManager cacheManager() {
 		SimpleCacheManager cacheManager = new SimpleCacheManager();
