@@ -446,10 +446,9 @@ public class RegistryMngImpl implements RegistryMng {
         List<KwtpPay> lstKwtpPay = null;
         if (Utl.getPeriodFromDate(genDt1).equals(configApp.getPeriod())) {
             // текущий период
+            // лиц.счета привязаны через LSK и nabor
             List<Kwtp> lstKwpt = kwtpDAO.getKwtpKartExtByReuWithLsk(uk.getId(), genDt1, genDt2);
             lstKwtpPay = new ArrayList<>(lstKwpt);
-            // лиц.счета привязаны через LSK и nabor
-            lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithLsk(uk.getId(), genDt1, genDt2));
             // внешние лиц.счета привязаны через FK_KLSK_PREMISE и nabor
             lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithPremise(uk.getId(), genDt1, genDt2));
             // внешние лиц.счета привязаны через FK_KLSK_ID и nabor
@@ -457,10 +456,9 @@ public class RegistryMngImpl implements RegistryMng {
         } else {
             // архивный период
             String period = Utl.getPeriodFromDate(genDt1);
+            // лиц.счета привязаны через LSK и nabor
             List<Akwtp> lstKwpt = akwtpDAO.getKwtpKartExtByReuWithLsk(period, uk.getId(), genDt1, genDt2);
             lstKwtpPay = new ArrayList<>(lstKwpt);
-            // лиц.счета привязаны через LSK и nabor
-            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithLsk(period, uk.getId(), genDt1, genDt2));
             // внешние лиц.счета привязаны через FK_KLSK_PREMISE и nabor
             lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithPremise(period, uk.getId(), genDt1, genDt2));
             // внешние лиц.счета привязаны через FK_KLSK_ID и nabor
@@ -476,6 +474,8 @@ public class RegistryMngImpl implements RegistryMng {
                     List<KartExt> lstKart = kart.getKartExt();
                     // через FK_KLSK_PREMISE
                     lstKart.addAll(kart.getKoPremise().getKartExtByPremise());
+                    // через K_LSK_ID
+                    lstKart.addAll(kart.getKoKw().getKartExtByKoKw());
 
                     for (KartExt kartExt : lstKart) {
                         if (kartExt.isActual()) {
