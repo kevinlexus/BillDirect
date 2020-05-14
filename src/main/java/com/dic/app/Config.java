@@ -35,12 +35,13 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 
 	private static ApplicationContext ctx = null;
 
-    // новый комментарий
+    // новый комментарий-2
 	@Override
 	public void setApplicationContext(ApplicationContext context) throws BeansException {
 		ctx = context;
 	}
 
+	// описание-1
 	@Bean
 	public CacheManager cacheManager() {
 		SimpleCacheManager cacheManager = new SimpleCacheManager();
