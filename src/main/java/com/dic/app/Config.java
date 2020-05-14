@@ -35,7 +35,7 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 
 	private static ApplicationContext ctx = null;
 
-    // новый комментарий-2
+    // новый комментарий-3
 	@Override
 	public void setApplicationContext(ApplicationContext context) throws BeansException {
 		ctx = context;
