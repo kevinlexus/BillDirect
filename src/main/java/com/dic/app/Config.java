@@ -54,6 +54,7 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 		return cacheManager;
 	}
 
+	// описание-2
 	public static ApplicationContext getContext(){
 	      return ctx;
 	}
