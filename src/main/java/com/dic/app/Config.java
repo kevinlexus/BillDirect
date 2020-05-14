@@ -41,7 +41,6 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 		ctx = context;
 	}
 
-	// описание-1
 	@Bean
 	public CacheManager cacheManager() {
 		SimpleCacheManager cacheManager = new SimpleCacheManager();
@@ -54,7 +53,6 @@ public class Config  implements ApplicationContextAware, AsyncConfigurer {
 		return cacheManager;
 	}
 
-	// описание-2
 	public static ApplicationContext getContext(){
 	      return ctx;
 	}
