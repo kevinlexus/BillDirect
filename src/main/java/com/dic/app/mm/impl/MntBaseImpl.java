@@ -2,10 +2,7 @@ package com.dic.app.mm.impl;
 
 import com.dic.app.mm.ComprTbl;
 import com.dic.app.mm.MntBase;
-import com.dic.bill.dao.AchargeDAO;
-import com.dic.bill.dao.AchargePrepDAO;
-import com.dic.bill.dao.AnaborDAO;
-import com.dic.bill.dao.ParamDAO;
+import com.dic.bill.dao.*;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.Param;
 import com.ric.cmn.Utl;
@@ -33,6 +30,7 @@ public class MntBaseImpl implements MntBase {
 	private final AnaborDAO anaborDao;
 	private final AchargeDAO achargeDao;
 	private final AchargePrepDAO achargePrepDao;
+	private final AkartPrDAO akartPrDAO;
 	private final ParamDAO paramDao;
 	private final ApplicationContext ctx;
 	// текущий период
@@ -42,10 +40,12 @@ public class MntBaseImpl implements MntBase {
 	// анализировать все периоды?
 	private boolean isAllPeriods;
 
-	public MntBaseImpl(AnaborDAO anaborDao, AchargeDAO achargeDao, AchargePrepDAO achargePrepDao, ParamDAO paramDao, ApplicationContext ctx) {
+	public MntBaseImpl(AnaborDAO anaborDao, AchargeDAO achargeDao, AchargePrepDAO achargePrepDao,
+					   AkartPrDAO akartPrDAO, ParamDAO paramDao, ApplicationContext ctx) {
 		this.anaborDao = anaborDao;
 		this.achargeDao = achargeDao;
 		this.achargePrepDao = achargePrepDao;
+		this.akartPrDAO = akartPrDAO;
 		this.paramDao = paramDao;
 		this.ctx = ctx;
 	}
@@ -94,6 +94,10 @@ public class MntBaseImpl implements MntBase {
 					break;
 				case "achargeprep":
 					lstLsk = achargePrepDao.getAfterLsk(firstLsk).stream().map(Kart::getLsk)
+							.collect(Collectors.toList());
+					break;
+				case "akartpr":
+					lstLsk = akartPrDAO.getAfterLsk(firstLsk).stream().map(Kart::getLsk)
 							.collect(Collectors.toList());
 					break;
 				default:

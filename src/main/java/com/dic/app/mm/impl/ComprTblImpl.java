@@ -4,9 +4,11 @@ import com.dic.app.mm.ComprTbl;
 import com.dic.bill.Compress;
 import com.dic.bill.dao.AchargeDAO;
 import com.dic.bill.dao.AchargePrepDAO;
+import com.dic.bill.dao.AkartPrDAO;
 import com.dic.bill.dao.AnaborDAO;
 import com.dic.bill.model.scott.Acharge;
 import com.dic.bill.model.scott.AchargePrep;
+import com.dic.bill.model.scott.AkartPr;
 import com.dic.bill.model.scott.Anabor;
 import com.ric.cmn.Utl;
 import com.ric.dto.Result;
@@ -41,6 +43,7 @@ public class ComprTblImpl implements ComprTbl {
 	private final AnaborDAO anaborDao;
 	private final AchargeDAO achargeDao;
 	private final AchargePrepDAO achargePrepDao;
+	private final AkartPrDAO akartPrDAO;
 
 	// Все элементы по лиц.счету по всем периодам
 	private Map<String, List<Compress>> mapElem = new HashMap<>(10);
@@ -52,10 +55,12 @@ public class ComprTblImpl implements ComprTbl {
 	// текущий л.с.
 	String lsk;
 
-	public ComprTblImpl(AnaborDAO anaborDao, AchargeDAO achargeDao, AchargePrepDAO achargePrepDao) {
+	public ComprTblImpl(AnaborDAO anaborDao, AchargeDAO achargeDao, AchargePrepDAO achargePrepDao,
+						AkartPrDAO akartPrDAO) {
 		this.anaborDao = anaborDao;
 		this.achargeDao = achargeDao;
 		this.achargePrepDao = achargePrepDao;
+		this.akartPrDAO = akartPrDAO;
 	}
 
 	/**
@@ -131,7 +136,6 @@ public class ComprTblImpl implements ComprTbl {
 					mapElem = achargePrepDao.getByLsk(lsk)
 							.stream().collect(Collectors.groupingBy(AchargePrep::getKey,
 									Collectors.mapping(t -> t, Collectors.toList())));
-					//lst.addAll(achargePrepDao.getByLsk(lsk));
 					log.trace("Л.с.:{} По всем периодам AchargePrep элементы получены!", lsk);
 				} else {
 					// начиная с периода -2
@@ -139,6 +143,22 @@ public class ComprTblImpl implements ComprTbl {
 							.stream().collect(Collectors.groupingBy(AchargePrep::getKey,
 									Collectors.mapping(t -> t, Collectors.toList())));
 					log.trace("Л.с.:{} По по периоду AchargePrep начиная с -2 элементы получены!", lsk);
+				}
+				break;
+			case "akartpr":
+				if (isAllPeriods) {
+					// получить все элементы, по всем периодам
+					mapElem = akartPrDAO.getByLsk(lsk)
+							.stream().collect(Collectors.groupingBy(AkartPr::getKey,
+									Collectors.mapping(t -> t, Collectors.toList())));
+					//lst.addAll(achargePrepDao.getByLsk(lsk));
+					log.trace("Л.с.:{} По всем периодам AkartPr элементы получены!", lsk);
+				} else {
+					// начиная с периода -2
+					mapElem = akartPrDAO.getByLskPeriod(lsk, backPeriod)
+							.stream().collect(Collectors.groupingBy(AkartPr::getKey,
+									Collectors.mapping(t -> t, Collectors.toList())));
+					log.trace("Л.с.:{} По по периоду AkartPr начиная с -2 элементы получены!", lsk);
 				}
 				break;
 			default:

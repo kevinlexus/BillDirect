@@ -650,6 +650,11 @@ public class WebController implements CommonConstants {
                 // выйти при ошибке
                 return "ERROR";
             }
+            if (!mntBase.comprAllTables("00000000", null, "akartpr", true)) {
+                log.error("ОШИБКА! При сжатии таблицы {}!", tableName);
+                // выйти при ошибке
+                return "ERROR";
+            }
         } else {
             if (!mntBase.comprAllTables("00000000", null, tableName, true)) {
                 log.error("ОШИБКА! При сжатии таблицы {}!", tableName);
