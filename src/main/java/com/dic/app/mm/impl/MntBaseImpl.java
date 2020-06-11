@@ -32,6 +32,8 @@ public class MntBaseImpl implements MntBase {
 	private final AchargePrepDAO achargePrepDao;
 	private final AkartPrDAO akartPrDAO;
 	private final ParamDAO paramDao;
+	private final ChargePayDAO chargePayDAO;
+
 	private final ApplicationContext ctx;
 	// текущий период
 	private Integer curPeriod;
@@ -41,12 +43,13 @@ public class MntBaseImpl implements MntBase {
 	private boolean isAllPeriods;
 
 	public MntBaseImpl(AnaborDAO anaborDao, AchargeDAO achargeDao, AchargePrepDAO achargePrepDao,
-					   AkartPrDAO akartPrDAO, ParamDAO paramDao, ApplicationContext ctx) {
+					   AkartPrDAO akartPrDAO, ParamDAO paramDao, ChargePayDAO chargePayDAO, ApplicationContext ctx) {
 		this.anaborDao = anaborDao;
 		this.achargeDao = achargeDao;
 		this.achargePrepDao = achargePrepDao;
 		this.akartPrDAO = akartPrDAO;
 		this.paramDao = paramDao;
+		this.chargePayDAO = chargePayDAO;
 		this.ctx = ctx;
 	}
 
@@ -98,6 +101,10 @@ public class MntBaseImpl implements MntBase {
 					break;
 				case "akartpr":
 					lstLsk = akartPrDAO.getAfterLsk(firstLsk).stream().map(Kart::getLsk)
+							.collect(Collectors.toList());
+					break;
+				case "chargepay":
+					lstLsk = chargePayDAO.getAfterLsk(firstLsk).stream().map(Kart::getLsk)
 							.collect(Collectors.toList());
 					break;
 				default:
