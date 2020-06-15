@@ -225,7 +225,7 @@ public class MntBaseImpl implements MntBase {
 	 */
 	@Override
 	public boolean comprAllTables(String firstLsk, String oneLsk, String table, boolean isAllPeriods) {
-		log.info("**************** СomprAllTables Version 2.0.2 ****************");
+		log.info("**************** СomprAllTables Version 2.0.3 ****************");
 		this.isAllPeriods = isAllPeriods;
 		// Получить параметры
 		// параметры

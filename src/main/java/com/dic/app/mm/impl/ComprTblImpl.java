@@ -73,7 +73,7 @@ public class ComprTblImpl implements ComprTbl {
     @Transactional
 	public Future<Result> comprTableByLsk(String table, String lsk,
 										  Integer backPeriod, Integer curPeriod, boolean isAllPeriods) {
-		log.trace("Л.с.:{} Начало сжатия!", lsk);
+		log.info("Л.с.:{} Начало сжатия!", lsk);
 		this.lsk = lsk;
 		log.trace("1.1");
 		// isByUsl - использовать ли поле "usl" для критерия сжатия
@@ -164,7 +164,7 @@ public class ComprTblImpl implements ComprTbl {
 							.stream().collect(Collectors.groupingBy(ChargePay::getKey,
 									Collectors.mapping(t -> t, Collectors.toList())));
 					//lst.addAll(achargePrepDao.getByLsk(lsk));
-					log.trace("Л.с.:{} По всем периодам AkartPr элементы получены!", lsk);
+					log.trace("Л.с.:{} По всем периодам ChargePay элементы получены!", lsk);
 				} else {
 					// начиная с периода -2
 					mapElem = chargePayDAO.getByLskPeriod(lsk, backPeriod)
@@ -218,7 +218,7 @@ public class ComprTblImpl implements ComprTbl {
 			// Проверить, установить в последнем обработанном массиве корректность замыкающего периода mg2
 			replacePeriod(lastUsed, lstPeriodPrep.get(lastUsed), key);
 		}
-		log.trace("Л.с.:{} Окончание сжатия!", lsk);
+		log.info("Л.с.:{} Окончание сжатия!", lsk);
 
 		return new AsyncResult<>(res);
     }

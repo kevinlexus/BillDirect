@@ -624,7 +624,8 @@ public class WebController implements CommonConstants {
     @RequestMapping("/fullCompress")
     public String fullCompress(
             @RequestParam(value = "tableName") String tableName,
-            @RequestParam(value = "key", defaultValue = "", required = false) String key) {
+            @RequestParam(value = "key", defaultValue = "", required = false)  String key,
+            @RequestParam(value = "firstLsk") String firstLsk) {
         log.info("GOT /compress with: tableName={}", tableName);
         // проверка валидности ключа
         boolean isValidKey = checkValidKey(key);
@@ -635,28 +636,28 @@ public class WebController implements CommonConstants {
 
         if (tableName.equals("all")) {
             // все таблицы по очереди
-            if (!mntBase.comprAllTables("00000000", null, "acharge", true)) {
+            if (!mntBase.comprAllTables(firstLsk, null, "acharge", true)) {
                 log.error("ОШИБКА! При сжатии таблицы {}!", tableName);
                 // выйти при ошибке
                 return "ERROR";
             }
-            if (!mntBase.comprAllTables("00000000", null, "anabor", true)) {
+            if (!mntBase.comprAllTables(firstLsk, null, "anabor", true)) {
                 log.error("ОШИБКА! При сжатии таблицы {}!", tableName);
                 // выйти при ошибке
                 return "ERROR";
             }
-            if (!mntBase.comprAllTables("00000000", null, "achargeprep", true)) {
+            if (!mntBase.comprAllTables(firstLsk, null, "achargeprep", true)) {
                 log.error("ОШИБКА! При сжатии таблицы {}!", tableName);
                 // выйти при ошибке
                 return "ERROR";
             }
-            if (!mntBase.comprAllTables("00000000", null, "akartpr", true)) {
+            if (!mntBase.comprAllTables(firstLsk, null, "akartpr", true)) {
                 log.error("ОШИБКА! При сжатии таблицы {}!", tableName);
                 // выйти при ошибке
                 return "ERROR";
             }
         } else {
-            if (!mntBase.comprAllTables("00000000", null, tableName, true)) {
+            if (!mntBase.comprAllTables(firstLsk, null, tableName, true)) {
                 log.error("ОШИБКА! При сжатии таблицы {}!", tableName);
                 // выйти при ошибке
                 return "ERROR";
