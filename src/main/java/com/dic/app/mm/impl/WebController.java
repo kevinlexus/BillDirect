@@ -626,7 +626,7 @@ public class WebController implements CommonConstants {
             @RequestParam(value = "tableName") String tableName,
             @RequestParam(value = "key", defaultValue = "", required = false)  String key,
             @RequestParam(value = "firstLsk") String firstLsk) {
-        log.info("GOT /compress with: tableName={}", tableName);
+        log.info("GOT /compress with: tableName={}, firstLsk={}", tableName, firstLsk);
         // проверка валидности ключа
         boolean isValidKey = checkValidKey(key);
         if (!isValidKey) {
