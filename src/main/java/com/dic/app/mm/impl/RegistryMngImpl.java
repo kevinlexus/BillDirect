@@ -588,7 +588,7 @@ public class RegistryMngImpl implements RegistryMng {
             try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
                 writer.write("\tЛиц.сч.;Адр.;Услуга;Показ.пред;Показ.тек.;Расход;\tЛиц.сч.;Услуга;Показ.пред;" +
                         "Показ.тек.;Расход;\tЛиц.сч.;Услуга;Показ.пред;Показ.тек.;Расход" + "\r\n");
-                List<Kart> lstKart = kartDAO.findActualByReuOrderedByAddress(reu,
+                List<Kart> lstKart = kartDAO.findActualByReuStatusOrderedByAddress(reu, Arrays.asList("PRV", "MUN"),
                         uk.isRSO() ? "LSK_TP_RSO" : "LSK_TP_MAIN");
                 for (Kart kart : lstKart) {
                     cntLoaded++;
