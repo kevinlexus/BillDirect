@@ -171,7 +171,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 chrgCountAmountLocal.printVolAmntChrg(null);
 
                 // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE, округлить для ГИС ЖКХ
-                chrgCountAmountLocal.saveChargeAndRound(ko, lstSelUsl);
+                chrgCountAmountLocal.saveChargeAndRound(ko);
 
                 // 8. Сохранить короткое описание услуг
                 kartMng.saveShortKartDescription(ko);
