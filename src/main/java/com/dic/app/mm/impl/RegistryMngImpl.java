@@ -360,6 +360,7 @@ public class RegistryMngImpl implements RegistryMng {
                     log.info("Обработано {} записей", i);
                 }
                 String elem = sc.next();
+                log.info("elem={}", elem);
                 if (i == 1) {
                     // внешний лиц.счет
                     kartExtInfo.extLsk = elem;
@@ -666,12 +667,18 @@ public class RegistryMngImpl implements RegistryMng {
                 if (kartExt.isPresent()) {
                     comm = "Внешний лиц.счет уже создан";
                     status = 1;
+                    log.info("Внешний лиц.счет уже создан");
                 } else {
                     // поиск по kart.reu
+                    log.info("поиск по kart.reu: reu={}, lskTp={}, house={}, strKw={}",
+                            kartExtInfo.reu,
+                            kartExtInfo.lskTp, kartExtInfo.house.getId(), strKw);
                     lstKart = kartDAO.findActualByReuHouseIdTpKw(kartExtInfo.reu,
                             kartExtInfo.lskTp, kartExtInfo.house.getId(), strKw);
                     if (lstKart.size() == 0) {
                         // поиск по nabor.usl, если не найдено по kart.reu
+                        log.info("поиск по nabor.usl: lskTp={}, uslId={}, houseId={}, strKw={}",
+                                kartExtInfo.lskTp, kartExtInfo.uslId, kartExtInfo.house.getId(), strKw);
                         lstKart = kartDAO.findActualByUslHouseIdTpKw(
                                 kartExtInfo.lskTp, kartExtInfo.uslId, kartExtInfo.house.getId(), strKw);
                     }
@@ -704,12 +711,13 @@ public class RegistryMngImpl implements RegistryMng {
             }
         }
 
+        LoadKartExt loadKartExt;
         if (kart != null) {
-            LoadKartExt loadKartExt =
+            loadKartExt =
                     LoadKartExt.LoadKartExtBuilder.aLoadKartExt()
                             .withExtLsk(kartExtInfo.extLsk)
-                            //.withKart(kart)
                             .withKoKw(kart.getKoKw())
+                            .withKoPremise(kart.getKoPremise())
                             .withAddress(kartExtInfo.address)
                             .withCode(kartExtInfo.code)
                             .withPeriodDeb(kartExtInfo.periodDeb)
@@ -720,10 +728,22 @@ public class RegistryMngImpl implements RegistryMng {
                             .withComm(comm)
                             .withStatus(status)
                             .build();
-            em.persist(loadKartExt); // note Используй crud.save
         } else {
-            log.error("Ошибка при загрузке внешнего лиц. счета.");
+            loadKartExt =
+                    LoadKartExt.LoadKartExtBuilder.aLoadKartExt()
+                            .withExtLsk(kartExtInfo.extLsk)
+                            .withAddress(kartExtInfo.address)
+                            .withCode(kartExtInfo.code)
+                            .withPeriodDeb(kartExtInfo.periodDeb)
+                            .withGuid(kartExtInfo.guid)
+                            .withFio(kartExtInfo.fio)
+                            .withNm(kartExtInfo.nm)
+                            .withSumma(kartExtInfo.summa)
+                            .withComm(comm)
+                            .withStatus(status)
+                            .build();
         }
+        em.persist(loadKartExt); // note Используй crud.save
     }
 
     /**

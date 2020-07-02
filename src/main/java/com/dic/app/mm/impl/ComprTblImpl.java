@@ -2,12 +2,8 @@ package com.dic.app.mm.impl;
 
 import com.dic.app.mm.ComprTbl;
 import com.dic.bill.Compress;
-import com.dic.bill.dao.AchargeDAO;
-import com.dic.bill.dao.AchargePrepDAO;
-import com.dic.bill.dao.AnaborDAO;
-import com.dic.bill.model.scott.Acharge;
-import com.dic.bill.model.scott.AchargePrep;
-import com.dic.bill.model.scott.Anabor;
+import com.dic.bill.dao.*;
+import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import com.ric.dto.Result;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +37,8 @@ public class ComprTblImpl implements ComprTbl {
 	private final AnaborDAO anaborDao;
 	private final AchargeDAO achargeDao;
 	private final AchargePrepDAO achargePrepDao;
+	private final AkartPrDAO akartPrDAO;
+	private final ChargePayDAO chargePayDAO;
 
 	// Все элементы по лиц.счету по всем периодам
 	private Map<String, List<Compress>> mapElem = new HashMap<>(10);
@@ -52,10 +50,13 @@ public class ComprTblImpl implements ComprTbl {
 	// текущий л.с.
 	String lsk;
 
-	public ComprTblImpl(AnaborDAO anaborDao, AchargeDAO achargeDao, AchargePrepDAO achargePrepDao) {
+	public ComprTblImpl(AnaborDAO anaborDao, AchargeDAO achargeDao, AchargePrepDAO achargePrepDao,
+						AkartPrDAO akartPrDAO, ChargePayDAO chargePayDAO) {
 		this.anaborDao = anaborDao;
 		this.achargeDao = achargeDao;
 		this.achargePrepDao = achargePrepDao;
+		this.akartPrDAO = akartPrDAO;
+		this.chargePayDAO = chargePayDAO;
 	}
 
 	/**
@@ -72,7 +73,7 @@ public class ComprTblImpl implements ComprTbl {
     @Transactional
 	public Future<Result> comprTableByLsk(String table, String lsk,
 										  Integer backPeriod, Integer curPeriod, boolean isAllPeriods) {
-		log.trace("Л.с.:{} Начало сжатия!", lsk);
+		log.info("Л.с.:{} Начало сжатия!", lsk);
 		this.lsk = lsk;
 		log.trace("1.1");
 		// isByUsl - использовать ли поле "usl" для критерия сжатия
@@ -131,7 +132,6 @@ public class ComprTblImpl implements ComprTbl {
 					mapElem = achargePrepDao.getByLsk(lsk)
 							.stream().collect(Collectors.groupingBy(AchargePrep::getKey,
 									Collectors.mapping(t -> t, Collectors.toList())));
-					//lst.addAll(achargePrepDao.getByLsk(lsk));
 					log.trace("Л.с.:{} По всем периодам AchargePrep элементы получены!", lsk);
 				} else {
 					// начиная с периода -2
@@ -139,6 +139,38 @@ public class ComprTblImpl implements ComprTbl {
 							.stream().collect(Collectors.groupingBy(AchargePrep::getKey,
 									Collectors.mapping(t -> t, Collectors.toList())));
 					log.trace("Л.с.:{} По по периоду AchargePrep начиная с -2 элементы получены!", lsk);
+				}
+				break;
+			case "akartpr":
+				if (isAllPeriods) {
+					// получить все элементы, по всем периодам
+					mapElem = akartPrDAO.getByLsk(lsk)
+							.stream().collect(Collectors.groupingBy(AkartPr::getKey,
+									Collectors.mapping(t -> t, Collectors.toList())));
+					//lst.addAll(achargePrepDao.getByLsk(lsk));
+					log.trace("Л.с.:{} По всем периодам AkartPr элементы получены!", lsk);
+				} else {
+					// начиная с периода -2
+					mapElem = akartPrDAO.getByLskPeriod(lsk, backPeriod)
+							.stream().collect(Collectors.groupingBy(AkartPr::getKey,
+									Collectors.mapping(t -> t, Collectors.toList())));
+					log.trace("Л.с.:{} По по периоду AkartPr начиная с -2 элементы получены!", lsk);
+				}
+				break;
+			case "chargepay":
+				if (isAllPeriods) {
+					// получить все элементы, по всем периодам
+					mapElem = chargePayDAO.getByLsk(lsk)
+							.stream().collect(Collectors.groupingBy(ChargePay::getKey,
+									Collectors.mapping(t -> t, Collectors.toList())));
+					//lst.addAll(achargePrepDao.getByLsk(lsk));
+					log.trace("Л.с.:{} По всем периодам ChargePay элементы получены!", lsk);
+				} else {
+					// начиная с периода -2
+					mapElem = chargePayDAO.getByLskPeriod(lsk, backPeriod)
+							.stream().collect(Collectors.groupingBy(ChargePay::getKey,
+									Collectors.mapping(t -> t, Collectors.toList())));
+					log.trace("Л.с.:{} По по периоду ChargePay начиная с -2 элементы получены!", lsk);
 				}
 				break;
 			default:
@@ -186,7 +218,7 @@ public class ComprTblImpl implements ComprTbl {
 			// Проверить, установить в последнем обработанном массиве корректность замыкающего периода mg2
 			replacePeriod(lastUsed, lstPeriodPrep.get(lastUsed), key);
 		}
-		log.trace("Л.с.:{} Окончание сжатия!", lsk);
+		log.info("Л.с.:{} Окончание сжатия!", lsk);
 
 		return new AsyncResult<>(res);
     }
@@ -287,14 +319,6 @@ public class ComprTblImpl implements ComprTbl {
 				.filter(t -> t.getMgFrom().equals(period1)).collect(Collectors.toList());
 		List<Compress> filtLst2 = mapElem.get(key).stream()
 				.filter(t -> t.getMgFrom().equals(period2)).collect(Collectors.toList());
-/*
-    	List<Compress> filtLst1 = lst.stream()
-				.filter(t -> key == null || t.getKey().equals(key)) note было условие key == null - удалять все записи?
-				.filter(t -> t.getMgFrom().equals(period1)).collect(Collectors.toList());
-		List<Compress> filtLst2 = lst.stream()
-				.filter(t -> key == null || t.getKey().equals(key)) note было условие key == null - удалять все записи?
-				.filter(t -> t.getMgFrom().equals(period2)).collect(Collectors.toList());
-*/
 
 		if (filtLst1.size() != filtLst2.size()) {
 			// не равны по размеру
@@ -314,6 +338,8 @@ public class ComprTblImpl implements ComprTbl {
 			return o1.isTheSame(o2);
 		}
 
+		// используется метод getHash, так как надо сравнивать только выборочные поля,
+		// иначе - будет некорректное сравнение строк и не произойдёт сжатие таблиц
 		@Override
 		public int hash(Compress o) {
 			return o.getHash();
