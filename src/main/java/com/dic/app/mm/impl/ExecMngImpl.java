@@ -10,8 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.*;
-import java.sql.SQLException;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.PersistenceException;
 import java.util.Date;
 import java.util.List;
 
@@ -60,7 +61,7 @@ public class ExecMngImpl implements ExecMng {
                 if (se.getErrorCode() == 4068) {
                     log.error("ОШИБКА! Пакет был изменен, ПОВТОРНЫЙ вызов процедуры execSingleProc " +
                             "с параметрами var={}, id={}, sel={}", var, id, sel);
-                    // вызвать процедуру
+                    // вызвать процедуру повторно
                     return execMngProc.execSingleProc(var, id, sel);
                 } else {
                     log.error("ОШИБКА2! code={}", se.getErrorCode());
