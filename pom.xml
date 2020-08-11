@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.dic.bill</groupId>
     <artifactId>BillDirect</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.2</version>
     <packaging>jar</packaging>
 
     <name>BillDirect</name>
@@ -43,7 +43,7 @@
         <dependency>
             <groupId>com.dic.bill</groupId>
             <artifactId>DWC</artifactId>
-            <version>0.0.2-SNAPSHOT</version>
+            <version>0.0.4</version>
         </dependency>
 
         <dependency>
