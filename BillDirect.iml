@@ -35,7 +35,7 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="Maven: org.jooq:jool-java-8:0.9.13" level="project" />
     <orderEntry type="module" module-name="DWC" />
-    <orderEntry type="module" module-name="BillCommon" />
+    <orderEntry type="library" name="Maven: com.ric.cmn:BillCommon:0.0.3-SNAPSHOT" level="project" />
     <orderEntry type="library" name="Maven: org.apache.commons:commons-lang3:3.8.1" level="project" />
     <orderEntry type="library" name="Maven: org.hibernate:hibernate-entitymanager:5.4.3.Final" level="project" />
     <orderEntry type="library" name="Maven: org.dom4j:dom4j:2.1.1" level="project" />
