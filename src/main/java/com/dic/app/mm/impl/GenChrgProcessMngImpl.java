@@ -330,15 +330,17 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 // площади (взять с текущего лиц.счета)
                 final BigDecimal kartArea = Utl.nvl(nabor.getKart().getOpl(), BigDecimal.ZERO);
                 BigDecimal areaOverSoc = BigDecimal.ZERO;
+                int vvodDistTp = naborMng.getVvodDistTp(lstNabor, nabor.getUsl().getParentUsl());
+                boolean isMunicipal = nabor.getKart().getStatus().getId().equals(1);
                 if (Utl.in(fkCalcTp, 25) // Текущее содержание и подобные услуги (без свыше соц.нормы и без 0 проживающих)
-                        || fkCalcTp.equals(7) && nabor.getKart().getStatus().getId().equals(1) // Найм (только по муниципальным помещениям) расчет на м2
+                        || fkCalcTp.equals(7) && isMunicipal // Найм (только по муниципальным помещениям) расчет на м2
                         // fixme: по Найму скорее всего ошибка, так как надо смотреть в kartMain - исправить, когда перейдём на новую версию начисления
                         || (fkCalcTp.equals(24) || fkCalcTp.equals(32) // Прочие услуги, расчитываемые как расценка * норматив * общ.площадь
-                        && !nabor.getKart().getStatus().getId().equals(1))// или 32 услуга, только не по муниципальному фонду
+                        && !isMunicipal)// или 32 услуга, только не по муниципальному фонду
                         || fkCalcTp.equals(36)// Вывоз жидких нечистот и т.п. услуги
-                        || fkCalcTp.equals(37)// Капремонт
-                        && !nabor.getKart().getStatus().getId().equals(1)
-                        || fkCalcTp.equals(50) && naborMng.getVvodDistTp(lstNabor, nabor.getUsl().getParentUsl()).equals(4) // если нет счетчика ОДПУ
+                        || fkCalcTp.equals(37) && !isMunicipal // Капремонт в немуницип.фонде
+                        || fkCalcTp.equals(50) && vvodDistTp==4 // если нет счетчика ОДПУ
+                        || fkCalcTp.equals(51) && (vvodDistTp==1 || vvodDistTp==8) // проп.площади или для информации
                 ) {
                     if (fkCalcTp.equals(25)) {
                         // текущее содержание - получить соц.норму
