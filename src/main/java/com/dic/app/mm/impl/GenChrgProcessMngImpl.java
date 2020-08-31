@@ -272,9 +272,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     vvodVol = Utl.nvl(vvod.getKub(), BigDecimal.ZERO);
                 }
                 Kart kartMain;
-                // получить родительский лиц.счет, если указан явно
                 if (Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_ADDIT", "LSK_TP_RSO")) {
                     // дополнит.счета Капрем., РСО
+                    // получить родительский лиц.счет, если указан явно
                     kartMain = kartMainByKlsk;
                     // ред. 18.04.19 по просьбе КИС: Алена. Вылезло еще кое что. Посмотрите? 82005413 по услуге 015
                     // стоят кубы по привязки с л.сч.86019516 16,85(на 5 человек), а должны считаться
@@ -334,7 +334,6 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 boolean isMunicipal = nabor.getKart().getStatus().getId().equals(1);
                 if (Utl.in(fkCalcTp, 25) // Текущее содержание и подобные услуги (без свыше соц.нормы и без 0 проживающих)
                         || fkCalcTp.equals(7) && isMunicipal // Найм (только по муниципальным помещениям) расчет на м2
-                        // fixme: по Найму скорее всего ошибка, так как надо смотреть в kartMain - исправить, когда перейдём на новую версию начисления
                         || (fkCalcTp.equals(24) || fkCalcTp.equals(32) // Прочие услуги, расчитываемые как расценка * норматив * общ.площадь
                         && !isMunicipal)// или 32 услуга, только не по муниципальному фонду
                         || fkCalcTp.equals(36)// Вывоз жидких нечистот и т.п. услуги

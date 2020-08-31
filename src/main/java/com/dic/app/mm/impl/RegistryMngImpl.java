@@ -128,10 +128,13 @@ public class RegistryMngImpl implements RegistryMng {
         log.info("Формирование реестра задолженности в файл: {}", strPath);
         Path path = Paths.get(strPath);
         BigDecimal amount = BigDecimal.ZERO;
+        BigDecimal amountWithEls = BigDecimal.ZERO;
         String period = configApp.getPeriod();
-        int i = 0;
+        Map<String, DebitRegistryEls> mapDebitReg = new HashMap<>();
+        int cnt = 0;
+        int cntWithEls = 0;
+        DebitRegistryRec debitRegistryRec = new DebitRegistryRec();
         try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
-            DebitRegistryRec debitRegistryRec = new DebitRegistryRec();
             for (Kart kart : lstKart) {
                 Optional<Eolink> eolink = kart.getEolink().stream().findFirst();
                 EolinkMngImpl.EolinkParams eolinkParams = eolinkMng.getActualEolinkParams(eolink, kart);
@@ -148,24 +151,37 @@ public class RegistryMngImpl implements RegistryMng {
                                 (summDeb.add(summPen).compareTo(BigDecimal.ZERO) != 0))) {
                     // либо открытый лиц.счет либо есть задолженность (переплата)
                     amount = amount.add(summDeb).add(summPen);
-                    i++;
+                    cnt++;
                     // есть задолженность
                     debitRegistryRec.init();
                     debitRegistryRec.setDelimeter("|");
                     debitRegistryRec.addElem(
                             kart.getLsk() // лиц.счет
                     );
+                    String key = null;
+                    String els = null;
+                    String houseGUID = null;
+                    String kw = null;
                     if (eolinkParams.getHouseGUID().length() > 0 || eolinkParams.getUn().length() > 0) {
-                        debitRegistryRec.addElem(eolinkParams.getUn()); // ЕЛС
+                        if (eolinkParams.getUn() != null && eolinkParams.getUn().length() > 0) {
+                            els = eolinkParams.getUn();
+                            amountWithEls = amountWithEls.add(summDeb).add(summPen);
+                            cntWithEls++;
+                        }
+                        houseGUID = eolinkParams.getHouseGUID();
+                        kw = Utl.ltrim(kart.getNum(), "0");
+                        debitRegistryRec.addElem(els); // ЕЛС
                         debitRegistryRec.setDelimeter(",");
-                        debitRegistryRec.addElem(eolinkParams.getHouseGUID()); // GUID дома
+                        debitRegistryRec.addElem(houseGUID); // GUID дома
                         debitRegistryRec.setDelimeter("|");
-                        debitRegistryRec.addElem(Utl.ltrim(kart.getNum(), "0")); // № квартиры
+                        debitRegistryRec.addElem(kw); // № квартиры
+                        key = els;
                     } else {
                         // нет ЕЛС или GUID дома,- поставить два пустых элемента
                         debitRegistryRec.addElem("");
                         debitRegistryRec.addElem("");
                     }
+
                     debitRegistryRec.addElem(kart.getOwnerFIO(), // ФИО собственника
                             kartMng.getAdrWithCity(kart), // адрес
                             "1", // тип услуги
@@ -174,10 +190,23 @@ public class RegistryMngImpl implements RegistryMng {
                             "" // пустое поле
                     );
                     debitRegistryRec.setDelimeter("");
-                    debitRegistryRec.addElem(
-                            summDeb.add(summPen).multiply(BigDecimal.valueOf(100))
-                                    .setScale(0, BigDecimal.ROUND_HALF_UP).toString() // сумма задолженности с пенёй в копейках
+                    BigDecimal summAmnt = summDeb.add(summPen).multiply(BigDecimal.valueOf(100))
+                            .setScale(0, BigDecimal.ROUND_HALF_UP);
+                    debitRegistryRec.addElem(summAmnt
+                            .toString() // сумма задолженности с пенёй в копейках
                     );
+
+                    if (key != null) {
+                        key += period;
+                        DebitRegistryEls prevRec = mapDebitReg.putIfAbsent(key,
+                                new DebitRegistryEls(els, houseGUID, kw, kart.getOwnerFIO(),
+                                        kartMng.getAdrWithCity(kart),
+                                        kart.getUk().getName(),
+                                        period, summAmnt));
+                        if (prevRec != null) {
+                            prevRec.setDeb(prevRec.getDeb().add(summAmnt));
+                        }
+                    }
 
                     String result = debitRegistryRec.getResult().toString();
                     log.trace(result);
@@ -185,19 +214,60 @@ public class RegistryMngImpl implements RegistryMng {
                 }
             }
             // итоговый маркер
-            debitRegistryRec.init();
-            debitRegistryRec.setDelimeter("|");
-            debitRegistryRec.addElem("=");
-            debitRegistryRec.addElem(String.valueOf(i));
-            debitRegistryRec.setDelimeter("");
-            debitRegistryRec.addElem(amount.setScale(0, BigDecimal.ROUND_HALF_UP).toString());
-            writer.write(debitRegistryRec.getResult().toString() + "\r\n");
+            writeAmountMark(amount, cnt, debitRegistryRec, writer);
 
         } catch (IOException e) {
             log.error("ОШИБКА! Ошибка записи в файл {}", strPath);
             e.printStackTrace();
         }
 
+
+        // запись сгруппированного по ЕЛС файла долгов
+        strPath = "c:\\temp\\dolg\\dolg_ELS_" + prefix + ".txt";
+        log.info("Формирование реестра задолженности по ЕЛС в файл: {}", strPath);
+        path = Paths.get(strPath);
+
+        try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
+            for (Map.Entry<String, DebitRegistryEls> entry : mapDebitReg.entrySet()) {
+                DebitRegistryEls value = entry.getValue();
+                debitRegistryRec.init();
+                debitRegistryRec.setDelimeter("|");
+                debitRegistryRec.addElem(value.getEls()); // ЕЛС
+                debitRegistryRec.setDelimeter(",");
+                debitRegistryRec.addElem(value.getHouseGUID()); // GUID дома
+                debitRegistryRec.setDelimeter("|");
+                debitRegistryRec.addElem(value.getKw()); // № квартиры
+                debitRegistryRec.addElem(value.getFio(),// ФИО собственника
+                        value.getAdr(),// адрес
+                        "1", // тип услуги
+                        "Квартплата " + value.getUkName(), // УК
+                        value.getPeriod(), // период
+                        "" // пустое поле
+                );
+                debitRegistryRec.setDelimeter("");
+                debitRegistryRec.addElem(value.getDeb().toString());
+                String result = debitRegistryRec.getResult().toString();
+                log.trace(result);
+                writer.write(debitRegistryRec.getResult().toString() + "\r\n");
+            }
+            // итоговый маркер
+            writeAmountMark(amountWithEls, cntWithEls, debitRegistryRec, writer);
+
+        } catch (IOException e) {
+            log.error("ОШИБКА! Ошибка записи в файл {}", strPath);
+            e.printStackTrace();
+        }
+
+    }
+
+    private void writeAmountMark(BigDecimal amount, int i, DebitRegistryRec debitRegistryRec, BufferedWriter writer) throws IOException {
+        debitRegistryRec.init();
+        debitRegistryRec.setDelimeter("|");
+        debitRegistryRec.addElem("=");
+        debitRegistryRec.addElem(String.valueOf(i));
+        debitRegistryRec.setDelimeter("");
+        debitRegistryRec.addElem(amount.setScale(0, BigDecimal.ROUND_HALF_UP).toString());
+        writer.write(debitRegistryRec.getResult().toString() + "\r\n");
     }
 
     private class KartExtInfo {
