@@ -287,4 +287,20 @@ public class TestKart {
         }
     }
 
+    @Test
+    public void testLoadKart() {
+        log.info("check1");
+        Kart kart = em.find(Kart.class, "00000007");
+        //Kart kart = kartDao.findByLsk("00000007");
+        //Optional<Kart> optKart = kartDao.findById("00000007");
+        //if (optKart.isPresent()) {
+          //  Kart kart = optKart.get();
+            //log.info(kart.getOwnerFIO());
+            //log.info(kart.getKul());
+            //log.info(kart.getNd());
+        //}
+        //log.info("check3={}", kart.getNabor().size());
+        log.info("check2");
+    }
+
 }
