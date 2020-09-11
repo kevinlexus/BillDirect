@@ -101,7 +101,7 @@ public class RegistryMngImpl implements RegistryMng {
     private void genDebitForSberbankByReu(Org uk) {
         // префикс для файла
         String prefix = uk.getReu();
-        List<Kart> lstKart = penyaDAO.getKartWhereDebitExistsByReu(uk.getId());
+        List<Kart> lstKart = penyaDAO.getKartWithDebitByReu(uk.getId());
         genDebitForSberbankVar1(prefix, lstKart);
     }
 
@@ -113,7 +113,7 @@ public class RegistryMngImpl implements RegistryMng {
     private void genDebitForSberbankByGrpDeb(int grpDeb) {
         // префикс для файла
         String prefix = String.valueOf(grpDeb);
-        List<Kart> lstKart = penyaDAO.getKartWhereDebitExistsByGrpDeb(grpDeb);
+        List<Kart> lstKart = penyaDAO.getKartWithDebitByGrpDeb(grpDeb);
         genDebitForSberbankVar1(prefix, lstKart);
     }
 

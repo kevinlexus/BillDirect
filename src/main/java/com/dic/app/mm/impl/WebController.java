@@ -336,7 +336,7 @@ public class WebController implements CommonConstants {
     @RequestMapping("/check")
     @ResponseBody
     public String check() {
-        List<Kart> lstKart = penyaDAO.getKartWhereDebitExistsByGrpDeb(1);
+        List<Kart> lstKart = penyaDAO.getKartWithDebitByGrpDeb(1);
         for (Kart kart : lstKart) {
             log.info("lsk={}", kart.getLsk());
         }
