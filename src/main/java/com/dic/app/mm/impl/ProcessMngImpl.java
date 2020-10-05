@@ -5,7 +5,7 @@ import com.dic.app.mm.*;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.CommonConstants;
 import com.ric.cmn.Utl;
-import com.ric.cmn.excp.*;
+import com.ric.cmn.excp.ErrorWhileGen;
 import com.ric.dto.CommonResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StopWatch;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -240,6 +239,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                                 }
                                 if (Utl.in(reqConf.getTp(), 1)) {
                                     // расчет пени
+                                    // fixme Используется ли данный метод? 22.09.20
                                     genPenProcessMng.genDebitPen(reqConf.getCalcStore(), true, id);
                                 } else {
                                     // расчет начисления и начисления для распределения объемов

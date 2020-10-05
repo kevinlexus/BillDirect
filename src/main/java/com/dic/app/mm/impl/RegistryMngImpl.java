@@ -3,6 +3,7 @@ package com.dic.app.mm.impl;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.RegistryMng;
 import com.dic.bill.dao.*;
+import com.dic.bill.dto.KartExtPaymentRec;
 import com.dic.bill.mm.EolinkMng;
 import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.MeterMng;
@@ -233,6 +234,8 @@ public class RegistryMngImpl implements RegistryMng {
                 debitRegistryRec.init();
                 debitRegistryRec.setDelimeter("|");
                 debitRegistryRec.addElem(value.getEls()); // ЕЛС
+                debitRegistryRec.setDelimeter("|");
+                debitRegistryRec.addElem(value.getEls()); // ЕЛС второй раз, в соответствии с форматом
                 debitRegistryRec.setDelimeter(",");
                 debitRegistryRec.addElem(value.getHouseGUID()); // GUID дома
                 debitRegistryRec.setDelimeter("|");
@@ -414,50 +417,18 @@ public class RegistryMngImpl implements RegistryMng {
                 "по УК={}-{}, genDt1={} genDt2={}", filePath, reu, uk.getName(), genDt1, genDt2);
         Path path = Paths.get(filePath);
         // внешние лиц.счета привязаны через LSK
-        List<KwtpPay> lstKwtpPay = null;
-        if (Utl.getPeriodFromDate(genDt1).equals(configApp.getPeriod())) {
-            // текущий период
-            // лиц.счета привязаны через LSK и nabor
-            List<Kwtp> lstKwpt = kwtpDAO.getKwtpKartExtByReuWithLsk(uk.getId(), genDt1, genDt2);
-            lstKwtpPay = new ArrayList<>(lstKwpt);
-            // внешние лиц.счета привязаны через FK_KLSK_PREMISE и nabor
-            lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithPremise(uk.getId(), genDt1, genDt2));
-            // внешние лиц.счета привязаны через FK_KLSK_ID и nabor
-            lstKwtpPay.addAll(kwtpDAO.getKwtpKartExtByReuWithKoKw(uk.getId(), genDt1, genDt2));
-        } else {
-            // архивный период
-            String period = Utl.getPeriodFromDate(genDt1);
-            // лиц.счета привязаны через LSK и nabor
-            List<Akwtp> lstKwpt = akwtpDAO.getKwtpKartExtByReuWithLsk(period, uk.getId(), genDt1, genDt2);
-            lstKwtpPay = new ArrayList<>(lstKwpt);
-            // внешние лиц.счета привязаны через FK_KLSK_PREMISE и nabor
-            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithPremise(period, uk.getId(), genDt1, genDt2));
-            // внешние лиц.счета привязаны через FK_KLSK_ID и nabor
-            lstKwtpPay.addAll(akwtpDAO.getKwtpKartExtByReuWithKoKw(period, uk.getId(), genDt1, genDt2));
-        }
+        String period = Utl.getPeriodFromDate(genDt1);
+        List<KartExtPaymentRec> payment = akwtpDAO.getPaymentByPeriod(period, uk.getId());
         int cntLoaded = 0;
         BigDecimal amount = BigDecimal.ZERO;
-        if (lstKwtpPay.size() > 0) {
+        if (payment.size() > 0) {
             try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
-                for (KwtpPay kwtp : lstKwtpPay) {
-                    Kart kart = kwtp.getKart();
-                    // через LSK
-                    List<KartExt> lstKart = kart.getKartExt();
-                    // через FK_KLSK_PREMISE
-                    lstKart.addAll(kart.getKoPremise().getKartExtByPremise());
-                    // через K_LSK_ID
-                    lstKart.addAll(kart.getKoKw().getKartExtByKoKw());
-
-                    for (KartExt kartExt : lstKart) {
-                        if (kartExt.isActual()) {
-                            writer.write(Utl.getStrFromDate(kwtp.getDt(), "ddMMyyyy") + ";" +
-                                    kartExt.getExtLsk() + ";1;" + kwtp.getSumma().toString() + ";" +
-                                    kwtp.getId() + "\r\n");
-                            amount = amount.add(kwtp.getSumma());
-                            cntLoaded++;
-                            break; // сделать для первого актуального внешнего лиц.сч.
-                        }
-                    }
+                for (KartExtPaymentRec rec : payment) {
+                writer.write(Utl.getStrFromDate(rec.getDt(), "ddMMyyyy") + ";" +
+                        rec.getExtLsk() + ";1;" + rec.getSumma().toString() + ";" +
+                        rec.getId() + "\r\n");
+                amount = amount.add(rec.getSumma());
+                cntLoaded++;
                 }
                 writer.write("=;" + cntLoaded + ";" + amount.toString());
             }

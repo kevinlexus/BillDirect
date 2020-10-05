@@ -1,9 +1,14 @@
 package com.dic.app.mm.impl;
 
-import com.dic.app.mm.*;
+import com.dic.app.mm.DebitByLskThrMng;
+import com.dic.app.mm.GenPenProcessMng;
+import com.dic.app.mm.ReferenceMng;
 import com.dic.bill.dao.*;
-import com.dic.bill.dto.*;
-import com.dic.bill.model.scott.*;
+import com.dic.bill.dto.CalcStore;
+import com.dic.bill.dto.CalcStoreLocal;
+import com.dic.bill.dto.UslOrg;
+import com.dic.bill.model.scott.Kart;
+import com.dic.bill.model.scott.Ko;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -12,9 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.ListIterator;
 
 /**
  * Сервис формирования задолженностей и пени
@@ -65,7 +68,9 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
     @Transactional(
             propagation = Propagation.REQUIRED,
             rollbackFor = Exception.class)
+    @Deprecated
     public void genDebitPen(CalcStore calcStore, boolean isCalcPen, long klskId) throws ErrorWhileChrgPen {
+        // fixme Используется ли данный метод? пометил deprecated 22.09.20
         Ko ko = em.find(Ko.class, klskId);
         for (Kart kart : ko.getKart()) {
             genDebitPen(calcStore, isCalcPen, kart);
@@ -79,7 +84,9 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      * @param isCalcPen - рассчитывать пеню?
      * @param kart      - лиц.счет
      */
+    @Deprecated
     private void genDebitPen(CalcStore calcStore, boolean isCalcPen, Kart kart) throws ErrorWhileChrgPen {
+        // fixme Используется ли данный метод? пометил deprecated 22.09.20
         Integer period = calcStore.getPeriod();
         Integer periodBack = calcStore.getPeriodBack();
         // ЗАГРУЗИТЬ все финансовые операции по лиц.счету

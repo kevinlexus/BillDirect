@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toMap;
+
 /**
  * Сервис обработки строк задолженности и расчета пени по дням
  *
@@ -165,9 +166,9 @@ public class DebitThrMngImpl implements DebitThrMng {
 
             mapDebPart2.forEach((key, value) -> {
                 //if (key.getUslId().equals("011") && key.getOrgId().equals(3)) {
-                    log.info("долг: usl={}, org={}, mg={}, deb={}, debForPen={}",
-                            key.getUslId(), key.getOrgId(), key.getMg(),
-                            value.getDeb(), value.getDebForPen());
+                log.info("долг: usl={}, org={}, mg={}, deb={}, debForPen={}",
+                        key.getUslId(), key.getOrgId(), key.getMg(),
+                        value.getDeb(), value.getDebForPen());
                 //}
             });
             // перенести переплату
@@ -204,13 +205,14 @@ public class DebitThrMngImpl implements DebitThrMng {
 
     /**
      * Сохранить запись долга
-     *  @param calcStore  - хранилище справочников
-     * @param kart       - лиц.счет
-     * @param localStore - хранилище всех операций по лиц.счету
-     * @param uslId      - ID услуги
-     * @param orgId      - ID организации
-     * @param mg         - период
-     * @param periodSumma     - долг
+     *
+     * @param calcStore   - хранилище справочников
+     * @param kart        - лиц.счет
+     * @param localStore  - хранилище всех операций по лиц.счету
+     * @param uslId       - ID услуги
+     * @param orgId       - ID организации
+     * @param mg          - период
+     * @param periodSumma - долг
      */
     private void saveDeb(CalcStore calcStore, Kart kart, CalcStoreLocal localStore, String uslId,
                          int orgId, int mg, PeriodSumma periodSumma) {
@@ -282,6 +284,11 @@ public class DebitThrMngImpl implements DebitThrMng {
      */
     private void genSavePen(Kart kart, CalcStore calcStore, Map<Date,
             Map<Integer, BigDecimal>> mapDebForPen, Map<Integer, BigDecimal> mapDeb) {
+        if (true) {
+            // не понятно когда был написан метод, видимо для расчета пени
+            // решил поставить эксепшн, чтобы выявить место использования ред.22.09.20
+            throw new RuntimeException("Метод DebitThrMngImpl.genSavePen не используется!");
+        }
         // запись пени
         @Getter
         @Setter
@@ -362,7 +369,7 @@ public class DebitThrMngImpl implements DebitThrMng {
                     Integer mg = entry.getKey();
                     // расчет пени
                     Optional<GenPenMngImpl.PenDTO> penDto = genPenMng.calcPen(calcStore, debForPen, mg, kart, dt);
-                    penDto.ifPresent(t-> {
+                    penDto.ifPresent(t -> {
                         // сохранить кол-во дней долга (будет сохранено последнее значение)
                         mapDebDays.put(mg, t.getDays());
                         PenCurRec lastRec = mapLastPenCurRec.get(mg);
