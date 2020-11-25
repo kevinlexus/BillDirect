@@ -8,7 +8,6 @@ import com.dic.bill.model.scott.Tuser;
 import com.ric.cmn.Utl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +28,6 @@ import java.util.*;
 @Slf4j
 public class ConfigAppImpl implements ConfigApp {
 
-    private final ApplicationContext ctx;
     @PersistenceContext
     private EntityManager em;
     @Autowired
@@ -43,15 +41,11 @@ public class ConfigAppImpl implements ConfigApp {
     // блокировщик выполнения процессов
     private Lock lock;
 
-    public ConfigAppImpl(ApplicationContext ctx) {
-        this.ctx = ctx;
-    }
-
     @PostConstruct
     private void setUp() {
         log.info("");
         log.info("-----------------------------------------------------------------");
-        log.info("Версия модуля - {}", "1.0.10");
+        log.info("Версия модуля - {}", "1.0.11");
         log.info("Начало расчетного периода = {}", getCurDt1());
         log.info("Конец расчетного периода = {}", getCurDt2());
         log.info("-----------------------------------------------------------------");

@@ -8,7 +8,6 @@ import com.dic.bill.mm.EolinkMng;
 import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.MeterMng;
 import com.dic.bill.mm.impl.EolinkMngImpl;
-import com.dic.bill.model.exs.Eolink;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import lombok.extern.slf4j.Slf4j;
@@ -119,7 +118,7 @@ public class RegistryMngImpl implements RegistryMng {
     }
 
     /**
-     * Сформировать реестр задолженности по лиц.счетам для Сбербанка
+     * Сформировать реестр задолженности по лиц.счетам для Сбербанка (Кис, Полыс)
      *
      * @param prefix  - наименование префикса для файла
      * @param lstKart - список лиц.счетов
@@ -137,8 +136,7 @@ public class RegistryMngImpl implements RegistryMng {
         DebitRegistryRec debitRegistryRec = new DebitRegistryRec();
         try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
             for (Kart kart : lstKart) {
-                Optional<Eolink> eolink = kart.getEolink().stream().findFirst();
-                EolinkMngImpl.EolinkParams eolinkParams = eolinkMng.getActualEolinkParams(eolink, kart);
+                EolinkMngImpl.EolinkParams eolinkParams = eolinkMng.getEolinkParamsOfKartMain(kart);
                 // суммировать долг по лиц.счету
                 BigDecimal summDeb = BigDecimal.ZERO;
                 BigDecimal summPen = BigDecimal.ZERO;

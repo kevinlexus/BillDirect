@@ -271,6 +271,18 @@ public class VchangeDet implements java.io.Serializable {
         )
         .collect(Collectors.toList());
 
+        // сортировка с использованием MAP с заданным порядком сортировки
+        Map<Integer, Integer> MAP_STATUS_PRIORITY = Collections.unmodifiableMap(new HashMap<Integer, Integer>() {{
+        put(STATUS_EVENT_NOTREQUIRE, 1);
+        put(STATUS_EVENT_APPROVED, 2);
+        put(STATUS_EVENT_REMOVED, 3);
+        put(STATUS_EVENT_NOTAPPROVED, 4);
+        put(STATUS_EVENT_INPROGRESS, 5);
+        }});
+        Optional<String> statusName = approovedEvent.stream().min(Comparator.comparing((MgmEvents t) -> MAP_STATUS_PRIORITY.get(t.getStatusId())))
+        .map(MgmEvents::getStatusName);
+
+
         // сортировка Map
         Map<Date, Map<Integer, BigDecimal>> lll = mapDebForPen
         .entrySet()
