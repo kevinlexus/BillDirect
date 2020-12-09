@@ -279,6 +279,22 @@ public class GenMainMngImpl implements GenMainMng, CommonConstants {
                             return;
                         }
                         if (markExecuted(menuGenItg, menuGenItg, 0.20D, dt1)) return;
+                        execMng.setMenuElemPercent(itm, 0.93);
+                        if (!mntBase.comprAllTables("00000000", null, "chargepay", false)) {
+                            execMng.setMenuElemState(menuGenItg, "Найдены ошибки при сжатии таблицы c_chargepay2!");
+                            log.error("Найдены ошибки при сжатии таблицы c_chargepay2!");
+                            // выйти при ошибке
+                            return;
+                        }
+                        if (markExecuted(menuGenItg, menuGenItg, 0.20D, dt1)) return;
+                        execMng.setMenuElemPercent(itm, 0.93);
+                        if (!mntBase.comprAllTables("00000000", null, "akartpr", false)) {
+                            execMng.setMenuElemState(menuGenItg, "Найдены ошибки при сжатии таблицы a_kart_pr2!");
+                            log.error("Найдены ошибки при сжатии таблицы a_kart_pr2!");
+                            // выйти при ошибке
+                            return;
+                        }
+                        if (markExecuted(menuGenItg, menuGenItg, 0.20D, dt1)) return;
                         execMng.setMenuElemPercent(itm, 0.95);
                         if (!mntBase.comprAllTables("00000000", null, "achargeprep", false)) {
                             execMng.setMenuElemState(menuGenItg, "Найдены ошибки при сжатии таблицы a_charge_prep2!");
