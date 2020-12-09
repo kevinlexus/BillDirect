@@ -29,7 +29,6 @@ import java.util.List;
 @Service
 public class GenPenProcessMngImpl implements GenPenProcessMng {
 
-    private final DebDAO debDao;
     private final PenDAO penDao;
     private final ChargeDAO chargeDao;
     private final VchangeDetDAO vchangeDetDao;
@@ -42,11 +41,10 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
     @PersistenceContext
     private EntityManager em;
 
-    public GenPenProcessMngImpl(DebDAO debDao, PenDAO penDao, ChargeDAO chargeDao,
+    public GenPenProcessMngImpl(PenDAO penDao, ChargeDAO chargeDao,
                                 VchangeDetDAO vchangeDetDao, KwtpDayDAO kwtpDayDao,
                                 CorrectPayDAO correctPayDao, PenUslCorrDAO penUslCorrDao,
                                 ReferenceMng refMng, DebitByLskThrMng debitByLskThrMng) {
-        this.debDao = debDao;
         this.penDao = penDao;
         this.chargeDao = chargeDao;
         this.vchangeDetDao = vchangeDetDao;
@@ -86,23 +84,25 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      */
     @Deprecated
     private void genDebitPen(CalcStore calcStore, boolean isCalcPen, Kart kart) throws ErrorWhileChrgPen {
-        // fixme Используется ли данный метод? пометил deprecated 22.09.20
+        // fixme метод в разработке с 09.12.20
         Integer period = calcStore.getPeriod();
         Integer periodBack = calcStore.getPeriodBack();
         // ЗАГРУЗИТЬ все финансовые операции по лиц.счету
         CalcStoreLocal localStore = new CalcStoreLocal();
-        // задолженность предыдущего периода
+        // задолженность предыдущего периода fixme переделать на mg
         localStore.setLstDebFlow(debDao.getDebitByLsk(kart.getLsk(), periodBack));
-        // текущее начисление - 2
+        // текущее начисление - 2 fixme переделать на mg
         localStore.setLstChrgFlow(chargeDao.getChargeByLsk(kart.getLsk()));
-        // перерасчеты - 5
+        // перерасчеты - 5 fixme переделать на mg
         localStore.setLstChngFlow(vchangeDetDao.getVchangeDetByLsk(kart.getLsk()));
-        // оплата долга - 3
+        // оплата долга - 3 fixme переделать на mg
         localStore.setLstPayFlow(kwtpDayDao.getKwtpDaySumByLsk(kart.getLsk()));
-        // корректировки оплаты - 6
+        // корректировки оплаты - 6 fixme переделать на mg
         localStore.setLstPayCorrFlow(correctPayDao.getCorrectPayByLsk(kart.getLsk(), String.valueOf(period)));
+
         // создать список уникальных элементов услуга+организация
-        localStore.createUniqUslOrg();
+        //localStore.createUniqUslOrg();
+
         // преобразовать String код reu в int, для ускорения фильтров
         localStore.setReuId(Integer.parseInt(kart.getUk().getReu()));
         // получить список уникальных элементов услуга+организация

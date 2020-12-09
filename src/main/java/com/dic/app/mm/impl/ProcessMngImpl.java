@@ -239,7 +239,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                                 }
                                 if (Utl.in(reqConf.getTp(), 1)) {
                                     // расчет пени
-                                    // fixme Используется ли данный метод? 22.09.20
+                                    // fixme разрабатывается с 09.12.20
                                     genPenProcessMng.genDebitPen(reqConf.getCalcStore(), true, id);
                                 } else {
                                     // расчет начисления и начисления для распределения объемов
