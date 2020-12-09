@@ -2,12 +2,17 @@ package com.dic.app.mm.impl;
 
 import com.dic.app.mm.DebitThrMng;
 import com.dic.app.mm.GenPenMng;
-import com.dic.bill.dao.*;
+import com.dic.bill.dao.ApenyaDAO;
+import com.dic.bill.dao.KwtpMgDAO;
+import com.dic.bill.dao.PenCorrDAO;
+import com.dic.bill.dao.PenCurDAO;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.CalcStoreLocal;
-import com.dic.bill.dto.SumDebPenRec;
 import com.dic.bill.dto.SumRec;
-import com.dic.bill.model.scott.*;
+import com.dic.bill.model.scott.Kart;
+import com.dic.bill.model.scott.PenCur;
+import com.dic.bill.model.scott.Penya;
+import com.dic.bill.model.scott.Stavr;
 import com.ric.cmn.Utl;
 import lombok.Getter;
 import lombok.Setter;
@@ -41,18 +46,16 @@ public class DebitThrMngImpl implements DebitThrMng {
     private EntityManager em;
     private final GenPenMng genPenMng;
     private final PenCurDAO penCurDAO;
-    private final DebDAO debDAO;
     private final ApenyaDAO apenyaDAO;
     private final PenCorrDAO penCorrDAO;
     private final KwtpMgDAO kwtpMgDAO;
 
 
     public DebitThrMngImpl(EntityManager em, GenPenMng genPenMng, PenCurDAO penCurDAO,
-                           DebDAO debDAO, ApenyaDAO apenyaDAO, PenCorrDAO penCorrDAO, KwtpMgDAO kwtpMgDAO) {
+                           ApenyaDAO apenyaDAO, PenCorrDAO penCorrDAO, KwtpMgDAO kwtpMgDAO) {
         this.em = em;
         this.genPenMng = genPenMng;
         this.penCurDAO = penCurDAO;
-        this.debDAO = debDAO;
         this.apenyaDAO = apenyaDAO;
         this.penCorrDAO = penCorrDAO;
         this.kwtpMgDAO = kwtpMgDAO;
@@ -61,13 +64,9 @@ public class DebitThrMngImpl implements DebitThrMng {
     @Getter
     @Setter
     class DebPeriod {
-        private String uslId;
-        private Integer orgId;
         private Integer mg;
 
-        private DebPeriod(String uslId, Integer orgId, Integer mg) {
-            this.uslId = uslId;
-            this.orgId = orgId;
+        private DebPeriod(Integer mg) {
             this.mg = mg;
         }
 
@@ -76,14 +75,13 @@ public class DebitThrMngImpl implements DebitThrMng {
             if (this == o) return true;
             if (!(o instanceof DebPeriod)) return false;
             DebPeriod debPeriod = (DebPeriod) o;
-            return Objects.equals(uslId, debPeriod.uslId) &&
-                    Objects.equals(orgId, debPeriod.orgId) &&
+            return
                     Objects.equals(mg, debPeriod.mg);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(uslId, orgId, mg);
+            return Objects.hash(mg);
         }
     }
 
@@ -123,15 +121,15 @@ public class DebitThrMngImpl implements DebitThrMng {
         // долги предыдущего периода (вх.сальдо)
         Map<DebPeriod, PeriodSumma> mapDebPart1 = new HashMap<>();
         localStore.getLstDebFlow()
-                .forEach(t -> mapDebPart1.put(new DebPeriod(t.getUslId(), t.getOrgId(), t.getMg()),
+                .forEach(t -> mapDebPart1.put(new DebPeriod(t.getMg()),
                         new PeriodSumma(t.getDebOut(), t.getDebOut())));
 
         // текущее начисление
         process(localStore.getLstChrgFlow().stream(), mapDebPart1, null, null, false, calcStore.getPeriod());
 
-        // обновить mgTo записей, если они были расширены до текущего периода
-        debDAO.delByLskPeriod(kart.getLsk(), calcStore.getPeriod());
-        debDAO.updByLskPeriod(kart.getLsk(), calcStore.getPeriod(), calcStore.getPeriodBack());
+        // обновить mgTo записей, если они были расширены до текущего периода fixme
+        //debDAO.delByLskPeriod(kart.getLsk(), calcStore.getPeriod());
+        //debDAO.updByLskPeriod(kart.getLsk(), calcStore.getPeriod(), calcStore.getPeriodBack());
 
         HashMap<DebPeriod, PeriodSumma> mapDebPart2;
         // свернутые долги для расчета пени по дням - совокупно все услуги - упорядоченный по ключу (дата) LinkedHashMap
@@ -147,7 +145,7 @@ public class DebitThrMngImpl implements DebitThrMng {
             // восстановить неизменную часть
             mapDebPart2 =
                     mapDebPart1.entrySet().stream().collect(toMap(
-                            k -> new DebPeriod(k.getKey().getUslId(), k.getKey().getOrgId(), k.getKey().getMg()),
+                            k -> new DebPeriod(k.getKey().getMg()),
                             v -> new PeriodSumma(v.getValue().getDeb(), v.getValue().getDebForPen()),
                             (k, v) -> k, HashMap::new));
 
@@ -165,26 +163,26 @@ public class DebitThrMngImpl implements DebitThrMng {
 
 
             mapDebPart2.forEach((key, value) -> {
-                //if (key.getUslId().equals("011") && key.getOrgId().equals(3)) {
-                log.info("долг: usl={}, org={}, mg={}, deb={}, debForPen={}",
-                        key.getUslId(), key.getOrgId(), key.getMg(),
+                log.info("долг: mg={}, deb={}, debForPen={}",
+                        key.getMg(),
                         value.getDeb(), value.getDebForPen());
-                //}
             });
             // перенести переплату
             moveOverpay(mapDebPart2);
 
-            // сохранить долги на последнюю дату в DEB
+            // сохранить долги на последнюю дату в DEB fixme
+/*
             if (dt.getTime() == dt2.getTime()) {
                 mapDebPart2.forEach((k, v) -> saveDeb(calcStore, kart, localStore,
-                        k.getUslId(), k.getOrgId(), k.getMg(), v));
+                        k.getMg(), v));
             }
+*/
 
             mapDebPart2.entrySet().stream().sorted((Comparator.comparing(o -> o.getKey().getMg())))
                     .forEach(t -> {
                         //if (t.getKey().getUslId().equals("011") && t.getKey().getOrgId().equals(3)) {
-                        log.info("Свернуто: usl={}, org={}, mg={}, deb={}, debForPen={}",
-                                t.getKey().getUslId(), t.getKey().getOrgId(), t.getKey().getMg(),
+                        log.info("Свернуто: mg={}, deb={}, debForPen={}",
+                                t.getKey().getMg(),
                                 t.getValue().getDeb(), t.getValue().getDebForPen());
                         //}
                     });
@@ -204,7 +202,7 @@ public class DebitThrMngImpl implements DebitThrMng {
 
 
     /**
-     * Сохранить запись долга
+     * Сохранить запись долга fixme пока не удалять, может пригодиться при переходе на Deb ред. 09.12.20
      *
      * @param calcStore   - хранилище справочников
      * @param kart        - лиц.счет
@@ -214,6 +212,7 @@ public class DebitThrMngImpl implements DebitThrMng {
      * @param mg          - период
      * @param periodSumma - долг
      */
+/*
     private void saveDeb(CalcStore calcStore, Kart kart, CalcStoreLocal localStore, String uslId,
                          int orgId, int mg, PeriodSumma periodSumma) {
         // флаг создания новой записи
@@ -273,6 +272,7 @@ public class DebitThrMngImpl implements DebitThrMng {
             }
         }
     }
+*/
 
     /**
      * Рассчитать пеню
@@ -500,65 +500,50 @@ public class DebitThrMngImpl implements DebitThrMng {
             String uslId;
             Integer orgId;
         }
-        // уникальные значения Usl, Org
-        Set<UslOrgUniq> mapUslOrg = mapDebPart2.keySet().stream()
-                .map(periodSumma -> new UslOrgUniq(periodSumma.getUslId(), periodSumma.getOrgId()))
-                .collect(Collectors.toSet());
+        // отсортировать по периоду
+        List<Map.Entry<DebPeriod, PeriodSumma>> mapSorted =
+                mapDebPart2.entrySet().stream()
+                        .sorted(Comparator.comparing(t -> t.getKey().getMg()))
+                        .collect(Collectors.toList());
 
-        for (UslOrgUniq entry : mapUslOrg) {
-            // отсортировать по периоду
-            List<Map.Entry<DebPeriod, PeriodSumma>> mapSorted =
-                    mapDebPart2.entrySet().stream()
-                            .filter(t -> t.getKey().getUslId().equals(entry.getUslId())
-                                    && t.getKey().getOrgId().equals(entry.getOrgId()))
-                            .sorted(Comparator.comparing(t -> t.getKey().getMg()))
-                            .collect(Collectors.toList());
+        // перенести переплату
+        BigDecimal overPay = BigDecimal.ZERO;
+        BigDecimal overPayForPen = BigDecimal.ZERO;
+        ListIterator<Map.Entry<DebPeriod, PeriodSumma>> itr = mapSorted.listIterator();
+        while (itr.hasNext()) {
+            Map.Entry<DebPeriod, PeriodSumma> t = itr.next();
 
-/*
-            log.info("Осортировано: usl={}, org={}", entry.getUslId(), entry.getOrgId());
-            mapSorted.forEach(t -> log.info("check mg={}, deb={}, debForPen={}",
-                    t.getKey().getMg(), t.getValue().getDeb(), t.getValue().getDebForPen()));
-*/
-
-            // перенести переплату
-            BigDecimal overPay = BigDecimal.ZERO;
-            BigDecimal overPayForPen = BigDecimal.ZERO;
-            ListIterator<Map.Entry<DebPeriod, PeriodSumma>> itr = mapSorted.listIterator();
-            while (itr.hasNext()) {
-                Map.Entry<DebPeriod, PeriodSumma> t = itr.next();
-
-                // долг
-                if (itr.hasNext()) {
-                    // не последний период, перенести переплату, если есть
-                    if (overPay.add(t.getValue().getDeb()).compareTo(BigDecimal.ZERO) < 0) {
-                        overPay = overPay.add(t.getValue().getDeb());
-                        t.getValue().setDeb(BigDecimal.ZERO);
-                    } else {
-                        t.getValue().setDeb(overPay.add(t.getValue().getDeb()));
-                        overPay = BigDecimal.ZERO;
-                    }
+            // долг
+            if (itr.hasNext()) {
+                // не последний период, перенести переплату, если есть
+                if (overPay.add(t.getValue().getDeb()).compareTo(BigDecimal.ZERO) < 0) {
+                    overPay = overPay.add(t.getValue().getDeb());
+                    t.getValue().setDeb(BigDecimal.ZERO);
                 } else {
-                    // последний период
-                    if (overPay.compareTo(BigDecimal.ZERO) != 0) {
-                        t.getValue().setDeb(overPay.add(t.getValue().getDeb()));
-                    }
+                    t.getValue().setDeb(overPay.add(t.getValue().getDeb()));
+                    overPay = BigDecimal.ZERO;
                 }
+            } else {
+                // последний период
+                if (overPay.compareTo(BigDecimal.ZERO) != 0) {
+                    t.getValue().setDeb(overPay.add(t.getValue().getDeb()));
+                }
+            }
 
-                // долг для расчета пени
-                if (itr.hasNext()) {
-                    // не последний период, перенести переплату, если есть
-                    if (overPayForPen.add(t.getValue().getDebForPen()).compareTo(BigDecimal.ZERO) < 0) {
-                        overPayForPen = overPayForPen.add(t.getValue().getDebForPen());
-                        t.getValue().setDebForPen(BigDecimal.ZERO);
-                    } else {
-                        t.getValue().setDebForPen(overPayForPen.add(t.getValue().getDebForPen()));
-                        overPayForPen = BigDecimal.ZERO;
-                    }
+            // долг для расчета пени
+            if (itr.hasNext()) {
+                // не последний период, перенести переплату, если есть
+                if (overPayForPen.add(t.getValue().getDebForPen()).compareTo(BigDecimal.ZERO) < 0) {
+                    overPayForPen = overPayForPen.add(t.getValue().getDebForPen());
+                    t.getValue().setDebForPen(BigDecimal.ZERO);
                 } else {
-                    // последний период
-                    if (overPayForPen.compareTo(BigDecimal.ZERO) != 0) {
-                        t.getValue().setDebForPen(overPayForPen.add(t.getValue().getDebForPen()));
-                    }
+                    t.getValue().setDebForPen(overPayForPen.add(t.getValue().getDebForPen()));
+                    overPayForPen = BigDecimal.ZERO;
+                }
+            } else {
+                // последний период
+                if (overPayForPen.compareTo(BigDecimal.ZERO) != 0) {
+                    t.getValue().setDebForPen(overPayForPen.add(t.getValue().getDebForPen()));
                 }
             }
         }
@@ -580,8 +565,6 @@ public class DebitThrMngImpl implements DebitThrMng {
                 .filter(t -> beforeDt == null || t.getDt().getTime() <= beforeDt.getTime()) // ограничить по дате
                 .forEach(t -> {
                             DebPeriod debPeriod = new DebPeriod(
-                                    t.getUslId(),
-                                    t.getOrgId(),
                                     curMg != null ? curMg : t.getMg());
                             BigDecimal debForPen = BigDecimal.ZERO;
                             // ограничить по дате для долга по пене
