@@ -77,11 +77,12 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
      * @param calcStore - хранилище справочников
      * @param kart      - лиц.счет
      */
-    private void genDebitPen(CalcStore calcStore, Kart kart) {
+    private void genDebitPen(CalcStore calcStore, Kart kart) throws ErrorWhileChrgPen {
         // метод в разработке с 09.12.20
         Integer period = calcStore.getPeriod();
         Integer periodBack = calcStore.getPeriodBack();
-        // ЗАГРУЗИТЬ все финансовые операции по лиц.счету
+
+        // загрузить все финансовые операции по лиц.счету
         CalcStoreLocal localStore = new CalcStoreLocal();
         // задолженность предыдущего периода
         localStore.setLstDebFlow(chargePayDAO.getDebitByLsk(kart.getLsk(), periodBack));

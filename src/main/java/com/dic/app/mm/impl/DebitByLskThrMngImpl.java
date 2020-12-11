@@ -8,12 +8,13 @@ import com.dic.bill.dao.PenCorrDAO;
 import com.dic.bill.dao.PenCurDAO;
 import com.dic.bill.dto.CalcStore;
 import com.dic.bill.dto.CalcStoreLocal;
+import com.dic.bill.dto.PenCurRec;
 import com.dic.bill.dto.SumRec;
 import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.PenCur;
 import com.dic.bill.model.scott.Penya;
-import com.dic.bill.model.scott.Stavr;
 import com.ric.cmn.Utl;
+import com.ric.cmn.excp.ErrorWhileChrgPen;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.Value;
@@ -101,7 +102,7 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
 
 
     /**
-     * Свернуть задолженность, выполнить расчет пени
+     * Свернуть, рассчитать задолженность, выполнить расчет пени
      *
      * @param kart       - лиц.счет
      * @param calcStore  - хранилище справочников
@@ -112,7 +113,7 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
             propagation = Propagation.REQUIRED,
             rollbackFor = Exception.class)
     public void genDebitUsl(Kart kart, CalcStore calcStore,
-                            CalcStoreLocal localStore) {
+                            CalcStoreLocal localStore) throws ErrorWhileChrgPen {
         @Value
         class TempSumRec implements SumRec {
             String uslId;
@@ -188,7 +189,7 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
             // перенести переплату
             moveOverpay(mapDebPart2);
 
-            // сохранить долги на последнюю дату в DEB fixme сделать запись в c_chargepay2???
+            // сохранить долги на последнюю дату в DEB
             /*if (dt.getTime() == dt2.getTime()) {
                 mapDebPart2.forEach((k, v) -> saveDeb(calcStore, kart, localStore,
                         k.getUslId(), k.getOrgId(), k.getMg(), v));
@@ -298,66 +299,7 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
      * @param mapDeb       - долги
      */
     private void genSavePen(Kart kart, CalcStore calcStore, Map<Date,
-            Map<Integer, BigDecimal>> mapDebForPen, Map<Integer, BigDecimal> mapDeb) {
-        // запись пени
-        @Getter
-        @Setter
-        class PenCurRec {
-            // период долга
-            int mg;
-            // кол-во дней расчета пени всего
-            // int days = 0;
-            // кол-во текущих дней расчета пени
-            int curDays = 1;
-            // долг
-            //BigDecimal deb;
-            // долг для расчета пени
-            BigDecimal debForPen;
-            // пеня
-            BigDecimal pen;
-            // ставка рефинансирования
-            Stavr stavr;
-            // дата начала
-            Date dt1;
-            // дата окончания
-            Date dt2;
-
-            private PenCurRec(int mg, BigDecimal debForPen, BigDecimal pen,
-                              Stavr stavr, Date dt1, Date dt2) {
-                this.mg = mg;
-                this.debForPen = debForPen;
-                this.pen = pen;
-                this.stavr = stavr;
-                this.dt1 = dt1;
-                this.dt2 = dt2;
-            }
-
-            /**
-             * сравнить запись
-             * @param mg - период
-             * @param debForPen - долг для расчета пени
-             * @param stavr - ставка реф.
-             */
-            private boolean compareWith(int mg, BigDecimal debForPen, Stavr stavr) {
-                return this.mg == mg && this.debForPen.equals(debForPen)
-                        && this.stavr.equals(stavr);
-            }
-
-            /**
-             * добавить в существующую запись о пене
-             * @param pen - сумма начисленной пени
-             * @param dt - дата начисления
-             */
-            private void addPenDay(BigDecimal pen, Date dt) {
-                // добавить пеню
-                this.pen = this.pen.add(pen);
-                // расширить период
-                this.dt2 = dt;
-                // добавить день пени
-                this.curDays++;
-            }
-        }
-
+            Map<Integer, BigDecimal>> mapDebForPen, Map<Integer, BigDecimal> mapDeb) throws ErrorWhileChrgPen {
         // расчитать пеню по долгам
         // пеня для C_PEN_CUR
         List<PenCurRec> lstPenCurRec = new ArrayList<>(10);
@@ -415,16 +357,16 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
                     Utl.getStrFromDate(t.getDt2()), t.getPen(), t.getStavr().getId());
             PenCur penCur = new PenCur();
             penCur.setKart(kart);
-            penCur.setMg1(String.valueOf(t.mg));
+            penCur.setMg1(String.valueOf(t.getMg()));
             penCur.setCurDays(t.getCurDays());
             penCur.setStavr(t.getStavr());
             penCur.setDeb(t.getDebForPen());
-            penCur.setPenya(t.pen);
+            penCur.setPenya(t.getPen());
             penCur.setDt1(t.getDt1());
             penCur.setDt2(t.getDt2());
             kart.getPenCur().add(penCur);
             em.persist(penCur);
-            log.info("C_PEN_CUR: период={}, тек.пеня={}, тек.дней={}", t.mg, t.pen, t.getCurDays());
+            log.info("C_PEN_CUR: период={}, тек.пеня={}, тек.дней={}", t.getMg(), t.getPen(), t.getCurDays());
         });
 
         // формировать C_PENYA:
@@ -448,14 +390,20 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
             penya.setKart(kart);
             penya.setMg1(String.valueOf(k));
             penya.setPenya(v.setScale(2, RoundingMode.HALF_UP));
-            penya.setSumma(mapDeb.get(k));
+            penya.setSumma(Utl.nvl(mapDeb.get(k), BigDecimal.ZERO));
             if (Utl.nvl(mapDeb.get(k), BigDecimal.ZERO).compareTo(BigDecimal.ZERO) != 0) {
                 penya.setDays(mapDebDays.get(k));
+            } else {
+                penya.setDays(0);
             }
-            em.persist(penya);
+            //em.persist(penya);
+            kart.getPenya().add(penya);
+        });
+        for (Penya penya : kart.getPenya()) {
             log.info("C_PENYA: mg1={}, penya={}, summa={}, days={}",
                     penya.getMg1(), penya.getPenya(), penya.getSumma(), penya.getDays());
-        });
+        }
+
     }
 
     /**

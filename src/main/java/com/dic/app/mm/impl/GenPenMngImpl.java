@@ -6,6 +6,7 @@ import com.dic.bill.model.scott.Kart;
 import com.dic.bill.model.scott.SprPen;
 import com.dic.bill.model.scott.Stavr;
 import com.ric.cmn.Utl;
+import com.ric.cmn.excp.ErrorWhileChrgPen;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +52,7 @@ public class GenPenMngImpl implements GenPenMng {
      * @return
      */
     @Override
-    public Optional<PenDTO> calcPen(CalcStore calcStore, BigDecimal deb, Integer mg, Kart kart, Date curDt) {
+    public Optional<PenDTO> calcPen(CalcStore calcStore, BigDecimal deb, Integer mg, Kart kart, Date curDt) throws ErrorWhileChrgPen {
         // дата начала начисления пени
         SprPen penDt = getPenDt(calcStore, mg, kart);
         // вернуть кол-во дней между датой расчета пени и датой начала пени по справочнику
@@ -60,11 +61,12 @@ public class GenPenMngImpl implements GenPenMng {
                 // период больше текущего, не должно быть пени
                 return null;
             } else {
-                // некритическая ошибка отсутствия записи в справочнике пени, просто не начислить пеню!
+                // критическая ошибка отсутствия записи в справочнике пени, просто не начислить пеню!
                 log.error("ОШИБКА во время начисления пени по лиц.счету lsk={}, возможно не настроен справочник C_SPR_PEN!"
                                 + "Попытка найти элемент: mg={}, kart.tp={}, kart.reu={}", kart.getLsk(),
                         mg, kart.getTp().getId(), kart.getUk().getReu());
-                return null;
+                throw new ErrorWhileChrgPen("ОШИБКА во время начисления пени по лиц.счету lsk="+kart.getLsk()
+                        +", возможно не настроен справочник C_SPR_PEN!");
             }
         }
         int days = Utl.daysBetween(penDt.getDt(), curDt);
