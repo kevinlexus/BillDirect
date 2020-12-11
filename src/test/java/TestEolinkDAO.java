@@ -83,7 +83,7 @@ public class TestEolinkDAO {
 				.withErrAckCnt(0)
 				.withProcUk(procUk)
 				.withTrace(0).build();
-		em.persist(task); // note Используй crud.save
+		em.persist(task);
 		eolinkDAO2.getHouseByTpWoTaskTp(null, null);
 */
 	}

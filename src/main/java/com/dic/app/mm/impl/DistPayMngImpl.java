@@ -467,7 +467,7 @@ public class DistPayMngImpl implements DistPayMng {
                 }
                 saveKwtpDayLog(amount, "tp={}, usl={}, org={}, summa={}",
                         kwtpDay.getTp(), kwtpDay.getUsl().getId(), kwtpDay.getOrg().getId(), d.getSumma());
-                em.persist(kwtpDay); // note Используй crud.save
+                em.persist(kwtpDay);
             }));
 
 
@@ -1065,7 +1065,7 @@ public class DistPayMngImpl implements DistPayMng {
                         .withFkKwtpMg(kwtpMgId)
                         .withText(Utl.getStrUsingTemplate(msg, t)).build();
         amount.setNpp(amount.getNpp() + 1);
-        em.persist(kwtpDayLog); // note Используй crud.save
+        em.persist(kwtpDayLog);
         log.info(msg, t);
     }
 }

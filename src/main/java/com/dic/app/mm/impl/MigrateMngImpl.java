@@ -262,7 +262,7 @@ public class MigrateMngImpl implements MigrateMng {
                         .withMgFrom(periodBack)
                         .withMgTo(periodBack)
                         .build();
-                em.persist(deb); // note Используй crud.save
+                em.persist(deb);
             }
 */
         }

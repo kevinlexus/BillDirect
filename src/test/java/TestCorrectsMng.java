@@ -53,18 +53,18 @@ public class TestCorrectsMng {
 		// дом
 		House house = new House();
 		Ko houseKo = new Ko();
-		em.persist(houseKo); // note Используй crud.save
+		em.persist(houseKo);
 
 		house.setKo(houseKo);
 		house.setKul("0001");
 		house.setNd("000001");
-		em.persist(house); // note Используй crud.save
+		em.persist(house);
 
 		// построить лицевые счета по помещению
 		int ukId = 12; // УК 14,15
 		Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),
 				3, true, true, 1, 1, ukId);
-		em.persist(ko); // note Используй crud.save
+		em.persist(ko);
 		String lsk = "ОСН_0001";
 		Kart kart = em.find(Kart.class, lsk);
 
