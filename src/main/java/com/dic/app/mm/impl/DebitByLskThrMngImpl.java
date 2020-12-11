@@ -16,6 +16,7 @@ import com.dic.bill.model.scott.Stavr;
 import com.ric.cmn.Utl;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -112,6 +113,15 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
             rollbackFor = Exception.class)
     public void genDebitUsl(Kart kart, CalcStore calcStore,
                             CalcStoreLocal localStore) {
+        @Value
+        class TempSumRec implements SumRec {
+            String uslId;
+            Integer orgId;
+            BigDecimal summa;
+            Integer mg;
+            Date dt;
+            Integer tp;
+        }
         // дата начала расчета
         Date dt1 = calcStore.getCurDt1();
         // дата окончания расчета
@@ -124,7 +134,10 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
                         new PeriodSumma(t.getDebOut(), t.getDebOut())));
 
         // добавить текущее начисление
-        process(localStore.getLstChrgFlow().stream(), mapDebPart1, null, null, false, calcStore.getPeriod());
+        BigDecimal chrgSumm = localStore.getChrgSum();
+        List<SumRec> lst = new ArrayList<>();
+        lst.add(new TempSumRec(null, null, chrgSumm, null, dt1, null));
+        process(lst.stream(), mapDebPart1, null, null, false, calcStore.getPeriod());
 
         // обновить mgTo записей, если они были расширены до текущего периода
         //debDAO.delByLskPeriod(kart.getLsk(), calcStore.getPeriod());
@@ -149,17 +162,25 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
                             (k, v) -> k, HashMap::new));
 
             // перерасчеты, включая текущий день
-            process(localStore.getLstChngFlow().stream(), mapDebPart2, dt, null, false, null);
+            lst = localStore.getLstChngFlow().stream()
+                    .map(t -> new TempSumRec(null, null, t.getSumma(), t.getMg(), dt1, null))
+                    .collect(Collectors.toList());
+            process(lst.stream(), mapDebPart2, dt, null, false, null);
 
             // вычесть оплату долга, включая текущий день поступления - для обычного долга
             // и не включая для расчета пени
-            process(localStore.getLstPayFlow().stream(), mapDebPart2, dt, dt, true, null);
+            lst = localStore.getLstPayFlow().stream()
+                    .map(t -> new TempSumRec(null, null, t.getSumma(), t.getMg(), dt1, null))
+                    .collect(Collectors.toList());
+            process(lst.stream(), mapDebPart2, dt, dt, true, null);
 
             // вычесть корректировки оплаты - для расчета долга, включая текущий день
-            process(localStore.getLstPayCorrFlow().stream(), mapDebPart2, dt, null, true, null);
+            lst = localStore.getLstPayCorrFlow().stream()
+                    .map(t -> new TempSumRec(null, null, t.getSumma(), t.getMg(), dt1, null))
+                    .collect(Collectors.toList());
+            process(lst.stream(), mapDebPart2, dt, null, true, null);
 
             log.info("********** Долги на дату: dt={}, lsk={}", Utl.getStrFromDate(dt), kart.getLsk());
-
             mapDebPart2.forEach((key, value) -> {
                 log.info("долг: mg={}, deb={}, debForPen={}",
                         key.getMg(), value.getDeb(), value.getDebForPen());

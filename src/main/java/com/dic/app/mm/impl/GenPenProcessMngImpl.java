@@ -86,7 +86,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         // задолженность предыдущего периода
         localStore.setLstDebFlow(chargePayDAO.getDebitByLsk(kart.getLsk(), periodBack));
         // текущее начисление - 2
-        localStore.setLstChrgFlow(chargeDao.getChargeByPeriodAndLsk(kart.getLsk()));
+        localStore.setChrgSum(chargeDao.getChargeByPeriodAndLsk(kart.getLsk()));
         // перерасчеты - 5
         localStore.setLstChngFlow(changeDao.getChangeByPeriodAndLsk(kart.getLsk()));
         // оплата долга - 3

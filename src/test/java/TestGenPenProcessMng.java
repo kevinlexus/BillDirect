@@ -1,27 +1,15 @@
 import com.dic.app.Config;
 import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.ConfigApp;
-import com.dic.app.mm.DistPayMng;
 import com.dic.app.mm.GenPenProcessMng;
-import com.dic.app.mm.impl.DebitThrMngImpl;
 import com.dic.bill.dao.AchargeDAO;
 import com.dic.bill.dao.PenCurDAO;
 import com.dic.bill.dao.RedirPayDAO;
-import com.dic.bill.dao.SaldoUslDAO;
-import com.dic.bill.dto.CalcStore;
-import com.dic.bill.dto.SumUslOrgDTO;
-import com.dic.bill.dto.SumUslOrgRec;
-import com.dic.bill.mm.SaldoMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
-import com.ric.cmn.excp.ErrorWhileDistPay;
-import com.ric.cmn.excp.WrongParam;
-import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.assertj.core.util.Preconditions;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +26,6 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.text.ParseException;
-import java.util.*;
 
 /**
  * Тесты формирования задолженности и пени
@@ -82,7 +69,7 @@ public class TestGenPenProcessMng {
         // дом
         House house = new House();
         Ko houseKo = new Ko();
-        em.persist(houseKo); // note Используй crud.save
+        em.persist(houseKo);
 
         // добавить вводы
         // без ОДПУ
@@ -96,24 +83,26 @@ public class TestGenPenProcessMng {
         house.setKo(houseKo);
         house.setKul("0001");
         house.setNd("000001");
-        em.persist(house); // note Используй crud.save
+        em.persist(house);
 
         // построить лицевые счета по помещению
         int ukId = 12; // УК 14,15
         //int ukId = 547; // общий тип распределения
         Ko ko = testDataBuilder.buildKartForTest(house, "0001", BigDecimal.valueOf(76.2),
                 3, true, true, 1, 1, ukId);
-        em.persist(ko); // note Используй crud.save
+        em.persist(ko);
         String lsk = "РСО_0001";
         Kart kart = em.find(Kart.class, lsk);
 
         // Добавить входящую задолженность
+/*
         testDataBuilder.addDebForTest(kart, "011", 3,
                 201401, 201403, 201401, "100.00");
         testDataBuilder.addDebForTest(kart, "011", 3,
                 201401, 201403, 201402, "50.00");
         testDataBuilder.addDebForTest(kart, "011", 3,
                 201401, 201403, 201403, "20.00");
+*/
 
 /*        testDataBuilder.addDebForTest(kart, "003", 1,
                 201401, 201403, 201401, "77.84");

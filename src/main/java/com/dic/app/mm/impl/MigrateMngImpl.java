@@ -1,29 +1,27 @@
 package com.dic.app.mm.impl;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-
 import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.*;
-import com.dic.bill.model.scott.*;
+import com.dic.bill.dto.SumDebMgRec;
+import com.dic.bill.dto.SumDebUslMgRec;
+import com.dic.bill.model.scott.Kart;
+import com.dic.bill.model.scott.Org;
+import com.dic.bill.model.scott.Usl;
 import com.ric.cmn.excp.ErrorWhileGen;
+import com.ric.dto.CommonResult;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
-import com.dic.bill.dao.DebDAO;
-import com.dic.bill.dto.SumDebMgRec;
-import com.dic.bill.dto.SumDebUslMgRec;
-import com.ric.dto.CommonResult;
-
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StopWatch;
+
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 
 /**
@@ -37,14 +35,12 @@ public class MigrateMngImpl implements MigrateMng {
 
     @PersistenceContext
     private EntityManager em;
-    private final DebDAO debDao;
     private final ConfigApp config;
     private final ApplicationContext ctx;
     private final ThreadMng<String> threadMng;
     private final MigrateUtlMng migUtlMng;
 
-    public MigrateMngImpl(DebDAO debDao, ConfigApp config, ApplicationContext ctx, ThreadMng<String> threadMng, MigrateUtlMng migUtlMng) {
-        this.debDao = debDao;
+    public MigrateMngImpl(ConfigApp config, ApplicationContext ctx, ThreadMng<String> threadMng, MigrateUtlMng migUtlMng) {
         this.config = config;
         this.ctx = ctx;
         this.threadMng = threadMng;
@@ -241,7 +237,7 @@ public class MigrateMngImpl implements MigrateMng {
 
 
         // удалить предыдущее распределение
-        debDao.delByLskPeriod(lsk, periodBack);
+        //debDao.delByLskPeriod(lsk, periodBack);
         // сохранить распределённые задолженности
         Kart kart = em.find(Kart.class, lsk);
 
@@ -255,6 +251,7 @@ public class MigrateMngImpl implements MigrateMng {
                 throw new RuntimeException("ОШИБКА #5 сохранения задолженности, не найдена организация org=" + t.getOrgId());
             }
             // сохранить новое, если не ноль
+/*
             if (t.getSumma().compareTo(BigDecimal.ZERO) !=0) {
                 Deb deb = Deb.builder()
                         .withKart(kart)
@@ -267,6 +264,7 @@ public class MigrateMngImpl implements MigrateMng {
                         .build();
                 em.persist(deb); // note Используй crud.save
             }
+*/
         }
 
         log.info("ОКОНЧАНИЕ РАСПРЕДЕЛЕНИЯ лиц.счета={}", lsk);
