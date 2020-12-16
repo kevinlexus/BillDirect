@@ -109,7 +109,7 @@ public class TestMeterMng {
 
 		Kart kart = em.find(Kart.class, "00000239");
 
-		log.info("Ko5={}, Ko6={}", kart.getKoKw().getId(), kart.getKoLsk().getId());
+		//log.info("Ko5={}, Ko6={}", kart.getKoKw().getId(), kart.getKoLsk().getId());
 	}
 
 	/**
