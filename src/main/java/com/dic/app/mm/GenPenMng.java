@@ -10,5 +10,5 @@ import java.util.Date;
 import java.util.Optional;
 
 public interface GenPenMng {
-    Optional<GenPenMngImpl.PenDTO> calcPen(CalcStore calcStore, BigDecimal summa, Integer mg, Kart kart, Date curDt) throws ErrorWhileChrgPen;
+    Optional<GenPenMngImpl.PenDTO> calcPen(CalcStore calcStore, BigDecimal summa, int mg, Kart kart, Date curDt) throws ErrorWhileChrgPen;
 }

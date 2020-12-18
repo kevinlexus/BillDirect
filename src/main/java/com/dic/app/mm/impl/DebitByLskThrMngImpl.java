@@ -112,8 +112,8 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
     @Transactional(
             propagation = Propagation.REQUIRED,
             rollbackFor = Exception.class)
-    public void genDebitUsl(Kart kart, CalcStore calcStore,
-                            CalcStoreLocal localStore) throws ErrorWhileChrgPen {
+    public void genDeb(Kart kart, CalcStore calcStore,
+                       CalcStoreLocal localStore) throws ErrorWhileChrgPen {
         @Value
         class TempSumRec implements SumRec {
             String uslId;
@@ -181,9 +181,9 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
                     .collect(Collectors.toList());
             process(lst.stream(), mapDebPart2, dt, null, true, null);
 
-            log.info("********** Долги на дату: dt={}, lsk={}", Utl.getStrFromDate(dt), kart.getLsk());
+            log.trace("********** Долги на дату: dt={}, lsk={}", Utl.getStrFromDate(dt), kart.getLsk());
             mapDebPart2.forEach((key, value) -> {
-                log.info("долг: mg={}, deb={}, debForPen={}",
+                log.trace("долг: mg={}, deb={}, debForPen={}",
                         key.getMg(), value.getDeb(), value.getDebForPen());
             });
             // перенести переплату
@@ -198,7 +198,7 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
             mapDebPart2.entrySet().stream().sorted((Comparator.comparing(o -> o.getKey().getMg())))
                     .forEach(t -> {
                         //if (t.getKey().getUslId().equals("011") && t.getKey().getOrgId().equals(3)) {
-                        log.info("Свернуто: mg={}, deb={}, debForPen={}",
+                        log.trace("Свернуто: mg={}, deb={}, debForPen={}",
                                 t.getKey().getMg(),
                                 t.getValue().getDeb(), t.getValue().getDebForPen());
                         //}
@@ -374,13 +374,15 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
         Map<Integer, BigDecimal> mapPenResult = new HashMap<>();
         // вх.сальдо по пене - APENYA
         apenyaDAO.getByLsk(kart.getLsk(), String.valueOf(calcStore.getPeriodBack()))
-                .forEach(t -> mapPenResult.put(Integer.parseInt(t.getMg1()), t.getPenya()));
+                .forEach(t -> mapPenResult.put(Integer.parseInt(t.getMg1()), Utl.nvl(t.getPenya(),BigDecimal.ZERO)));
         // прибавить корректировки пени C_PEN_CORR
         penCorrDAO.getByLsk(kart.getLsk())
-                .forEach(t -> mapPenResult.merge(Integer.parseInt(t.getDopl()), t.getPenya(), BigDecimal::add));
+                .forEach(t -> mapPenResult.merge(Integer.parseInt(t.getDopl()),
+                        Utl.nvl(t.getPenya(),BigDecimal.ZERO), BigDecimal::add));
         // вычесть поступление оплаты пени C_KWTP_MG
         kwtpMgDAO.getByLsk(kart.getLsk())
-                .forEach(t -> mapPenResult.merge(Integer.parseInt(t.getDopl()), t.getPenya().negate(), BigDecimal::subtract));
+                .forEach(t -> mapPenResult.merge(Integer.parseInt(t.getDopl()),
+                        Utl.nvl(t.getPenya(),BigDecimal.ZERO).negate(), BigDecimal::subtract));
         // прибавить текущее начисление пени
         lstPenCurRec.forEach(t -> mapPenResult.merge(t.getMg(), t.getPen(), BigDecimal::add));
 

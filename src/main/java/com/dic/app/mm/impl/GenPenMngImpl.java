@@ -32,7 +32,8 @@ public class GenPenMngImpl implements GenPenMng {
      *
      * @author Lev
      */
-    @Getter @Setter
+    @Getter
+    @Setter
     public class PenDTO {
         // кол-во дней просрочки
         int days = 0;
@@ -46,18 +47,19 @@ public class GenPenMngImpl implements GenPenMng {
 
     /**
      * Рассчитать пеню
-     *  @param deb - долг
-     * @param mg    - период долга
-     * @param kart  - лиц.счет
+     *
+     * @param deb  - долг
+     * @param mg   - период долга
+     * @param kart - лиц.счет
      * @return
      */
     @Override
-    public Optional<PenDTO> calcPen(CalcStore calcStore, BigDecimal deb, Integer mg, Kart kart, Date curDt) throws ErrorWhileChrgPen {
+    public Optional<PenDTO> calcPen(CalcStore calcStore, BigDecimal deb, int mg, Kart kart, Date curDt) throws ErrorWhileChrgPen {
         // дата начала начисления пени
         SprPen penDt = getPenDt(calcStore, mg, kart);
         // вернуть кол-во дней между датой расчета пени и датой начала пени по справочнику
         if (penDt == null) {
-            if (mg.compareTo(calcStore.getPeriod()) > 0) {
+            if (mg > calcStore.getPeriod()) {
                 // период больше текущего, не должно быть пени
                 return null;
             } else {
@@ -65,8 +67,8 @@ public class GenPenMngImpl implements GenPenMng {
                 log.error("ОШИБКА во время начисления пени по лиц.счету lsk={}, возможно не настроен справочник C_SPR_PEN!"
                                 + "Попытка найти элемент: mg={}, kart.tp={}, kart.reu={}", kart.getLsk(),
                         mg, kart.getTp().getId(), kart.getUk().getReu());
-                throw new ErrorWhileChrgPen("ОШИБКА во время начисления пени по лиц.счету lsk="+kart.getLsk()
-                        +", возможно не настроен справочник C_SPR_PEN!");
+                throw new ErrorWhileChrgPen("ОШИБКА во время начисления пени по лиц.счету lsk=" + kart.getLsk()
+                        + ", период=" + mg + ", возможно не настроен справочник C_SPR_PEN!");
             }
         }
         int days = Utl.daysBetween(penDt.getDt(), curDt);

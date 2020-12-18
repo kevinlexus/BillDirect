@@ -95,26 +95,31 @@ public class TestGenPenProcessMng {
         Kart kart = em.find(Kart.class, lsk);
 
         // Добавить входящую задолженность
+        // данные периоды не должны использоваться!
         testDataBuilder.addDebForTest(kart, 201308, 201308,
-                201308, "77777777777.00"); // не должны использоваться!
+                201308, "77777777777.00");
         testDataBuilder.addDebForTest(kart, 201310, 201310,
-                201308, "77777777777.00"); // не должны использоваться!
+                201308, "77777777777.00");
         testDataBuilder.addDebForTest(kart, 201310, 201310,
-                201309, "77777777777.00"); // не должны использоваться!
+                201309, "77777777777.00");
         testDataBuilder.addDebForTest(kart, 201310, 201310,
-                201310, "77777777777.00"); // не должны использоваться!
+                201310, "77777777777.00");
         testDataBuilder.addDebForTest(kart, 201311, 201311,
-                201308, "77777777777.00"); // не должны использоваться!
+                201308, "77777777777.00");
         testDataBuilder.addDebForTest(kart, 201311, 201311,
-                201310, "77777777777.00"); // не должны использоваться!
-        testDataBuilder.addDebForTest(kart, 201312, 201312,
-                201308, "110.00"); // должен использоваться!
-        testDataBuilder.addDebForTest(kart, 201312, 201312,
-                201309, "5.15"); // должен использоваться!
-        testDataBuilder.addDebForTest(kart, 201312, 201312,
-                201310, "7.00"); // должен использоваться!
-        testDataBuilder.addDebForTest(kart, 201312, 201312,
-                201311, "11.00"); // должен использоваться!
+                201310, "77777777777.00");
+
+        // данные периоды должны использоваться!
+        testDataBuilder.addDebForTest(kart, 201403, 201403,
+                201308, "1200.00");
+        testDataBuilder.addDebForTest(kart, 201403, 201403,
+                201309, "5.15");
+        testDataBuilder.addDebForTest(kart, 201403, 201403,
+                201310, "7.00");
+        testDataBuilder.addDebForTest(kart, 201403, 201403,
+                201311, "11.00");
+        testDataBuilder.addDebForTest(kart, 201403, 201403,
+                201401, "1100.00");
 
         // Добавить текущее начисление
         testDataBuilder.addChargeForTest(kart, "011", "70.0");
@@ -198,8 +203,9 @@ public class TestGenPenProcessMng {
         // для того чтобы увидеть insert-ы в тестом режиме
         penCurDAO.findAll().size();
 
+        log.info("Итого пеня:");
         for (Penya penya : kart.getPenya()) {
-            log.info("Итого пеня: период={}, долг={}, пеня={}, дней={}",
+            log.info("период={}, долг={}, пеня={}, дней={}",
                     penya.getMg1(), penya.getSumma(), penya.getPenya(), penya.getDays());
         }
 

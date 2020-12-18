@@ -99,7 +99,7 @@ public class GenPenProcessMngImpl implements GenPenProcessMng {
         localStore.setReuId(Integer.parseInt(kart.getUk().getReu()));
 
         // версия расчета в целом по лиц.счету
-        debitByLskThrMng.genDebitUsl(kart, calcStore, localStore);
+        debitByLskThrMng.genDeb(kart, calcStore, localStore);
     }
 
 }

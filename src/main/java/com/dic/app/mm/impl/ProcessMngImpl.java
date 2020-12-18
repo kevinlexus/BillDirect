@@ -228,7 +228,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                         id = reqConf.getNextItem();
                         if (id != null) {
                             if (reqConf.isLockForLongLastingProcess() && config.getLock().isStopped(reqConf.getStopMark())) {
-                                log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
+                                log.info("Процесс {} был остановлен", reqConf.getTpName());
                                 break;
                             }
                             if (Utl.in(reqConf.getTp(), 0, 1, 3, 4)) {
@@ -265,7 +265,9 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                         }
                     }
                 } catch (Exception e) {
+                    log.error("************ ERROR ********************");
                     log.error(Utl.getStackTraceString(e));
+                    log.error("************ ERROR ********************");
                     // остановить другие потоки
                     if (reqConf.isLockForLongLastingProcess()) {
                         config.getLock().unlockProc(reqConf.getRqn(), reqConf.getStopMark());
@@ -290,7 +292,7 @@ public class ProcessMngImpl implements ProcessMng, CommonConstants {
                         id = reqConf.getNextStrItem();
                         if (id != null) {
                             if (reqConf.isLockForLongLastingProcess() && config.getLock().isStopped(reqConf.getStopMark())) {
-                                log.info("Процесс {} был ПРИНУДИТЕЛЬНО остановлен", reqConf.getTpName());
+                                log.info("Процесс {} был остановлен", reqConf.getTpName());
                                 break;
                             }
                             migrateMng.migrateDeb(id, Integer.valueOf(config.getPeriodBack()),
