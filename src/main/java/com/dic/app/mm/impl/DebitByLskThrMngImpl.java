@@ -374,15 +374,15 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
         Map<Integer, BigDecimal> mapPenResult = new HashMap<>();
         // вх.сальдо по пене - APENYA
         apenyaDAO.getByLsk(kart.getLsk(), String.valueOf(calcStore.getPeriodBack()))
-                .forEach(t -> mapPenResult.put(Integer.parseInt(t.getMg1()), Utl.nvl(t.getPenya(),BigDecimal.ZERO)));
+                .forEach(t -> mapPenResult.put(Integer.parseInt(t.getMg1()), Utl.nvl(t.getPenya(), BigDecimal.ZERO)));
         // прибавить корректировки пени C_PEN_CORR
         penCorrDAO.getByLsk(kart.getLsk())
                 .forEach(t -> mapPenResult.merge(Integer.parseInt(t.getDopl()),
-                        Utl.nvl(t.getPenya(),BigDecimal.ZERO), BigDecimal::add));
+                        Utl.nvl(t.getPenya(), BigDecimal.ZERO), BigDecimal::add));
         // вычесть поступление оплаты пени C_KWTP_MG
         kwtpMgDAO.getByLsk(kart.getLsk())
                 .forEach(t -> mapPenResult.merge(Integer.parseInt(t.getDopl()),
-                        Utl.nvl(t.getPenya(),BigDecimal.ZERO).negate(), BigDecimal::subtract));
+                        Utl.nvl(t.getPenya(), BigDecimal.ZERO).negate(), BigDecimal::subtract));
         // прибавить текущее начисление пени
         lstPenCurRec.forEach(t -> mapPenResult.merge(t.getMg(), t.getPen(), BigDecimal::add));
 
@@ -401,11 +401,12 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
             //em.persist(penya);
             kart.getPenya().add(penya);
         });
+/*
         for (Penya penya : kart.getPenya()) {
             log.info("C_PENYA: mg1={}, penya={}, summa={}, days={}",
                     penya.getMg1(), penya.getPenya(), penya.getSumma(), penya.getDays());
         }
-
+*/
     }
 
     /**
