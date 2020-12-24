@@ -168,7 +168,7 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
                     .collect(Collectors.toList());
             process(lst.stream(), mapDebPart2, dt, null, false, null);
 
-            // вычесть оплату долга, включая текущий день поступления - для обычного долга
+            // вычесть оплату включая текущий день поступления - для обычного долга
             // и не включая для расчета пени
             lst = localStore.getLstPayFlow().stream()
                     .map(t -> new TempSumRec(null, null, t.getSumma(), t.getMg(), dt1, null))

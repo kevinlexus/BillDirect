@@ -235,6 +235,10 @@ public class VchangeDet implements java.io.Serializable {
                 (k, v) -> k, // функция, определяющая, что делать в случае появления одинакового ключа (здесь - взять k значение)
                 HashMap::new // создать HashMap
         ));
+// Создать Map из стрима объектов
+        Map<String, String> rolesMap =
+        roles.stream().collect(Collectors.toMap(RoleOibEntity::getCode,RoleOibEntity::getName));
+
 // Объеденить элементы в строку через ";"
         String.join(";", value);
 
@@ -328,6 +332,7 @@ public class VchangeDet implements java.io.Serializable {
         Map<String, List<Compress>> mapElem = anaborDao.getByLsk(lsk)
         .stream().collect(Collectors.groupingBy(Anabor::getKey,
         Collectors.mapping(t -> t, Collectors.toList())));
+
 
 
 // Транзакция
