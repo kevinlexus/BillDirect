@@ -1,6 +1,9 @@
 import com.dic.app.Config;
 import com.dic.app.mm.RegistryMng;
+import com.dic.bill.dao.OrgDAO;
+import com.dic.bill.model.scott.Org;
 import com.ric.cmn.Utl;
+import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -16,29 +19,50 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Scanner;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes=Config.class)
+@ContextConfiguration(classes = Config.class)
 @AutoConfigureTestDatabase(replace = Replace.NONE)
 @DataJpaTest
 @Slf4j
 public class TestFileLoadingWithDelimiters {
 
 
-	@PersistenceContext
+    @PersistenceContext
     private EntityManager em;
-	@Autowired
+    @Autowired
     private RegistryMng registryMng;
+    @Autowired
+    private OrgDAO orgDAO;
+
+
+    @Test
+    public void testScanner() {
+        Scanner scanner = new Scanner("100416574;dfafc63e-f435-46e9-861f-c1cb2886603c;;г Полысаево,,ул Токарева,дом 2,16;1;Услуга вывоза ТКО;112020;207.30");
+        scanner.useDelimiter(";");
+        while (scanner.hasNext()) {
+            String adr = scanner.next();
+            Scanner scannerAdr = new Scanner(adr);
+            scannerAdr.useDelimiter(",");
+            log.info("adr={}", adr);
+            int i=0;
+            while (scannerAdr.hasNext()) {
+                String adrPart = scannerAdr.next();
+                log.info("index={}, adrPart={}", i++, adrPart);
+            }
+        }
+    }
 
     /**
      * Загрузить файл с внешними лиц.счетами во временную таблицу
      */
     @Test
     @Rollback(false)
-    public void fileLoadKartExt() throws FileNotFoundException {
+    public void fileLoadKartExt() throws FileNotFoundException, WrongParam {
         // загрузить файл во временную таблицу LOAD_KART_EXT
-        registryMng.loadFileKartExt("г Полысаево", "001", "107", "LSK_TP_MAIN",
-                "d:\\temp\\#46\\1.txt");
+        Org org = orgDAO.getByReu("001");
+        registryMng.loadFileKartExt(org, "d:\\temp\\#46\\1.txt");
         // загрузить успешно обработанные лиц.счета в таблицу внешних лиц.счетов
         registryMng.loadApprovedKartExt();
     }

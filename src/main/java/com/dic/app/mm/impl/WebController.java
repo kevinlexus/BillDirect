@@ -485,10 +485,14 @@ public class WebController implements CommonConstants {
             try {
                 List<Org> lstOrg = orgDAO.findByIsExchangeExt(true);
                 for (Org org : lstOrg) {
+                    cntLoaded = registryMng.loadFileKartExt(org,
+                            "c:\\temp\\" + fileName);
+/*
                     cntLoaded = registryMng.loadFileKartExt("г Полысаево", org.getReu(),
                             "107", // услуга Вывоз ТКО и утил.
-                            org.isRSO() ? "LSK_TP_RSO" : "LSK_TP_MAIN",
+                            org.isRSO() ? "LSK_TP_RSO" : "LSK_TP_MAIN", org.getIsCretateExtLskInKart(),
                             "c:\\temp\\" + fileName);
+*/
                     break;
                 }
             } catch (Exception e) {

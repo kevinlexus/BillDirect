@@ -10,6 +10,7 @@ import com.dic.bill.mm.MeterMng;
 import com.dic.bill.mm.impl.EolinkMngImpl;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
+import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -283,6 +284,9 @@ public class RegistryMngImpl implements RegistryMng {
         String guid;
         String fio;
         String nm;
+        BigDecimal insal;
+        BigDecimal chrg;
+        BigDecimal payment;
         BigDecimal summa;
         Date dt;
         String periodDeb;
@@ -291,17 +295,34 @@ public class RegistryMngImpl implements RegistryMng {
     /**
      * Загрузить файл внешних лиц счетов во временную таблицу
      *
-     * @param cityName - наименование города
-     * @param reu      - код УК
-     * @param uslId    - код услуги
-     * @param lskTp    - тип лиц.счетов
+     * @param org      - реестр от организации
      * @param fileName - путь и имя файла
      * @return - кол-во успешно обработанных записей
      */
     @Override
     @Transactional
-    public int loadFileKartExt(String cityName, String reu, String uslId, String lskTp, String fileName) throws FileNotFoundException {
+    public int loadFileKartExt(Org org, String fileName) throws FileNotFoundException, WrongParam {
         log.info("Начало загрузки файла внешних лиц.счетов fileName={}", fileName);
+        String cityName;
+        switch (orgDAO.getByOrgTp("Город").getCd()) {
+            case "г.Полысаево":
+                cityName = "г Полысаево";
+                // note uslId = "107", // услуга Вывоз ТКО и утил.
+                break;
+            case "г.Киселевск":
+                cityName = "г Полысаево";
+                break;
+            default:
+                throw new WrongParam("Необрабатываемый город в T_ORG");
+        }
+        String reu = org.getReu();
+        String lskTp = org.isRSO() ? "LSK_TP_RSO" : "LSK_TP_MAIN";
+        Usl usl = org.getUslForCreateExtLskKart();
+        Boolean isCreateExtLskInKart = org.getIsCretateExtLskInKart();
+        if (isCreateExtLskInKart && usl == null) {
+            throw new WrongParam("Не заполнена услуга в T_ORG.USL_FOR_CREATE_EXT_LSK по T_ORG.ID=" + org.getId());
+        }
+
         Scanner scanner = new Scanner(new File(fileName), "windows-1251");
         loadKartExtDAO.deleteAll();
         Set<String> setExt = new HashSet<>(); // уже обработанные внешние лиц.сч.
@@ -311,93 +332,215 @@ public class RegistryMngImpl implements RegistryMng {
         int cntLoaded = 0;
         while (scanner.hasNextLine()) {
             String s = scanner.nextLine();
-            //log.trace("s={}", s);
-            int i = 0;
-            int j = 0;
-            Scanner sc = new Scanner(s);
-            sc.useDelimiter(";");
+            log.trace("s={}", s);
             KartExtInfo kartExtInfo = new KartExtInfo();
             kartExtInfo.dt = new Date();
             kartExtInfo.reu = reu;
-            kartExtInfo.uslId = uslId;
+            kartExtInfo.uslId = usl.getId();
             kartExtInfo.lskTp = lskTp;
             // перебрать элементы строки
-            boolean foundCity = false;
-            while (sc.hasNext()) {
-                i++;
-                j++;
-                if (j > 100) {
-                    j = 1;
-                    log.info("Обработано {} записей", i);
-                }
-                String elem = sc.next();
-                log.info("elem={}", elem);
-                if (i == 1) {
-                    // внешний лиц.счет
-                    kartExtInfo.extLsk = elem;
-                } else if (i == 2) {
-                    // GUID дома
-                    //log.info("GUID={}", elem);
-                    kartExtInfo.guid = elem;
-                } else if (i == 3) {
-                    // ФИО
-                    kartExtInfo.fio = elem;
-                } else if (i == 4) {
-                    // город
-                    Optional<String> city = getAddressElemByIdx(elem, ",", 0);
-                    // поселок, если имеется todo временно убрал посёлок - разобраться потом ред.17.04.20
-                    // Optional<String> town = getAddressElemByIdx(elem, ",", 1);
-
-                    // проверить найден ли нужный город
-                    //city.ifPresent(t->log.info("city={}", t));
-                    //town.ifPresent(t->log.info("town={}", t));
-                    if (city.isPresent() && city.get().equals(cityName)) {
-                        //if (town.isPresent() && town.get().length() == 0) { todo временно убрал посёлок - разобраться потом ред.17.04.20
-                        foundCity = true;
-                        kartExtInfo.house = mapHouse.get(kartExtInfo.guid);
-                        if (kartExtInfo.house == null) {
-                            log.error("Не найден дом по guid={}", kartExtInfo.guid);
-                        }
-                        //}
-                    } else {
-                        if (city.isPresent()) {
-                            //log.error("Наименование города={} не соответстует ключевому наименованию города={}",
-                            //        city.get(), cityName);
-                        } else {
-                            log.error("Наименование города {} не получено из строки файла", cityName);
-                        }
-                    }
-                    if (!foundCity) {
-                        break;
-                    }
-                    kartExtInfo.address = elem;
-                    // № помещения
-                    getAddressElemByIdx(elem, ",", 4).ifPresent(t -> kartExtInfo.kw = t);
-                } else if (i == 5) {
-                    // код услуги
-                    kartExtInfo.code = Integer.parseInt(elem);
-                } else if (i == 6) {
-                    // наименование услуги
-                    kartExtInfo.nm = elem;
-                } else if (i == 7) {
-                    // период оплаты (задолженности)
-                    kartExtInfo.periodDeb = elem;
-                } else if (i == 8) {
-                    // сумма задолженности
-                    if (elem != null && elem.length() > 0) {
-                        kartExtInfo.summa = new BigDecimal(elem);
-                    }
-                }
-            }
-            if (foundCity) {
-                cntLoaded++;
-                createLoadKartExt(kartExtInfo, setExt);
+            if (org.getExtLskFormatTp().equals(0)) {
+                // Полыс (ЧГК)
+                cntLoaded = parseLineFormat0(cityName, setExt, mapHouse, cntLoaded, s, kartExtInfo);
+            } else if (org.getExtLskFormatTp().equals(1)) {
+                // Кис (ФКП)
+                cntLoaded = parseLineFormat1(cityName, setExt, mapHouse, cntLoaded, s, kartExtInfo);
+            } else {
+                throw new WrongParam("Некорректный формат загрузочного файла ORG.EXT_LSK_FORMAT_TP=" + org.getExtLskFormatTp() +
+                        " по T_ORG.ID=" + org.getId());
             }
         }
         scanner.close();
         log.info("Окончание загрузки файла внешних лиц.счетов fileName={}, загружено {} строк", fileName, cntLoaded);
         return cntLoaded;
     }
+
+    /**
+     * Парсер строки по формату Полыс (ЧГК)
+     *
+     * @param cityName    наименование города
+     * @param setExt      уже обработанные внешние лиц.сч.
+     * @param mapHouse    GUID-ы домов (ФИАСы)
+     * @param cntLoaded   загружено записей
+     * @param s           обрабатываемая строка
+     * @param kartExtInfo результат
+     */
+    private int parseLineFormat0(String cityName, Set<String> setExt, Map<String, House> mapHouse,
+                                 int cntLoaded, String s, KartExtInfo kartExtInfo) {
+        int i = 0;
+        int j = 0;
+        boolean foundCity = false;
+        Scanner sc = new Scanner(s);
+        sc.useDelimiter(";");
+
+        while (sc.hasNext()) {
+            i++;
+            j++;
+            if (j > 100) {
+                j = 1;
+                log.info("Обработано {} записей", i);
+            }
+            String elem = sc.next();
+            log.info("elem={}", elem);
+
+            if (i == 1) {
+                // внешний лиц.счет
+                kartExtInfo.extLsk = elem;
+            } else if (i == 2) {
+                // GUID дома
+                //log.info("GUID={}", elem);
+                kartExtInfo.guid = elem;
+                getAddressElemByIdx(elem, ",", 4).ifPresent(t -> kartExtInfo.kw = t);
+            } else if (i == 3) {
+                // ФИО
+                kartExtInfo.fio = elem;
+            } else if (i == 4) {
+                // город
+                Optional<String> city = getAddressElemByIdx(elem, ",", 0);
+                // проверить найден ли нужный город
+                if (city.isPresent() && city.get().equals(cityName)) {
+                    foundCity = true;
+                    kartExtInfo.house = mapHouse.get(kartExtInfo.guid);
+                    if (kartExtInfo.house == null) {
+                        log.error("Не найден дом по guid={}", kartExtInfo.guid);
+                    }
+                } else {
+                    if (!city.isPresent()) {
+                        log.error("Наименование города {} не получено из строки файла", cityName);
+                    }
+                }
+                if (!foundCity) {
+                    break;
+                }
+                kartExtInfo.address = elem;
+                // № помещения
+                getAddressElemByIdx(elem, ",", 4).ifPresent(t -> kartExtInfo.kw = t);
+            } else if (i == 5) {
+                // код услуги
+                kartExtInfo.code = Integer.parseInt(elem);
+            } else if (i == 6) {
+                // наименование услуги
+                kartExtInfo.nm = elem;
+            } else if (i == 7) {
+                // период оплаты (задолженности)
+                kartExtInfo.periodDeb = elem;
+            } else if (i == 8) {
+                // сумма задолженности
+                if (elem != null && elem.length() > 0) {
+                    kartExtInfo.summa = new BigDecimal(elem);
+                }
+            }
+
+        }
+        if (foundCity) {
+            cntLoaded++;
+            createLoadKartExt(kartExtInfo, setExt);
+        }
+        return cntLoaded;
+    }
+
+    /**
+     * Парсер строки по формату Кис (ФКП)
+     *
+     * @param cityName    наименование города
+     * @param setExt      уже обработанные внешние лиц.сч.
+     * @param mapHouse    GUID-ы домов (ФИАСы)
+     * @param cntLoaded   загружено записей
+     * @param s           обрабатываемая строка
+     * @param kartExtInfo результат
+     */
+    private int parseLineFormat1(String cityName, Set<String> setExt, Map<String, House> mapHouse,
+                                 int cntLoaded, String s, KartExtInfo kartExtInfo) {
+        int i = 0;
+        int j = 0;
+        boolean foundCity = false;
+        Scanner sc = new Scanner(s);
+        sc.useDelimiter("\\|");
+
+        while (sc.hasNext()) {
+            i++;
+            j++;
+            if (j > 100) {
+                j = 1;
+                log.info("Обработано {} записей", i);
+            }
+            String elem = sc.next();
+            log.info("elem={}", elem);
+
+            if (i == 1) {
+                // внешний лиц.счет
+                kartExtInfo.extLsk = elem;
+            } else if (i == 2) {
+                // резервное поле
+            } else if (i == 3) {
+                // GUID дома, № помещения
+                Optional<String> guidOpt = getAddressElemByIdx(elem, ",", 0);
+                guidOpt.ifPresent(t -> kartExtInfo.guid = t);
+                Optional<String> kwNumOpt = getAddressElemByIdx(elem, ",", 1);
+                kwNumOpt.ifPresent(t -> kartExtInfo.kw = t);
+            } else if (i == 4) {
+                // ФИО
+                kartExtInfo.fio = elem;
+            } else if (i == 5) {
+                // город
+                Optional<String> city = getAddressElemByIdx(elem, ",", 0);
+                // проверить найден ли нужный город
+                if (city.isPresent() && city.get().equals(cityName)) {
+                    foundCity = true;
+                    kartExtInfo.house = mapHouse.get(kartExtInfo.guid);
+                    if (kartExtInfo.house == null) {
+                        log.error("Не найден дом по guid={}", kartExtInfo.guid);
+                    }
+                } else {
+                    if (!city.isPresent()) {
+                        log.error("Наименование города {} не получено из строки файла", cityName);
+                    }
+                }
+                if (!foundCity) {
+                    break;
+                }
+                kartExtInfo.address = elem;
+            } else if (i == 6) {
+                // расчетный счет ФКП
+                //kartExtInfo.code = Integer.parseInt(elem);
+            } else if (i == 7) {
+                // наименование услуги
+                kartExtInfo.nm = elem;
+            } else if (i == 8) {
+                // период оплаты (задолженности) в формате ММГГГГ
+                kartExtInfo.periodDeb = elem;
+            } else if (i == 9) {
+                // резервное поле
+            } else if (i == 10) {
+                // входящий остаток
+                if (elem != null && elem.length() > 0) {
+                    kartExtInfo.insal = new BigDecimal(elem);
+                }
+            } else if (i == 11) {
+                // начислено
+                if (elem != null && elem.length() > 0) {
+                    kartExtInfo.chrg = new BigDecimal(elem);
+                }
+            } else if (i == 12) {
+                // оплачено
+                if (elem != null && elem.length() > 0) {
+                    kartExtInfo.payment = new BigDecimal(elem);
+                }
+            } else if (i == 13) {
+                // исходящий остаток (сумма к оплате)
+                if (elem != null && elem.length() > 0) {
+                    kartExtInfo.summa = new BigDecimal(elem);
+                }
+            }
+
+        }
+        if (foundCity) {
+            cntLoaded++;
+            createLoadKartExt(kartExtInfo, setExt);
+        }
+        return cntLoaded;
+    }
+
 
     /**
      * Выгрузить файл платежей по внешними лиц.счетами
@@ -422,11 +565,11 @@ public class RegistryMngImpl implements RegistryMng {
         if (payment.size() > 0) {
             try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("windows-1251"))) {
                 for (KartExtPaymentRec rec : payment) {
-                writer.write(Utl.getStrFromDate(rec.getDt(), "ddMMyyyy") + ";" +
-                        rec.getExtLsk() + ";1;" + rec.getSumma().toString() + ";" +
-                        rec.getId() + "\r\n");
-                amount = amount.add(rec.getSumma());
-                cntLoaded++;
+                    writer.write(Utl.getStrFromDate(rec.getDt(), "ddMMyyyy") + ";" +
+                            rec.getExtLsk() + ";1;" + rec.getSumma().toString() + ";" +
+                            rec.getId() + "\r\n");
+                    amount = amount.add(rec.getSumma());
+                    cntLoaded++;
                 }
                 writer.write("=;" + cntLoaded + ";" + amount.toString());
             }

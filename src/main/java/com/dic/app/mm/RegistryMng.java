@@ -1,5 +1,8 @@
 package com.dic.app.mm;
 
+import com.dic.bill.model.scott.Org;
+import com.ric.cmn.excp.WrongParam;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Date;
@@ -7,7 +10,7 @@ import java.util.Date;
 public interface RegistryMng {
 
     void genDebitForSberbank();
-    int loadFileKartExt(String cityName, String reu, String uslId, String lskTp, String fileName) throws FileNotFoundException;
+    int loadFileKartExt(Org org, String fileName) throws FileNotFoundException, WrongParam;
 
     int unloadPaymentFileKartExt(String filePath, String codeUk, Date genDt1, Date genDt2) throws IOException;
 
