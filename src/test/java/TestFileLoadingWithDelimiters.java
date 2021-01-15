@@ -62,7 +62,7 @@ public class TestFileLoadingWithDelimiters {
     public void fileLoadKartExt() throws FileNotFoundException, WrongParam {
         // загрузить файл во временную таблицу LOAD_KART_EXT
         Org org = orgDAO.getByReu("001");
-        registryMng.loadFileKartExt(org, "d:\\temp\\#46\\1.txt");
+        registryMng.loadFileKartExt(org, "d:\\temp\\#1\\Кап\\0204DBSS001012021.txt");
         // загрузить успешно обработанные лиц.счета в таблицу внешних лиц.счетов
         registryMng.loadApprovedKartExt();
     }

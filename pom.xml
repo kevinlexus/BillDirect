@@ -39,11 +39,18 @@
             <version>0.9.13</version>
         </dependency>
 
+        <!-- BillCommon -->
+        <dependency>
+            <groupId>com.ric.cmn</groupId>
+            <artifactId>BillCommon</artifactId>
+            <version>0.0.5</version>
+        </dependency>
+
         <!-- DWC -->
         <dependency>
             <groupId>com.dic.bill</groupId>
             <artifactId>DWC</artifactId>
-            <version>0.0.6</version>
+            <version>0.0.7</version>
         </dependency>
 
         <dependency>
