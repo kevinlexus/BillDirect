@@ -1,27 +1,15 @@
 import com.dic.app.Config;
 import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.ConfigApp;
-import com.dic.app.mm.DistPayMng;
 import com.dic.app.mm.GenPenProcessMng;
-import com.dic.app.mm.impl.DebitThrMngImpl;
 import com.dic.bill.dao.AchargeDAO;
 import com.dic.bill.dao.PenCurDAO;
 import com.dic.bill.dao.RedirPayDAO;
-import com.dic.bill.dao.SaldoUslDAO;
-import com.dic.bill.dto.CalcStore;
-import com.dic.bill.dto.SumUslOrgDTO;
-import com.dic.bill.dto.SumUslOrgRec;
-import com.dic.bill.mm.SaldoMng;
 import com.dic.bill.mm.TestDataBuilder;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
 import com.ric.cmn.excp.ErrorWhileChrgPen;
-import com.ric.cmn.excp.ErrorWhileDistPay;
-import com.ric.cmn.excp.WrongParam;
-import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.assertj.core.util.Preconditions;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,10 +23,11 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
+import javax.persistence.ParameterMode;
 import javax.persistence.PersistenceContext;
+import javax.persistence.StoredProcedureQuery;
 import java.math.BigDecimal;
 import java.text.ParseException;
-import java.util.*;
 
 /**
  * Тесты формирования задолженности и пени
@@ -67,6 +56,59 @@ public class TestGenPenProcessMng {
 
     @PersistenceContext
     private EntityManager em;
+
+    @Test
+    @Rollback(false)
+    @Transactional
+    public void testCreateKart() {
+        String[] parts = "Петров Виктор Сергеевич".split(" ");
+        String fam = null;
+        String im = null;
+        String ot = null;
+        int i=0;
+        for (String part : parts) {
+            if (i==0){
+                fam = part;
+            } else if (i==1) {
+                im = part;
+            } else if (i==2) {
+                ot = part;
+            }
+            i++;
+        }
+
+        log.info("fam={}, im={}, ot={}", fam, im, ot);
+
+        StoredProcedureQuery qr;
+        qr = em.createStoredProcedureQuery("scott.p_houses.kart_lsk_add");
+        qr.registerStoredProcedureParameter("p_lsk_tp", String.class, ParameterMode.IN);
+        qr.registerStoredProcedureParameter("p_lsk_new", String.class, ParameterMode.INOUT);
+        qr.registerStoredProcedureParameter("p_var", Integer.class, ParameterMode.IN);
+        qr.registerStoredProcedureParameter("p_kw", String.class, ParameterMode.IN);
+        qr.registerStoredProcedureParameter("p_reu", String.class, ParameterMode.IN);
+        qr.registerStoredProcedureParameter("p_house", Integer.class, ParameterMode.IN);
+        qr.registerStoredProcedureParameter("p_result", Integer.class, ParameterMode.IN);
+        qr.registerStoredProcedureParameter("p_klsk_dst", Integer.class, ParameterMode.IN);
+        qr.registerStoredProcedureParameter("p_klsk_premise_dst", Integer.class, ParameterMode.IN);
+        qr.registerStoredProcedureParameter("p_fam", String.class, ParameterMode.IN);
+        qr.registerStoredProcedureParameter("p_im", String.class, ParameterMode.IN);
+        qr.registerStoredProcedureParameter("p_ot", String.class, ParameterMode.IN);
+        qr.setParameter("p_lsk_tp", "LSK_TP_MAIN");
+        qr.setParameter("p_var", 3);
+        qr.setParameter("p_kw", "115");
+        qr.setParameter("p_reu", "001");
+        qr.setParameter("p_house", 6091);
+        qr.setParameter("p_klsk_dst", 104876);
+        qr.setParameter("p_klsk_premise_dst", 187);
+        qr.setParameter("p_fam", fam);
+        qr.setParameter("p_im", im);
+        qr.setParameter("p_ot", ot);
+        String lsk = qr.getOutputParameterValue("p_lsk_new").toString();
+        log.info("Новый лиц.счет={}", lsk);
+
+        Kart kart = em.find(Kart.class, lsk);
+        log.info("check kart.lsk={}", kart.getLsk());
+    }
 
     @Test
     @Rollback(true)

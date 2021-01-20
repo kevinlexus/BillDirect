@@ -3,6 +3,7 @@ import com.dic.app.mm.RegistryMng;
 import com.dic.bill.dao.OrgDAO;
 import com.dic.bill.model.scott.Org;
 import com.ric.cmn.Utl;
+import com.ric.cmn.excp.ErrorWhileLoad;
 import com.ric.cmn.excp.WrongParam;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
@@ -59,12 +60,12 @@ public class TestFileLoadingWithDelimiters {
      */
     @Test
     @Rollback(false)
-    public void fileLoadKartExt() throws FileNotFoundException, WrongParam {
+    public void fileLoadKartExt() throws FileNotFoundException, WrongParam, ErrorWhileLoad {
         // загрузить файл во временную таблицу LOAD_KART_EXT
         Org org = orgDAO.getByReu("001");
         registryMng.loadFileKartExt(org, "d:\\temp\\#1\\Кап\\0204DBSS001012021.txt");
         // загрузить успешно обработанные лиц.счета в таблицу внешних лиц.счетов
-        registryMng.loadApprovedKartExt();
+        registryMng.loadApprovedKartExt(org);
     }
 
     /**

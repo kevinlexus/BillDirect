@@ -487,13 +487,7 @@ public class WebController implements CommonConstants {
                 for (Org org : lstOrg) {
                     cntLoaded = registryMng.loadFileKartExt(org,
                             "c:\\temp\\" + fileName);
-/*
-                    cntLoaded = registryMng.loadFileKartExt("г Полысаево", org.getReu(),
-                            "107", // услуга Вывоз ТКО и утил.
-                            org.isRSO() ? "LSK_TP_RSO" : "LSK_TP_MAIN", org.getIsCretateExtLskInKart(),
-                            "c:\\temp\\" + fileName);
-*/
-                    break;
+                    break;// note делается пока по 1 орг
                 }
             } catch (Exception e) {
                 config.getLock().unlockProc(1, "loadFileKartExt");
@@ -614,8 +608,13 @@ public class WebController implements CommonConstants {
 
     @RequestMapping(value = "/loadApprovedKartExt", method = RequestMethod.GET)
     @ResponseBody
-    public String loadApprovedKartExt() {
-        registryMng.loadApprovedKartExt();
+    public String loadApprovedKartExt() throws WrongParam {
+        List<Org> lstOrg = orgDAO.findByIsExchangeExt(true);
+        for (Org org : lstOrg) {
+            registryMng.loadApprovedKartExt(org);
+            break;// note делается пока по 1 орг
+        }
+
         return "OK";
     }
 

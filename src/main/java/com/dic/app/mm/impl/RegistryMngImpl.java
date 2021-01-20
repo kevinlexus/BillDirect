@@ -47,6 +47,10 @@ public class RegistryMngImpl implements RegistryMng {
     private final int EXT_LSK_EXIST_BUT_CLOSED = 3; // внешний лиц.сч. существует, но закрыт
     private final int EXT_LSK_EXIST_BUT_KART_CLOSED = 4; // внешний лиц.сч. существует, но закрыт его соответствие в Kart
     private final int EXT_LSK_PREMISE_NOT_EXISTS = 5; // не найдено помещение по адресу, будет создано новое
+    private final int EXT_LSK_NOT_EXISTS = 6; // не найден внешний лиц.сч., будет создан
+    private final int FOUND_MANY_ACTUAL_KO_KW = 7; // найдено более одного открытого фин.лиц.счета, необходимо привязать вручную
+    private final int NOT_FOUND_ACTUAL_KO_KW = 8; // не найдено ни одного открытого фин.лиц.счета, необходимо привязать вручную
+    private final int EXT_LSK_BIND_BY_KO_KW = 9; // будет привязано к фин.лиц.сч.
 
     @PersistenceContext
     private EntityManager em;
@@ -308,7 +312,7 @@ public class RegistryMngImpl implements RegistryMng {
      * @return - кол-во успешно обработанных записей
      */
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int loadFileKartExt(Org org, String fileName) throws FileNotFoundException, WrongParam, ErrorWhileLoad {
         log.info("Начало загрузки файла внешних лиц.счетов fileName={}", fileName);
         String cityName;
@@ -477,7 +481,7 @@ public class RegistryMngImpl implements RegistryMng {
                 log.info("Обработано {} записей", i);
             }
             String elem = sc.next();
-            log.info("elem={}", elem);
+            //log.info("elem={}", elem);
 
             if (i == 1) {
                 // внешний лиц.счет
@@ -712,21 +716,129 @@ public class RegistryMngImpl implements RegistryMng {
 
     /**
      * Загрузить успешно обработанные лиц.счета в таблицу внешних лиц.счетов
+     *
+     * @param org реестр от организации
      */
     @Override
-    @Transactional
-    public void loadApprovedKartExt() {
-        List<LoadKartExt> lst = loadKartExtDAO.findApprovedForLoad();
-        for (LoadKartExt loadKartExt : lst) {
+    @Transactional(rollbackFor = Exception.class)
+    public void loadApprovedKartExt(Org org) throws WrongParam {
+        if (org.getExtLskFormatTp().equals(0)) {
+            // Полыс (ЧГК)
+            List<LoadKartExt> lst = loadKartExtDAO.findApprovedForLoadFormat0();
+            for (LoadKartExt loadKartExt : lst) {
+                KartExt kartExt = KartExt.KartExtBuilder.aKartExt()
+                        .withExtLsk(loadKartExt.getExtLsk())
+                        .withKart(loadKartExt.getKart())
+                        .withKoKw(loadKartExt.getKoKw())
+                        .withKoPremise(loadKartExt.getKoPremise())
+                        .withFio(loadKartExt.getFio())
+                        .withV(1)
+                        .build();
+                kartExtDAO.save(kartExt);
+            }
+        } else if (org.getExtLskFormatTp().equals(1)) {
+            // Кис (ФКП)
+            List<LoadKartExt> lst = loadKartExtDAO.findApprovedForLoadFormat1();
+            for (LoadKartExt loadKartExt : lst) {
+                switch (loadKartExt.getStatus()) {
+                    case EXT_LSK_EXIST: {
+                        Optional<KartExt> kartExtOpt = kartExtDAO.findByExtLsk(loadKartExt.getExtLsk());
+                        kartExtOpt.ifPresent(t -> {
+                            t.setInsal(loadKartExt.getInsal());
+                            t.setChrg(loadKartExt.getChrg());
+                            t.setPayment(loadKartExt.getPayment());
+                            t.setOutsal(loadKartExt.getSumma());
+                        });
+                        break;
+                    }
+                    case EXT_LSK_PREMISE_NOT_EXISTS: {
+                        // создать помещение и лиц.счет
+                        String lsk;
+                        Optional<House> houseOpt = houseDAO.findByGuid(loadKartExt.getGuid());
+                        if (houseOpt.isPresent()) {
+                            String fam = null;
+                            String im = null;
+                            String ot = null;
+                            // используется ФИО, так как это впервые создаваемый лс по данному помещению
+                            // разбить ФИО на части
+                            if (loadKartExt.getFio() != null) {
+                                String[] parts = loadKartExt.getFio().split(" ");
+                                int i=0;
+                                for (String part : parts) {
+                                    if (i==0){
+                                        fam = part;
+                                    } else if (i==1) {
+                                        im = part;
+                                    } else if (i==2) {
+                                        ot = part;
+                                    }
+                                    i++;
+                                }
+                            }
+                            lsk = kartMng.createKart("LSK_TP_RSO", org.getReu(), loadKartExt.getKw(),
+                                    houseOpt.get().getId(), null, null, fam, im, ot);
+                        } else {
+                            throw new WrongParam("Не найден дом по LOAD_KART_EXT.GUID="+loadKartExt.getGuid()+
+                                    ", для загрузки внешнего лиц.счета по LOAD_KART_EXT.ID=" + loadKartExt.getId());
+                        }
+
+                        // создать внешний лиц.счет
+                        createExtKart(loadKartExt, lsk);
+
+                        break;
+                    }
+                    case EXT_LSK_NOT_EXISTS: {
+                        // создать соотв. лиц.счет в Kart
+                        String lsk = kartMng.createKart("LSK_TP_RSO", org.getReu(), null,
+                                null, loadKartExt.getKoKw().getId(),
+                                loadKartExt.getKoPremise().getId(),
+                                null, null, null);
+
+                        // создать внешний лиц.счет
+                        createExtKart(loadKartExt, lsk);
+
+                        break;
+                    }
+                    case EXT_LSK_EXIST_BUT_CLOSED: {
+                        break;
+
+                    }
+                    default: {
+                        //throw new WrongParam("Необрабатываемый статус " +
+                        //        "LOAD_KART_EXT.STATUS="+loadKartExt.getStatus());
+                    }
+                }
+
+            }
+
+        } else {
+            throw new WrongParam("Некорректный тип формата загрузочного файла ORG.EXT_LSK_FORMAT_TP=" + org.getExtLskFormatTp() +
+                    " по T_ORG.ID=" + org.getId());
+        }
+    }
+
+    // создать внешний лиц.счет
+    private void createExtKart(LoadKartExt loadKartExt, String lsk) throws WrongParam {
+        log.info("********** check ={}", lsk);
+        Kart kkk = em.find(Kart.class, lsk);
+        log.info("********** check2 ={}", kkk.getLsk());
+
+        Optional<Kart> kartOpt = kartDAO.findById(lsk);
+
+        if (kartOpt.isPresent()) {
             KartExt kartExt = KartExt.KartExtBuilder.aKartExt()
                     .withExtLsk(loadKartExt.getExtLsk())
-                    .withKart(loadKartExt.getKart())
-                    .withKoKw(loadKartExt.getKoKw())
-                    .withKoPremise(loadKartExt.getKoPremise())
+                    .withKart(kartOpt.get())
                     .withFio(loadKartExt.getFio())
                     .withV(1)
+                    .withInsal(loadKartExt.getInsal())
+                    .withChrg(loadKartExt.getChrg())
+                    .withPayment(loadKartExt.getPayment())
+                    .withOutsal(loadKartExt.getSumma())
                     .build();
             kartExtDAO.save(kartExt);
+        } else {
+            throw new WrongParam("Не найден созданный KART по лиц счету lsk=" + lsk);
         }
     }
 
@@ -878,54 +990,38 @@ public class RegistryMngImpl implements RegistryMng {
                         throw new ErrorWhileLoad("Ошибка загрузки! У внешнего лиц счета=" + kartExt.getExtLsk()
                                 + " не указан соответствующий счет в Kart");
                     }
-
                 } else {
                     // внешний лиц.счет еще не создан
                     // найти фин.лиц.счет по адресу
-                    lstKart = kartDAO.findByReuHouseIdTpKw(kartExtInfo.house.getId(), strKw);
-                    if (lstKart.size() == 0){
-                        comm = "Не найдено помещение по адресу, будет создано новое и новый внешний лиц.счет";
+                    lstKart = kartDAO.findByHouseIdKw(kartExtInfo.house.getId(), strKw);
+                    if (lstKart.size() == 0) {
+                        comm = "Будет создано новое помещение и внешний лиц.счет";
                         status = EXT_LSK_PREMISE_NOT_EXISTS;
-                    } else {
+                    } else if (lstKart.size() == 1) {
                         kart = lstKart.get(0);
-
                         comm = "Будет создан новый внешний лиц.счет";
-                        status = EXT_LSK_PREMISE_NOT_EXISTS;
-                    }
-
-                    // поиск по kart.reu
-                    /*if (lstKart.size() == 0) {
-                        // поиск по nabor.usl, если не найдено по kart.reu
-                        log.info("поиск по nabor.usl: lskTp={}, uslId={}, houseId={}, strKw={}",
-                                kartExtInfo.lskTp, kartExtInfo.uslId, kartExtInfo.house.getId(), strKw);
-                        lstKart = kartDAO.findActualByUslHouseIdTpKw(
-                                kartExtInfo.lskTp, kartExtInfo.uslId, kartExtInfo.house.getId(), strKw);
-                    }
-
-                    if (lstKart.size() == 1) {
-                        kart = lstKart.get(0);
-                    } else if (lstKart.size() > 1) {
-                        // могут быть два и больше открытых лиц.счета - поделены судом,
-                        // в таком случае пользователь сам редактирует поле фин.лиц.счета и делает статус = 0
-                        comm = "Присутствуют более одного открытого лиц.сч. по данному адресу, " +
-                                "необходимо определить K_LSK_ID вручную и поставить статус=0";
-                        log.warn("более одного лс:");
-                        lstKart.forEach(t -> log.info(t.getLsk()));
-                        log.warn("----------------");
-
-                        status = 4;
+                        status = EXT_LSK_NOT_EXISTS;
                     } else {
-                        comm = "Не найдено помещение с номером=" + strKw;
-                        status = 2;
+                        long countKoKw = lstKart.stream().filter(Kart::isActual)
+                                .map(Kart::getKoKw).distinct().count();
+                        if (countKoKw > 1) {
+                            comm = "Найдено более одного открытого фин.лиц.счета, необходимо привязать вручную";
+                            status = FOUND_MANY_ACTUAL_KO_KW;
+                        } else if (countKoKw == 0) {
+                            comm = "Не найдено ни одного открытого фин.лиц.счета, необходимо привязать вручную";
+                            status = NOT_FOUND_ACTUAL_KO_KW;
+                        } else {
+                            // привязать к первому открытому
+                            for (Kart k : lstKart) {
+                                if (k.isActual()) {
+                                    comm = "Будет привязано к фин.лиц.сч.";
+                                    status = EXT_LSK_BIND_BY_KO_KW;
+                                    kart = k;
+                                    break;
+                                }
+                            }
+                        }
                     }
-
-                    // проверка на существование внешнего лиц.счета по данному адресу
-                    List<KartExt> lstKartExt = kartExtDAO.getKartExtByHouseIdAndKw(kartExtInfo.house.getId(), strKw);
-                    if (lstKartExt.size() > 0) {
-                        comm = "Внешний лиц.счет по данному адресу уже существует (" +
-                                lstKartExt.get(0).getExtLsk() + "), возможно его необходимо закрыть?";
-                        status = 2;
-                    } */
                 }
             } else {
                 comm = "Не найден дом с данным GUID в C_HOUSES!";
@@ -942,6 +1038,7 @@ public class RegistryMngImpl implements RegistryMng {
                         .withGuid(kartExtInfo.guid)
                         .withFio(kartExtInfo.fio)
                         .withNm(kartExtInfo.nm)
+                        .withKw(kartExtInfo.kw)
                         .withInsal(kartExtInfo.insal) // вх.остаток
                         .withChrg(kartExtInfo.chrg)   // начисление
                         .withPayment(kartExtInfo.payment) // оплата

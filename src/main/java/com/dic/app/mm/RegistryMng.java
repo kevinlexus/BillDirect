@@ -18,5 +18,5 @@ public interface RegistryMng {
     int loadFileMeterVal(String fileName, String codePage, boolean isSetPreviosVal) throws FileNotFoundException;
     int unloadFileMeterVal(String fileName, String codePage, String strUk) throws IOException;
 
-    void loadApprovedKartExt();
+    void loadApprovedKartExt(Org org) throws WrongParam;
 }
