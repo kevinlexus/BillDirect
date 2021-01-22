@@ -7,6 +7,7 @@ import com.dic.bill.dto.KartExtPaymentRec;
 import com.dic.bill.mm.EolinkMng;
 import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.MeterMng;
+import com.dic.bill.mm.NaborMng;
 import com.dic.bill.mm.impl.EolinkMngImpl;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.Utl;
@@ -60,6 +61,7 @@ public class RegistryMngImpl implements RegistryMng {
     private final EolinkMng eolinkMng;
     private final KartMng kartMng;
     private final MeterMng meterMng;
+    private final NaborMng naborMng;
     private final KartDAO kartDAO;
     private final ConfigApp configApp;
     private final LoadKartExtDAO loadKartExtDAO;
@@ -70,7 +72,7 @@ public class RegistryMngImpl implements RegistryMng {
 
     public RegistryMngImpl(EntityManager em,
                            PenyaDAO penyaDAO, MeterDAO meterDAO, OrgDAO orgDAO, EolinkMng eolinkMng,
-                           KartMng kartMng, MeterMng meterMng, KartDAO kartDAO, ConfigApp configApp,
+                           KartMng kartMng, MeterMng meterMng, NaborMng naborMng, KartDAO kartDAO, ConfigApp configApp,
                            LoadKartExtDAO loadKartExtDAO, KartExtDAO kartExtDAO, KwtpDAO kwtpDAO,
                            AkwtpDAO akwtpDAO, HouseDAO houseDAO) {
         this.em = em;
@@ -80,6 +82,7 @@ public class RegistryMngImpl implements RegistryMng {
         this.eolinkMng = eolinkMng;
         this.kartMng = kartMng;
         this.meterMng = meterMng;
+        this.naborMng = naborMng;
         this.kartDAO = kartDAO;
         this.configApp = configApp;
         this.loadKartExtDAO = loadKartExtDAO;
@@ -726,15 +729,8 @@ public class RegistryMngImpl implements RegistryMng {
             // Полыс (ЧГК)
             List<LoadKartExt> lst = loadKartExtDAO.findApprovedForLoadFormat0();
             for (LoadKartExt loadKartExt : lst) {
-                KartExt kartExt = KartExt.KartExtBuilder.aKartExt()
-                        .withExtLsk(loadKartExt.getExtLsk())
-                        .withKart(loadKartExt.getKart())
-                        .withKoKw(loadKartExt.getKoKw())
-                        .withKoPremise(loadKartExt.getKoPremise())
-                        .withFio(loadKartExt.getFio())
-                        .withV(1)
-                        .build();
-                kartExtDAO.save(kartExt);
+                // создать внешний лиц.счет
+                createExtKart(org, loadKartExt);
             }
         } else if (org.getExtLskFormatTp().equals(1)) {
             // Кис (ФКП)
@@ -748,12 +744,28 @@ public class RegistryMngImpl implements RegistryMng {
                             t.setChrg(loadKartExt.getChrg());
                             t.setPayment(loadKartExt.getPayment());
                             t.setOutsal(loadKartExt.getSumma());
+                            // проверить наличие услуги в наборе
+                            Kart kart = t.getKart();
+                            Optional<Nabor> naborOpt = kart.getNabor().stream()
+                                    .filter(f -> f.getUsl().equals(org.getUslForCreateExtLskKart())).findFirst();
+                            if (naborOpt.isPresent()) {
+                                // проверить корректность параметров услуги
+                                Nabor nabor = naborOpt.get();
+                                nabor.setOrg(org);
+                                nabor.setKoeff(BigDecimal.valueOf(1));
+                                nabor.setNorm(BigDecimal.valueOf(1));
+                            } else {
+                                Nabor nabor = naborMng.createNabor(org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
+                                        BigDecimal.valueOf(1), null, null, null);
+                                kart.getNabor().add(nabor);
+                            }
+
                         });
                         break;
                     }
                     case EXT_LSK_PREMISE_NOT_EXISTS: {
                         // создать помещение и лиц.счет
-                        String lsk;
+                        Kart kart;
                         Optional<House> houseOpt = houseDAO.findByGuid(loadKartExt.getGuid());
                         if (houseOpt.isPresent()) {
                             String fam = null;
@@ -763,43 +775,47 @@ public class RegistryMngImpl implements RegistryMng {
                             // разбить ФИО на части
                             if (loadKartExt.getFio() != null) {
                                 String[] parts = loadKartExt.getFio().split(" ");
-                                int i=0;
+                                int i = 0;
                                 for (String part : parts) {
-                                    if (i==0){
+                                    if (i == 0) {
                                         fam = part;
-                                    } else if (i==1) {
+                                    } else if (i == 1) {
                                         im = part;
-                                    } else if (i==2) {
+                                    } else if (i == 2) {
                                         ot = part;
                                     }
                                     i++;
                                 }
                             }
-                            lsk = kartMng.createKart("LSK_TP_RSO", org.getReu(), loadKartExt.getKw(),
+                            kart = kartMng.createKart(null, 3, "LSK_TP_RSO", org.getReu(), loadKartExt.getKw(),
                                     houseOpt.get().getId(), null, null, fam, im, ot);
+                            Nabor nabor = naborMng.createNabor(org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
+                                    BigDecimal.valueOf(1), null, null, null);
+                            kart.getNabor().add(nabor);
                         } else {
-                            throw new WrongParam("Не найден дом по LOAD_KART_EXT.GUID="+loadKartExt.getGuid()+
+                            throw new WrongParam("Не найден дом по LOAD_KART_EXT.GUID=" + loadKartExt.getGuid() +
                                     ", для загрузки внешнего лиц.счета по LOAD_KART_EXT.ID=" + loadKartExt.getId());
                         }
 
                         // создать внешний лиц.счет
-                        createExtKart(loadKartExt, lsk);
-
+                        createExtKartExtended(org, loadKartExt, kart);
                         break;
                     }
                     case EXT_LSK_NOT_EXISTS: {
                         // создать соотв. лиц.счет в Kart
-                        String lsk = kartMng.createKart("LSK_TP_RSO", org.getReu(), null,
-                                null, loadKartExt.getKoKw().getId(),
-                                loadKartExt.getKoPremise().getId(),
+                        Kart kart = kartMng.createKart(loadKartExt.getKart().getLsk(), 0,
+                                "LSK_TP_RSO", org.getReu(), null, null, null, null,
                                 null, null, null);
+                        Nabor nabor = naborMng.createNabor(org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
+                                BigDecimal.valueOf(1), null, null, null);
+                        kart.getNabor().add(nabor);
 
                         // создать внешний лиц.счет
-                        createExtKart(loadKartExt, lsk);
+                        createExtKartExtended(org, loadKartExt, kart);
 
                         break;
                     }
-                    case EXT_LSK_EXIST_BUT_CLOSED: {
+                    case EXT_LSK_EXIST_BUT_CLOSED: { //todo
                         break;
 
                     }
@@ -818,28 +834,33 @@ public class RegistryMngImpl implements RegistryMng {
     }
 
     // создать внешний лиц.счет
-    private void createExtKart(LoadKartExt loadKartExt, String lsk) throws WrongParam {
-        log.info("********** check ={}", lsk);
-        Kart kkk = em.find(Kart.class, lsk);
-        log.info("********** check2 ={}", kkk.getLsk());
+    private void createExtKart(Org uk, LoadKartExt loadKartExt) {
+        KartExt kartExt = KartExt.KartExtBuilder.aKartExt()
+                .withExtLsk(loadKartExt.getExtLsk())
+                .withKart(loadKartExt.getKart())
+                .withKoKw(loadKartExt.getKoKw())
+                .withKoPremise(loadKartExt.getKoPremise())
+                .withFio(loadKartExt.getFio())
+                .withUk(uk)
+                .withV(1)
+                .build();
+        kartExtDAO.save(kartExt);
+    }
 
-        Optional<Kart> kartOpt = kartDAO.findById(lsk);
-
-        if (kartOpt.isPresent()) {
-            KartExt kartExt = KartExt.KartExtBuilder.aKartExt()
-                    .withExtLsk(loadKartExt.getExtLsk())
-                    .withKart(kartOpt.get())
-                    .withFio(loadKartExt.getFio())
-                    .withV(1)
-                    .withInsal(loadKartExt.getInsal())
-                    .withChrg(loadKartExt.getChrg())
-                    .withPayment(loadKartExt.getPayment())
-                    .withOutsal(loadKartExt.getSumma())
-                    .build();
-            kartExtDAO.save(kartExt);
-        } else {
-            throw new WrongParam("Не найден созданный KART по лиц счету lsk=" + lsk);
-        }
+    // создать внешний лиц.счет
+    private void createExtKartExtended(Org uk, LoadKartExt loadKartExt, Kart kart) throws WrongParam {
+        KartExt kartExt = KartExt.KartExtBuilder.aKartExt()
+                .withExtLsk(loadKartExt.getExtLsk())
+                .withKart(kart)
+                .withFio(loadKartExt.getFio())
+                .withV(1)
+                .withInsal(loadKartExt.getInsal())
+                .withChrg(loadKartExt.getChrg())
+                .withPayment(loadKartExt.getPayment())
+                .withOutsal(loadKartExt.getSumma())
+                .withUk(uk)
+                .build();
+        kartExtDAO.save(kartExt);
     }
 
     /**
@@ -1005,10 +1026,10 @@ public class RegistryMngImpl implements RegistryMng {
                         long countKoKw = lstKart.stream().filter(Kart::isActual)
                                 .map(Kart::getKoKw).distinct().count();
                         if (countKoKw > 1) {
-                            comm = "Найдено более одного открытого фин.лиц.счета, необходимо привязать вручную";
+                            comm = "Найдено более одного открытого фин.лиц.счета, необходимо указать лиц.счет привязки";
                             status = FOUND_MANY_ACTUAL_KO_KW;
                         } else if (countKoKw == 0) {
-                            comm = "Не найдено ни одного открытого фин.лиц.счета, необходимо привязать вручную";
+                            comm = "Не найдено ни одного открытого фин.лиц.счета, необходимо указать лиц.счет привязки";
                             status = NOT_FOUND_ACTUAL_KO_KW;
                         } else {
                             // привязать к первому открытому
@@ -1047,8 +1068,9 @@ public class RegistryMngImpl implements RegistryMng {
                         .withStatus(status)
                         .build();
         if (kart != null) {
-            loadKartExt.setKoKw(kart.getKoKw());
-            loadKartExt.setKoPremise(kart.getKoPremise());
+            //loadKartExt.setKoKw(kart.getKoKw());
+            //loadKartExt.setKoPremise(kart.getKoPremise());
+            loadKartExt.setKart(kart);
         }
         loadKartExtDAO.save(loadKartExt);
     }

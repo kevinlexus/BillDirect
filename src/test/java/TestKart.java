@@ -30,6 +30,7 @@ import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.text.ParseException;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -292,7 +293,7 @@ public class TestKart {
         log.info("check1");
         Kart kart = em.find(Kart.class, "00000381");
         //Kart kart = kartDao.findByLsk("00000007");
-        //Optional<Kart> optKart = kartDao.findById("00000007");
+        Optional<Kart> optKart = kartDao.findById("00000007");
         //if (optKart.isPresent()) {
           //  Kart kart = optKart.get();
             //log.info(kart.getOwnerFIO());

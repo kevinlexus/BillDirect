@@ -58,7 +58,7 @@ public class TestGenPenProcessMng {
     private EntityManager em;
 
     @Test
-    @Rollback(false)
+    @Rollback(true)
     @Transactional
     public void testCreateKart() {
         String[] parts = "Петров Виктор Сергеевич".split(" ");
@@ -103,7 +103,8 @@ public class TestGenPenProcessMng {
         qr.setParameter("p_fam", fam);
         qr.setParameter("p_im", im);
         qr.setParameter("p_ot", ot);
-        String lsk = qr.getOutputParameterValue("p_lsk_new").toString();
+        String lsk = qr.getOutputParameterValue("p_lsk_new").toString().trim();
+        lsk = lsk.trim();
         log.info("Новый лиц.счет={}", lsk);
 
         Kart kart = em.find(Kart.class, lsk);
