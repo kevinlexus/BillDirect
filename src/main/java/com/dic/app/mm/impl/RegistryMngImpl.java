@@ -753,11 +753,10 @@ public class RegistryMngImpl implements RegistryMng {
                                 Nabor nabor = naborOpt.get();
                                 nabor.setOrg(org);
                                 nabor.setKoeff(BigDecimal.valueOf(1));
-                                nabor.setNorm(BigDecimal.valueOf(1));
+                                nabor.setNorm(null);
                             } else {
-                                Nabor nabor = naborMng.createNabor(org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
-                                        BigDecimal.valueOf(1), null, null, null);
-                                kart.getNabor().add(nabor);
+                                Nabor nabor = naborMng.createNabor(kart, org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
+                                        null, null, null, null);
                             }
 
                         });
@@ -789,9 +788,8 @@ public class RegistryMngImpl implements RegistryMng {
                             }
                             kart = kartMng.createKart(null, 3, "LSK_TP_RSO", org.getReu(), loadKartExt.getKw(),
                                     houseOpt.get().getId(), null, null, fam, im, ot);
-                            Nabor nabor = naborMng.createNabor(org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
-                                    BigDecimal.valueOf(1), null, null, null);
-                            kart.getNabor().add(nabor);
+                            Nabor nabor = naborMng.createNabor(kart, org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
+                                    null, null, null, null);
                         } else {
                             throw new WrongParam("Не найден дом по LOAD_KART_EXT.GUID=" + loadKartExt.getGuid() +
                                     ", для загрузки внешнего лиц.счета по LOAD_KART_EXT.ID=" + loadKartExt.getId());
@@ -806,9 +804,8 @@ public class RegistryMngImpl implements RegistryMng {
                         Kart kart = kartMng.createKart(loadKartExt.getKart().getLsk(), 0,
                                 "LSK_TP_RSO", org.getReu(), null, null, null, null,
                                 null, null, null);
-                        Nabor nabor = naborMng.createNabor(org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
+                        Nabor nabor = naborMng.createNabor(kart, org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
                                 BigDecimal.valueOf(1), null, null, null);
-                        kart.getNabor().add(nabor);
 
                         // создать внешний лиц.счет
                         createExtKartExtended(org, loadKartExt, kart);
