@@ -46,7 +46,7 @@ public class RegistryMngImpl implements RegistryMng {
     private final int EXT_LSK_NOT_USE = 1; // не обрабатывать (устанавливает пользователь)
     private final int EXT_LSK_DOUBLE = 2; // внешний лиц.сч. дублируется в файле
     private final int EXT_LSK_EXIST_BUT_CLOSED = 3; // внешний лиц.сч. существует, но закрыт
-    private final int EXT_LSK_EXIST_BUT_KART_CLOSED = 4; // внешний лиц.сч. существует, но закрыт его соответствие в Kart
+    private final int EXT_LSK_EXIST_BUT_KART_CLOSED = 4; // внешний лиц.сч. существует, но закрыто его соответствие в Kart
     private final int EXT_LSK_PREMISE_NOT_EXISTS = 5; // не найдено помещение по адресу, будет создано новое
     private final int EXT_LSK_NOT_EXISTS = 6; // не найден внешний лиц.сч., будет создан
     private final int FOUND_MANY_ACTUAL_KO_KW = 7; // найдено более одного открытого фин.лиц.счета, необходимо привязать вручную
@@ -749,13 +749,13 @@ public class RegistryMngImpl implements RegistryMng {
                             Optional<Nabor> naborOpt = kart.getNabor().stream()
                                     .filter(f -> f.getUsl().equals(org.getUslForCreateExtLskKart())).findFirst();
                             if (naborOpt.isPresent()) {
-                                // проверить корректность параметров услуги
+                                // установить корректные параметры услуги
                                 Nabor nabor = naborOpt.get();
                                 nabor.setOrg(org);
                                 nabor.setKoeff(BigDecimal.valueOf(1));
                                 nabor.setNorm(null);
                             } else {
-                                Nabor nabor = naborMng.createNabor(kart, org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
+                                naborMng.createNabor(kart, org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
                                         null, null, null, null);
                             }
 
@@ -788,7 +788,7 @@ public class RegistryMngImpl implements RegistryMng {
                             }
                             kart = kartMng.createKart(null, 3, "LSK_TP_RSO", org.getReu(), loadKartExt.getKw(),
                                     houseOpt.get().getId(), null, null, fam, im, ot);
-                            Nabor nabor = naborMng.createNabor(kart, org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
+                            naborMng.createNabor(kart, org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
                                     null, null, null, null);
                         } else {
                             throw new WrongParam("Не найден дом по LOAD_KART_EXT.GUID=" + loadKartExt.getGuid() +
@@ -804,7 +804,7 @@ public class RegistryMngImpl implements RegistryMng {
                         Kart kart = kartMng.createKart(loadKartExt.getKart().getLsk(), 0,
                                 "LSK_TP_RSO", org.getReu(), null, null, null, null,
                                 null, null, null);
-                        Nabor nabor = naborMng.createNabor(kart, org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
+                        naborMng.createNabor(kart, org.getUslForCreateExtLskKart(), org, BigDecimal.valueOf(1),
                                 BigDecimal.valueOf(1), null, null, null);
 
                         // создать внешний лиц.счет
@@ -812,10 +812,18 @@ public class RegistryMngImpl implements RegistryMng {
 
                         break;
                     }
-                    case EXT_LSK_EXIST_BUT_CLOSED: { //todo
-                        break;
+                    case EXT_LSK_EXIST_BUT_CLOSED:
+                    case EXT_LSK_EXIST_BUT_KART_CLOSED:
+                        {
+                            // открыть внешний лиц.счет, проверить открыт ли соотв.лиц.сч.
+                            Optional<KartExt> kartExtOpt = kartExtDAO.findByExtLsk(loadKartExt.getExtLsk());
+                            kartExtOpt.ifPresent(t -> {
+                                t.setV(1);
+                                kartMng.setStateSch(t.getKart(), configApp.getCurDt1(), 0);
+                            });
+                            break;
 
-                    }
+                        }
                     default: {
                         //throw new WrongParam("Необрабатываемый статус " +
                         //        "LOAD_KART_EXT.STATUS="+loadKartExt.getStatus());
