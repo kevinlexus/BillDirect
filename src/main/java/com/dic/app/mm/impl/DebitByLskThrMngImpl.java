@@ -1,7 +1,6 @@
 package com.dic.app.mm.impl;
 
 import com.dic.app.mm.DebitByLskThrMng;
-import com.dic.app.mm.DebitThrMng;
 import com.dic.app.mm.GenPenMng;
 import com.dic.bill.dao.*;
 import com.dic.bill.dto.CalcStore;
@@ -268,7 +267,7 @@ public class DebitByLskThrMngImpl implements DebitByLskThrMng {
                         .withMgTo(calcStore.getPeriod())
                         .withMg(mg)
                         .build();
-                kart.getDeb().add(deb);
+                //kart.getDeb().add(deb);
                 em.persist(deb); // note Используй crud.save
             }
         }

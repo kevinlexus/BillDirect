@@ -268,7 +268,7 @@ public class DebitThrMngImpl implements DebitThrMng {
                         .withMgTo(calcStore.getPeriod())
                         .withMg(mg)
                         .build();
-                kart.getDeb().add(deb);
+                //kart.getDeb().add(deb);
                 em.persist(deb); // note Используй crud.save
             }
         }

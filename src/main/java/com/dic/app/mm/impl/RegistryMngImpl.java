@@ -815,7 +815,7 @@ public class RegistryMngImpl implements RegistryMng {
                     case EXT_LSK_EXIST_BUT_CLOSED:
                     case EXT_LSK_EXIST_BUT_KART_CLOSED:
                         {
-                            // открыть внешний лиц.счет, проверить открыт ли соотв.лиц.сч.
+                            // открыть внешний лиц.счет, проверить открыт ли соотв.лиц.сч. fixme проверить дополнительно, по какому статусу идет проверка, Kart.psch или c_states_sch?
                             Optional<KartExt> kartExtOpt = kartExtDAO.findByExtLsk(loadKartExt.getExtLsk());
                             kartExtOpt.ifPresent(t -> {
                                 t.setV(1);
