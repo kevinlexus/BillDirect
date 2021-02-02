@@ -25,6 +25,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -531,22 +532,22 @@ public class RegistryMngImpl implements RegistryMng {
             } else if (i == 10) {
                 // входящий остаток
                 if (elem != null && elem.length() > 0) {
-                    kartExtInfo.insal = new BigDecimal(elem);
+                    kartExtInfo.insal = new BigDecimal(elem).divide(new BigDecimal(100), 2, RoundingMode.HALF_UP);
                 }
             } else if (i == 11) {
                 // начислено
                 if (elem != null && elem.length() > 0) {
-                    kartExtInfo.chrg = new BigDecimal(elem);
+                    kartExtInfo.chrg = new BigDecimal(elem).divide(new BigDecimal(100), 2, RoundingMode.HALF_UP);
                 }
             } else if (i == 12) {
                 // оплачено
                 if (elem != null && elem.length() > 0) {
-                    kartExtInfo.payment = new BigDecimal(elem);
+                    kartExtInfo.payment = new BigDecimal(elem).divide(new BigDecimal(100), 2, RoundingMode.HALF_UP);
                 }
             } else if (i == 13) {
                 // исходящий остаток (сумма к оплате)
                 if (elem != null && elem.length() > 0) {
-                    kartExtInfo.summa = new BigDecimal(elem);
+                    kartExtInfo.summa = new BigDecimal(elem).divide(new BigDecimal(100), 2, RoundingMode.HALF_UP);
                 }
             }
 
@@ -898,6 +899,7 @@ public class RegistryMngImpl implements RegistryMng {
                 .withChrg(loadKartExt.getChrg())
                 .withPayment(loadKartExt.getPayment())
                 .withOutsal(loadKartExt.getSumma())
+                .withRSchetColumn(loadKartExt.getRSchetColumn())
                 .withUk(uk)
                 .build();
         kartExtDAO.save(kartExt);
@@ -1029,7 +1031,7 @@ public class RegistryMngImpl implements RegistryMng {
             }
 
             if (rSchetColumn == 0) {
-                comm = "Некорретный расчетный счет";
+                comm = "Некорректный расчетный счет";
                 status = EXT_LSK_WRONG_ACCOUNT_NUMBER;
             } else {
                 setExt.add(kartExtInfo.extLsk);

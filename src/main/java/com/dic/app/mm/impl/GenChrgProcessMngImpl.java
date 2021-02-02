@@ -119,7 +119,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             // получить действующие, отсортированные услуги по помещению (по всем счетам)
             // перенести данный метод внутрь genVolPart, после того как будет реализованна архитектурная возможность
             // отключать услугу в течении месяца
-            List<Nabor> lstNabor = naborMng.getValidNabor(ko, null);
+            List<Nabor> lstNabor = naborMng.getActualNabor(ko, null);
 
             // очистить информационные строки по льготам
             lstNabor.stream().map(Nabor::getKart).distinct().forEach(t ->
@@ -231,6 +231,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
         for (Nabor nabor : lstNabor) {
             // получить основной лиц счет по связи klsk помещения
             Kart kartMainByKlsk = em.getReference(Kart.class, kartMng.getKartMainLsk(nabor.getKart()));
+
 /*
             if (reqConf.getTp()==0 && nabor.getKart().getLsk().equals("15042021")) {
                 log.error("CHECKERR!");
@@ -332,6 +333,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 BigDecimal areaOverSoc = BigDecimal.ZERO;
                 int vvodDistTp = naborMng.getVvodDistTp(lstNabor, nabor.getUsl().getParentUsl());
                 boolean isMunicipal = nabor.getKart().getStatus().getId().equals(1);
+
+                // расчет
                 if (Utl.in(fkCalcTp, 25) // Текущее содержание и подобные услуги (без свыше соц.нормы и без 0 проживающих)
                         || fkCalcTp.equals(7) && isMunicipal // Найм (только по муниципальным помещениям) расчет на м2
                         || (fkCalcTp.equals(24) || fkCalcTp.equals(32) // Прочие услуги, расчитываемые как расценка * норматив * общ.площадь
@@ -418,8 +421,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     for (UslPriceVolKart t : lstColdHotWater) {
                         if (t.getUsl().getFkCalcTp().equals(17)) {
                             // х.в.
-                            //dayColdWaterVol = dayVol.add(t.getVol()); // WTF????
-                            dayColdWaterVol = dayColdWaterVol.add(t.getVol()); // было странное выражение (выше) отредактировал ред.25.03.19
+                            dayColdWaterVol = dayColdWaterVol.add(t.getVol());
                             isColdMeterExist = t.isMeter();
                         } else {
                             // г.в.
