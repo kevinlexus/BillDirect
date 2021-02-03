@@ -307,7 +307,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 */
                 // наличие счетчика
                 boolean isMeterExist = false;
-                if (Utl.in(fkCalcTp, 17, 18, 31, 52)) {
+                if (Utl.in(fkCalcTp, 17, 18, 31, 52, 53)) {
                     // х.в.,г.в узнать, работал ли хоть один счетчик в данном дне
                     isMeterExist = meterMng.isExistAnyMeter(lstMeterVol, factUslVol.getId(), curDt);
                 }
@@ -398,6 +398,26 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
                         dayVol = tempVol;
                     }
+                } else if (Utl.in(fkCalcTp, 53)) {
+                    // Компонент на тепл энерг. для Г.В.
+                    // получить объем по нормативу в доле на 1 день
+                    // получить соцнорму
+                    socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
+                    if (isMeterExist) {
+                        // получить объем по счетчику в пропорции на 1 день его работы
+                        UslMeterDateVol partVolMeter = lstDayMeterVol.stream()
+                                .filter(t -> t.usl.equals(nabor.getUsl().getMeterUslVol()) && t.dt.equals(curDt))
+                                .findFirst().orElse(null);
+                        if (partVolMeter != null) {
+                            tempVol = partVolMeter.vol;
+                        }
+                    } else {
+                        // норматив в пропорции на 1 день месяца
+                        tempVol = socStandart.vol.multiply(calcStore.getPartDayMonth());
+                    }
+                    // умножить на норматив гКал * объем м3
+                    dayVol = tempVol.multiply(nabor.getNorm());
+                    //dayVol = tempVol.setScale(5, BigDecimal.ROUND_HALF_UP);
                 } else if (Utl.in(fkCalcTp, 19)) {
                     // Водоотведение без уровня соцнормы/свыше
                     // получить объем по нормативу в доле на 1 день
@@ -416,7 +436,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             chrgCountAmountLocal.getLstUslPriceVolKartDetailed().stream()
                                     .filter(t -> t.getDt().equals(curDt)
                                             && t.getKart().getKoKw().equals(nabor.getKart().getKoKw())
-                                            && Utl.in(t.getUsl().getFkCalcTp(), 17, 18)).collect(Collectors.toList());
+                                            && t.getUsl().getIsUseVolCan()
+                                            //&& Utl.in(t.getUsl().getFkCalcTp(), 17, 18) убрал. ред.02.02.21
+                                    ).collect(Collectors.toList());
                     // сложить предварительно рассчитанные объемы х.в.+г.в., найти признаки наличия счетчиков
                     for (UslPriceVolKart t : lstColdHotWater) {
                         if (t.getUsl().getFkCalcTp().equals(17)) {
@@ -560,7 +582,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     uslPriceVolKart = buildVol(curDt, calcStore, nabor, isLinkedEmpty, isLinkedExistMeter,
                             kartMain, detailUslPrice, countPers, socStandart, isMeterExist,
                             dayVol, dayVolOverSoc, kartArea, areaOverSoc, isForChrg);
-                    if (Utl.in(nabor.getUsl().getFkCalcTp(), 17, 18, 31)) {
+                    if (Utl.in(nabor.getUsl().getFkCalcTp(), 17, 18, 31, 53)) {
                         // по х.в., г.в., эл.эн.
                         // сохранить расчитанный объем по расчетному дню, (используется для услуги Повыш коэфф.)
                         mapUslPriceVol.put(nabor.getUsl(), uslPriceVolKart);
@@ -700,7 +722,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // в РСО счетах и кол-во временно отсут.=0
                     countPers.kprNorm = 1;
                 } else {
-                    if (Utl.in(nabor.getUsl().getFkCalcTp(),17,18,19,52)) {
+                    if (Utl.in(nabor.getUsl().getFkCalcTp(),17,18,19,52,53)) {
                         if (isMeterExist) {
                             // х.в. г.в. водоотв., есть только ВО и только если счетчики
                             // (по сути здесь kprNorm ни на что не влияет, но решил заполнять)
@@ -731,7 +753,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             countPers.kprNorm = 1;
                         } */
 
-                    if (Utl.in(nabor.getUsl().getFkCalcTp(),17,18,19,52)) {
+                    if (Utl.in(nabor.getUsl().getFkCalcTp(),17,18,19,52,53)) {
                         if (isMeterExist && countPers.kprOt >= 0) {
                             // х.в. г.в. водоотв., есть только ВО и только если счетчики
                             // (по сути здесь kprNorm ни на что не влияет, но решил заполнять)
