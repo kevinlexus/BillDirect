@@ -428,7 +428,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                                 tempVol = socStandart.vol.multiply(calcStore.getPartDayMonth());
                             }
                             // умножить на норматив гКал * объем м3
-                            dayVol = tempVol.multiply(naborParentOpt.get().getNorm());
+                            dayVol = tempVol.multiply(nabor.getNorm());
 
                         } else {
                             log.error("Для дочерней услуги USL.USL={}, не найдена запись набора с NABOR.LSK={} и NABOR.USL={}",
