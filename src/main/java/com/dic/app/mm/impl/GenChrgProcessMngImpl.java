@@ -4,6 +4,7 @@ import com.dic.app.RequestConfigDirect;
 import com.dic.app.mm.ConfigApp;
 import com.dic.app.mm.GenChrgProcessMng;
 import com.dic.bill.dao.MeterDAO;
+import com.dic.bill.dao.NaborDAO;
 import com.dic.bill.dao.UslDAO;
 import com.dic.bill.dto.*;
 import com.dic.bill.mm.*;
@@ -38,6 +39,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
     private final KartPrMng kartPrMng;
     private final MeterMng meterMng;
     private final MeterDAO meterDao;
+    private final NaborDAO naborDAO;
     private final UslDAO uslDao;
     private final ConfigApp config;
     private final SprParamMng sprParamMng;
@@ -46,13 +48,14 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
     private EntityManager em;
 
     public GenChrgProcessMngImpl(NaborMng naborMng, KartMng kartMng,
-                                 KartPrMng kartPrMng, MeterMng meterMng, MeterDAO meterDao, UslDAO uslDao,
+                                 KartPrMng kartPrMng, MeterMng meterMng, MeterDAO meterDao, NaborDAO naborDAO, UslDAO uslDao,
                                  ConfigApp config, SprParamMng sprParamMng) {
         this.naborMng = naborMng;
         this.kartMng = kartMng;
         this.kartPrMng = kartPrMng;
         this.meterMng = meterMng;
         this.meterDao = meterDao;
+        this.naborDAO = naborDAO;
         this.uslDao = uslDao;
         this.config = config;
         this.sprParamMng = sprParamMng;
@@ -341,8 +344,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                         && !isMunicipal)// или 32 услуга, только не по муниципальному фонду
                         || fkCalcTp.equals(36)// Вывоз жидких нечистот и т.п. услуги
                         || fkCalcTp.equals(37) && !isMunicipal // Капремонт в немуницип.фонде
-                        || fkCalcTp.equals(50) && vvodDistTp==4 // если нет счетчика ОДПУ
-                        || fkCalcTp.equals(51) && (vvodDistTp==1 || vvodDistTp==8) // проп.площади или для информации
+                        || fkCalcTp.equals(50) && vvodDistTp == 4 // если нет счетчика ОДПУ
+                        || fkCalcTp.equals(51) && (vvodDistTp == 1 || vvodDistTp == 8) // проп.площади или для информации
                 ) {
                     if (fkCalcTp.equals(25)) {
                         // текущее содержание - получить соц.норму
@@ -374,7 +377,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     if (Utl.in(fkCalcTp, 17, 31) || (Utl.in(fkCalcTp, 18, 52) &&
                             (!Utl.nvl(kartMain.getIsKran1(), false) ||
                                     isMeterExist || Utl.between(curDt, sprParamMng.getD1("MONTH_HEAT1"),// кран из системы отопления (не счетчик) -
-                                            sprParamMng.getD1("MONTH_HEAT2")) // начислять только в отопительный период
+                                    sprParamMng.getD1("MONTH_HEAT2")) // начислять только в отопительный период
                             ))) {
                         if (reqConf.getTp() == 4) {
                             // начисление по выбранной услуге, по нормативу, для автоначисления
@@ -402,22 +405,40 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // Компонент на тепл энерг. для Г.В.
                     // получить объем по нормативу в доле на 1 день
                     // получить соцнорму
-                    socStandart = kartPrMng.getSocStdtVol(nabor, countPers);
-                    if (isMeterExist) {
-                        // получить объем по счетчику в пропорции на 1 день его работы
-                        UslMeterDateVol partVolMeter = lstDayMeterVol.stream()
-                                .filter(t -> t.usl.equals(nabor.getUsl().getMeterUslVol()) && t.dt.equals(curDt))
-                                .findFirst().orElse(null);
-                        if (partVolMeter != null) {
-                            tempVol = partVolMeter.vol;
+                    Optional<Usl> uslParentOpt = uslDao.findByCd("COMPHW");
+                    if (uslParentOpt.isPresent()) {
+                        // получить норматив, кол-во прож, объемы счетчика, от родительской услуги "COMPHW"
+                        Optional<Nabor> naborParentOpt = naborDAO.findByKartAndUsl(nabor.getKart(),
+                                uslParentOpt.get());
+                        if (naborParentOpt.isPresent()) {
+                            CountPers countPersParent = getCountPersAmount(parVarCntKpr, parCapCalcKprTp, curDt,
+                                    naborParentOpt.get(), kartMain, isMeterExist);
+                            socStandart = kartPrMng.getSocStdtVol(naborParentOpt.get(), countPersParent);
+                            if (isMeterExist) {
+                                // получить объем по счетчику в пропорции на 1 день его работы
+                                UslMeterDateVol partVolMeter = lstDayMeterVol.stream()
+                                        .filter(t -> t.usl.equals(naborParentOpt.get().
+                                                getUsl().getMeterUslVol()) && t.dt.equals(curDt))
+                                        .findFirst().orElse(null);
+                                if (partVolMeter != null) {
+                                    tempVol = partVolMeter.vol;
+                                }
+                            } else {
+                                // норматив в пропорции на 1 день месяца
+                                tempVol = socStandart.vol.multiply(calcStore.getPartDayMonth());
+                            }
+                            // умножить на норматив гКал * объем м3
+                            dayVol = tempVol.multiply(naborParentOpt.get().getNorm());
+
+                        } else {
+                            log.error("Для дочерней услуги USL.USL={}, не найдена запись набора с NABOR.LSK={} и NABOR.USL={}",
+                                    nabor.getUsl().getId(), nabor.getKart().getLsk(),
+                                    uslParentOpt.get().getId());
                         }
                     } else {
-                        // норматив в пропорции на 1 день месяца
-                        tempVol = socStandart.vol.multiply(calcStore.getPartDayMonth());
+                        log.error("Для дочерней услуги USL.USL={}, не найдена услуга по USL.CD=\"COMPHW\"",
+                                nabor.getUsl().getId());
                     }
-                    // умножить на норматив гКал * объем м3
-                    dayVol = tempVol.multiply(nabor.getNorm());
-                    //dayVol = tempVol.setScale(5, BigDecimal.ROUND_HALF_UP);
                 } else if (Utl.in(fkCalcTp, 19)) {
                     // Водоотведение без уровня соцнормы/свыше
                     // получить объем по нормативу в доле на 1 день
@@ -435,8 +456,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     List<UslPriceVolKart> lstColdHotWater =
                             chrgCountAmountLocal.getLstUslPriceVolKartDetailed().stream()
                                     .filter(t -> t.getDt().equals(curDt)
-                                            && t.getKart().getKoKw().equals(nabor.getKart().getKoKw())
-                                            && t.getUsl().getIsUseVolCan()
+                                                    && t.getKart().getKoKw().equals(nabor.getKart().getKoKw())
+                                                    && t.getUsl().getIsUseVolCan()
                                             //&& Utl.in(t.getUsl().getFkCalcTp(), 17, 18) убрал. ред.02.02.21
                                     ).collect(Collectors.toList());
                     // сложить предварительно рассчитанные объемы х.в.+г.в., найти признаки наличия счетчиков
@@ -524,27 +545,34 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 } else if (fkCalcTp.equals(47)) {
                     // Тепл.энергия для нагрева ХВС (Кис.)
                     //area = kartArea;
-                    Usl uslLinked = uslDao.getByCd("х.в. для гвс");
-                    BigDecimal vvodVol2 = ko.getKart().stream()
-                            .flatMap(t -> t.getNabor().stream())
-                            .filter(t -> t.getUsl().equals(uslLinked))
-                            .map(t -> t.getVvod().getKub())
-                            .findFirst().orElse(BigDecimal.ZERO);
+                    Optional<Usl> uslParentOpt = uslDao.findByCd("х.в. для гвс");
+                    // Usl uslLinked = uslDao.getByCd("х.в. для гвс"); убрал 04.02.2021
+                    if (uslParentOpt.isPresent()) {
+                        Usl uslLinked = uslParentOpt.get();
+                        BigDecimal vvodVol2 = ko.getKart().stream()
+                                .flatMap(t -> t.getNabor().stream())
+                                .filter(t -> t.getUsl().equals(uslLinked))
+                                .map(t -> t.getVvod().getKub())
+                                .findFirst().orElse(BigDecimal.ZERO);
 
-                    // получить объем по расчетному дню связанной услуги
-                    UslPriceVolKart uslPriceVolKart = chrgCountAmountLocal.getLstUslPriceVolKartDetailed().stream()
-                            .filter(t -> t.getDt().equals(curDt)
-                                    && t.getKart().getKoKw().equals(nabor.getKart().getKoKw())
-                                    && t.getUsl().equals(uslLinked))
-                            .findFirst().orElse(null);
+                        // получить объем по расчетному дню связанной услуги
+                        UslPriceVolKart uslPriceVolKart = chrgCountAmountLocal.getLstUslPriceVolKartDetailed().stream()
+                                .filter(t -> t.getDt().equals(curDt)
+                                        && t.getKart().getKoKw().equals(nabor.getKart().getKoKw())
+                                        && t.getUsl().equals(uslLinked))
+                                .findFirst().orElse(null);
 
-                    if (uslPriceVolKart != null) {
-                        isLinkedEmpty = uslPriceVolKart.isEmpty();
-                        isLinkedExistMeter = uslPriceVolKart.isMeter();
-                        if (vvodVol2.compareTo(BigDecimal.ZERO) != 0) {
-                            dayVol = uslPriceVolKart.getVol().divide(vvodVol2, 20, BigDecimal.ROUND_HALF_UP)
-                                    .multiply(vvodVol);
+                        if (uslPriceVolKart != null) {
+                            isLinkedEmpty = uslPriceVolKart.isEmpty();
+                            isLinkedExistMeter = uslPriceVolKart.isMeter();
+                            if (vvodVol2.compareTo(BigDecimal.ZERO) != 0) {
+                                dayVol = uslPriceVolKart.getVol().divide(vvodVol2, 20, BigDecimal.ROUND_HALF_UP)
+                                        .multiply(vvodVol);
+                            }
                         }
+                    } else {
+                        log.error("Для дочерней услуги USL.USL={}, не найдена услуга по USL.CD=\"х.в. для гвс\"",
+                                nabor.getUsl().getId());
                     }
                 } else if (fkCalcTp.equals(6) && countPers.kpr > 0) {
                     // Очистка выгр.ям (Полыс.) (при наличии проживающих)
@@ -692,7 +720,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
     /**
      * Получить совокупное кол-во проживающих (родительский и дочерний лиц.счета)
-     *  @param parVarCntKpr    - тип подсчета кол-во проживающих
+     *
+     * @param parVarCntKpr    - тип подсчета кол-во проживающих
      * @param parCapCalcKprTp - тип подсчета кол-во проживающих для капремонта
      * @param curDt           - дата расчета
      * @param nabor           - строка услуги
@@ -722,7 +751,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     // в РСО счетах и кол-во временно отсут.=0
                     countPers.kprNorm = 1;
                 } else {
-                    if (Utl.in(nabor.getUsl().getFkCalcTp(),17,18,19,52,53)) {
+                    if (Utl.in(nabor.getUsl().getFkCalcTp(), 17, 18, 19, 52, 53)) {
                         if (isMeterExist) {
                             // х.в. г.в. водоотв., есть только ВО и только если счетчики
                             // (по сути здесь kprNorm ни на что не влияет, но решил заполнять)
@@ -753,7 +782,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                             countPers.kprNorm = 1;
                         } */
 
-                    if (Utl.in(nabor.getUsl().getFkCalcTp(),17,18,19,52,53)) {
+                    if (Utl.in(nabor.getUsl().getFkCalcTp(), 17, 18, 19, 52, 53)) {
                         if (isMeterExist && countPers.kprOt >= 0) {
                             // х.в. г.в. водоотв., есть только ВО и только если счетчики
                             // (по сути здесь kprNorm ни на что не влияет, но решил заполнять)
