@@ -229,7 +229,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
         // объем по услуге, за рассчитанный день
 
-        Map<Usl, UslPriceVolKart> mapUslPriceVol = new HashMap<>(30);
+        Map<String, UslPriceVolKart> mapUslPriceVol = new HashMap<>(30);
 
         for (Nabor nabor : lstNabor) {
             // получить основной лиц счет по связи klsk помещения
@@ -523,21 +523,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     }
                 } else if (Utl.in(fkCalcTp, 44)) {
                     // Повыш.коэфф Кис
-                    if (nabor.getUsl().getParentUsl() != null) {
-                        // получить объем из родительской услуги
-                        UslPriceVolKart uslPriceVolKart = mapUslPriceVol.get(nabor.getUsl().getParentUsl());
-                        if (uslPriceVolKart != null && !uslPriceVolKart.isMeter()) {
-                            // только если нет счетчика в родительской услуге
-                            //area = kartArea;
-                            // сложить все объемы родит.услуги, умножить на норматив текущей услуги
-                            dayVol = (uslPriceVolKart.getVol().add(uslPriceVolKart.getVolOverSoc()))
-                                    .multiply(naborNorm);
-                        }
-
-                    } else {
-                        throw new ErrorWhileChrg("ОШИБКА! По услуге usl.id=" + nabor.getUsl().getId() +
-                                " отсутствует PARENT_USL");
-                    }
+                    // получить объем из родительской услуги
+                    dayVol = getParentVol(mapUslPriceVol, naborNorm, "015");
+                    dayVol = dayVol.add(getParentVol(mapUslPriceVol, naborNorm, "162"));
                 } else if (fkCalcTp.equals(49)) {
                     // Вывоз мусора - кол-во прожив * цену (Кис.)
                     //area = kartArea;
@@ -613,7 +601,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     if (Utl.in(nabor.getUsl().getFkCalcTp(), 17, 18, 31, 53)) {
                         // по х.в., г.в., эл.эн.
                         // сохранить расчитанный объем по расчетному дню, (используется для услуги Повыш коэфф.)
-                        mapUslPriceVol.put(nabor.getUsl(), uslPriceVolKart);
+                        mapUslPriceVol.put(nabor.getUsl().getId(), uslPriceVolKart);
                     }
                     // сгруппировать по лиц.счету, услуге, для распределения по вводу
                     chrgCountAmountLocal.groupUslVol(uslPriceVolKart);
@@ -665,6 +653,18 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             }
         }
 
+    }
+
+    private BigDecimal getParentVol(Map<String, UslPriceVolKart> mapUslPriceVol, BigDecimal naborNorm, String uslId) {
+        BigDecimal dayVol = BigDecimal.ZERO;
+        UslPriceVolKart uslPriceVolKart = mapUslPriceVol.get(uslId);
+        if (uslPriceVolKart != null && !uslPriceVolKart.isMeter()) {
+            // только если нет счетчика в родительской услуге
+            // сложить все объемы родит.услуги, умножить на норматив текущей услуги
+            dayVol = (uslPriceVolKart.getVol().add(uslPriceVolKart.getVolOverSoc()))
+                    .multiply(naborNorm);
+        }
+        return dayVol;
     }
 
     /**
