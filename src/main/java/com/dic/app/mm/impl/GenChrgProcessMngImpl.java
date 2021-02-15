@@ -176,8 +176,8 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE, округлить для ГИС ЖКХ
                 chrgCountAmountLocal.saveChargeAndRound(ko);
 
-                // 8. Сохранить короткое описание услуг
-                kartMng.saveShortKartDescription(ko);
+                // 8. Сохранить короткое описание услуг ред.15.02.21 - убрал, так как генерится каждый раз по периоду
+                // kartMng.saveShortKartDescription(ko);
 
                 // 9. Сохранить фактическое наличие счетчика, в случае отсутствия объема, для формирования статистики
                 chrgCountAmountLocal.saveFactMeterTp(ko, lstMeterVol, reqConf.getCalcStore().getCurDt2());

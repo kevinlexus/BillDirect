@@ -5,6 +5,7 @@ import com.dic.bill.dao.OrgDAO;
 import com.dic.bill.dao.PrepErrDAO;
 import com.dic.bill.dao.SprGenItmDAO;
 import com.dic.bill.dto.KwtpMgRec;
+import com.dic.bill.mm.KartMng;
 import com.dic.bill.mm.NaborMng;
 import com.dic.bill.model.scott.*;
 import com.ric.cmn.CommonConstants;
@@ -50,6 +51,7 @@ public class WebController implements CommonConstants {
     private final DistPayQueueMng distPayQueueMng;
     private final CorrectsMng correctsMng;
     private final RegistryMng registryMng;
+    private final KartMng kartMng;
     private final MntBase mntBase;
 
     public WebController(NaborMng naborMng, MigrateMng migrateMng, ExecMng execMng,
@@ -58,7 +60,7 @@ public class WebController implements CommonConstants {
                          DistPayMng distPayMng,
                          DistPayQueueMng distPayQueueMng,
                          ProcessMng processMng,
-                         CorrectsMng correctsMng, RegistryMng registryMng, MntBase mntBase) {
+                         CorrectsMng correctsMng, RegistryMng registryMng, KartMng kartMng, MntBase mntBase) {
         this.naborMng = naborMng;
         this.migrateMng = migrateMng;
         this.execMng = execMng;
@@ -72,6 +74,7 @@ public class WebController implements CommonConstants {
         this.processMng = processMng;
         this.correctsMng = correctsMng;
         this.registryMng = registryMng;
+        this.kartMng = kartMng;
         this.mntBase = mntBase;
     }
 
@@ -539,7 +542,7 @@ public class WebController implements CommonConstants {
             }
             config.getLock().unlockProc(1, "unloadPaymentFileKartExt");
             // вернуть кол-во выгружено, путь и имя файла
-            return cntLoaded +"_"+fileName;
+            return cntLoaded + "_" + fileName;
         } else {
             return "PROCESS";
         }
@@ -627,7 +630,7 @@ public class WebController implements CommonConstants {
     @RequestMapping("/fullCompress")
     public String fullCompress(
             @RequestParam(value = "tableName") String tableName,
-            @RequestParam(value = "key", defaultValue = "", required = false)  String key,
+            @RequestParam(value = "key", defaultValue = "", required = false) String key,
             @RequestParam(value = "firstLsk") String firstLsk) {
         log.info("GOT /compress with: tableName={}, firstLsk={}", tableName, firstLsk);
         // проверка валидности ключа
@@ -673,4 +676,24 @@ public class WebController implements CommonConstants {
         }
         return "OK";
     }
+
+    /*
+     * Получить короткие наименования действующих услуг по лиц.счету
+     */
+    @RequestMapping(value = "/getKartShortNames/{lsk}/{period}", method = RequestMethod.GET)
+    @ResponseBody
+    @Transactional
+    public String getKartShortNames(
+            @PathVariable String lsk,
+            @PathVariable String period
+    ) {
+        log.info("GOT /getKartShortNames with: lsk={}, period={}", lsk, period);
+        Kart kart = em.find(Kart.class, lsk);
+        kart.getAnabor().size();
+
+        return kartMng.getUslNameShort(kart, 0, 5, ",",
+                period, config.getPeriod());
+    }
+
+
 }
