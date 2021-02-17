@@ -22,7 +22,7 @@
         <!-- Spring -->
         <spring-framework.version>5.1.4.RELEASE</spring-framework.version>
         <!-- Hibernate / JPA -->
-        <hibernate.version>5.4.21.Final</hibernate.version>
+        <hibernate.version>5.4.28.Final</hibernate.version>
         <!-- Test -->
         <junit.version>4.12</junit.version>
 

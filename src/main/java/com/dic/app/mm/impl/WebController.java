@@ -689,8 +689,6 @@ public class WebController implements CommonConstants {
     ) {
         log.info("GOT /getKartShortNames with: lsk={}, period={}", lsk, period);
         Kart kart = em.find(Kart.class, lsk);
-        kart.getAnabor().size();
-
         return kartMng.getUslNameShort(kart, 0, 5, ",",
                 period, config.getPeriod());
     }

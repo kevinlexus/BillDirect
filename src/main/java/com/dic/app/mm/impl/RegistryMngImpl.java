@@ -744,6 +744,7 @@ public class RegistryMngImpl implements RegistryMng {
                             t.setChrg(loadKartExt.getChrg());
                             t.setPayment(loadKartExt.getPayment());
                             t.setOutsal(loadKartExt.getSumma());
+                            t.setRSchet(loadKartExt.getRSchet());
                             // проверить статус соотв.лиц.счета
                             kartMng.checkStateSch(t.getKart(), configApp.getCurDt1(), 0);
                             // проверить наличие услуги в наборах
@@ -899,7 +900,7 @@ public class RegistryMngImpl implements RegistryMng {
                 .withChrg(loadKartExt.getChrg())
                 .withPayment(loadKartExt.getPayment())
                 .withOutsal(loadKartExt.getSumma())
-                .withRSchetColumn(loadKartExt.getRSchetColumn())
+                .withRSchet(loadKartExt.getRSchet())
                 .withUk(uk)
                 .build();
         kartExtDAO.save(kartExt);
@@ -1082,7 +1083,7 @@ public class RegistryMngImpl implements RegistryMng {
                             status = EXT_LSK_NOT_EXISTS;
                         } else {
                             long countKoKw = lstKart.stream().filter(Kart::isActual)
-                                    .map(Kart::getKoKw).distinct().count();
+                                    .map(t->t.getKoKw().getId()).distinct().count();
                             if (countKoKw > 1) {
                                 comm = "Найдено более одного открытого фин.лиц.счета, необходимо указать лиц.счет привязки";
                                 status = FOUND_MANY_ACTUAL_KO_KW;
@@ -1126,7 +1127,6 @@ public class RegistryMngImpl implements RegistryMng {
                         .withComm(comm)
                         .withStatus(status)
                         .withRSchet(kartExtInfo.rSchet)
-                        .withRSchetColumn(rSchetColumn)
                         .build();
         if (kart != null) {
             //loadKartExt.setKoKw(kart.getKoKw());
