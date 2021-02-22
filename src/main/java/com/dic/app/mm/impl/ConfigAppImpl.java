@@ -56,7 +56,20 @@ public class ConfigAppImpl implements ConfigApp {
         setLock(new Lock());
     }
 
+    /**
+     * Проверка необходимости выйти из приложения
 
+    @Scheduled(fixedDelay = 2000)
+    public void checkTerminate() {
+        // проверка файла "stop" на завершение приложения (для обновления)
+        File tempFile = new File("stop");
+        boolean exists = tempFile.exists();
+        if (exists) {
+            log.info("ВНИМАНИЕ! ЗАПРОШЕНА ОСТАНОВКА ПРИЛОЖЕНИЯ! - БЫЛ СОЗДАН ФАЙЛ c:\\Progs\\GisExchanger\\stop");
+            SpringApplication.exit(ctx, () -> 0);
+        }
+    }
+     */
     // Получить Calendar текущего периода
     private List<Calendar> getCalendarCurrentPeriod() {
         List<Calendar> calendarLst = new ArrayList<>();
