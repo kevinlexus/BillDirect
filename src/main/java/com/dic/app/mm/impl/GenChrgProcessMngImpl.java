@@ -158,7 +158,9 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
             }
 
             // 4. Округлить объемы
+            chrgCountAmountLocal.printVolAmntChrg();
             chrgCountAmountLocal.roundVol();
+            chrgCountAmountLocal.printVolAmntChrg();
 
             if (reqConf.getTp() == 3) {
                 // 5. Добавить в объемы по вводу
@@ -169,15 +171,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
             if (!Utl.in(reqConf.getTp(), 3, 4)) {
                 // 6. Сгруппировать строки начислений для записи в C_CHARGE
-                chrgCountAmountLocal.groupUslVolChrg();
+                chrgCountAmountLocal.printVolAmntChrg();
 
-                chrgCountAmountLocal.printVolAmntChrg(null);
+                chrgCountAmountLocal.groupUslVolChrg();
 
                 // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE, округлить для ГИС ЖКХ
                 chrgCountAmountLocal.saveChargeAndRound(ko);
-
-                // 8. Сохранить короткое описание услуг ред.15.02.21 - убрал, так как генерится каждый раз по периоду
-                // kartMng.saveShortKartDescription(ko);
 
                 // 9. Сохранить фактическое наличие счетчика, в случае отсутствия объема, для формирования статистики
                 chrgCountAmountLocal.saveFactMeterTp(ko, lstMeterVol, reqConf.getCalcStore().getCurDt2());
@@ -272,9 +271,12 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                 // тип распределения ввода
                 Integer distTp = 0;
                 BigDecimal vvodVol = BigDecimal.ZERO;
+                boolean isChargeInNotHeatingPeriod = false;
                 if (vvod != null) {
                     distTp = vvod.getDistTp();
                     vvodVol = Utl.nvl(vvod.getKub(), BigDecimal.ZERO);
+                    isChargeInNotHeatingPeriod = vvod.getIsChargeInNotHeatingPeriod() != null
+                            && vvod.getIsChargeInNotHeatingPeriod();
                 }
                 Kart kartMain;
                 if (Utl.in(nabor.getKart().getTp().getCd(), "LSK_TP_ADDIT", "LSK_TP_RSO")) {
@@ -311,7 +313,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 */
                 // наличие счетчика
                 boolean isMeterExist = false;
-                if (Utl.in(fkCalcTp, 17, 18, 31, 52, 53)) {
+                if (Utl.in(fkCalcTp, 17, 18, 31, 52, 53, 54)) {
                     // х.в.,г.в узнать, работал ли хоть один счетчик в данном дне
                     isMeterExist = meterMng.isExistAnyMeter(lstMeterVol, factUslVol.getId(), curDt);
                 }
@@ -485,7 +487,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                                 tempVol = naborVol;
                             } else if (Utl.in(distTp, 4, 5)) {
                                 // нет ОДПУ по отоплению гкал, начислить по нормативу с учётом отопительного сезона
-                                if (vvod != null && vvod.getIsChargeInNotHeatingPeriod()) {
+                                if (isChargeInNotHeatingPeriod) {
                                     // начислять и в НЕотопительном периоде
                                     tempVol = kartArea.multiply(naborNorm);
                                 } else {
@@ -505,20 +507,25 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                     //log.info("************************ dayVol={}", dayVol);
                 } else if (Utl.in(fkCalcTp, 54)) {
                     // Отопление гкал. с уровнем соцнормы/свыше (Полыс.)
-                    if (Utl.nvl(kartMain.getPot(), BigDecimal.ZERO).compareTo(BigDecimal.ZERO) != 0) {
-                        // есть показания по Индивидуальному счетчику отопления
-                        tempVol = Utl.nvl(kartMain.getMot(), BigDecimal.ZERO);
+                    socStandart = kartPrMng.getSocStdtVol(kartArea, nabor, countPers);
+                    if (isMeterExist) {
+                        // получить объем по счетчику в пропорции на 1 день его работы
+                        UslMeterDateVol partVolMeter = lstDayMeterVol.stream()
+                                .filter(t -> t.usl.equals(nabor.getUsl().getMeterUslVol()) && t.dt.equals(curDt))
+                                .findFirst().orElse(null);
+                        if (partVolMeter != null) {
+                            tempVol = partVolMeter.vol;
+                        }
+                        //  в доле на 1 день - по счетчику - весь объем по льготной цене
+                        dayVol = tempVol.multiply(calcStore.getPartDayMonth());
                     } else {
                         if (kartArea.compareTo(BigDecimal.ZERO) != 0) {
                             if (distTp.equals(1)) {
-                                // есть ОДПУ по отоплению гкал, начислить по распределению // fixme коттеджи???
+                                // есть ОДПУ по отоплению гкал, начислить по распределению
                                 tempVol = naborVol;
                             } else if (Utl.in(distTp, 4, 5)) {
                                 // нет ОДПУ по отоплению гкал, начислить по нормативу с учётом отопительного сезона
-                                if (vvod == null) {
-                                    throw new ErrorWhileChrg("Ввод не заполнен по услуге usl=" + nabor.getUsl().getId() +
-                                            " houseId=" + nabor.getKart().getHouse().getId());
-                                } if (vvod.getIsChargeInNotHeatingPeriod()) {
+                                if (isChargeInNotHeatingPeriod) {
                                     // начислять и в НЕотопительном периоде
                                     tempVol = kartArea.multiply(naborNorm);
                                 } else {
@@ -530,14 +537,13 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
                                 }
                             }
                         }
-
+                        //  в доле на 1 день
+                        dayVol = tempVol.multiply(calcStore.getPartDayMonth()).multiply(socStandart.procNorm);
+                        dayVolOverSoc = tempVol.multiply(calcStore.getPartDayMonth()).subtract(dayVol);
                     }
-                    //  в доле на 1 день
-                    socStandart = kartPrMng.getSocStdtVol(kartArea, nabor, countPers);
-                    dayVol = tempVol.multiply(socStandart.procNorm).multiply(calcStore.getPartDayMonth());
-                    dayVolOverSoc = tempVol.subtract(dayVol);
-                    log.info("************************ dayVol={}", dayVol);
-                    log.info("************************ dayVolOversoc={}", dayVolOverSoc);
+
+                    //log.info("************************ dayVol={}", dayVol);
+                    //log.info("************************ dayVolOversoc={}", dayVolOverSoc);
                 } else if (Utl.in(fkCalcTp, 12)) {
                     // Антенна, код.замок
                     dayVol = calcStore.getPartDayMonth();
