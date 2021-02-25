@@ -160,7 +160,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
             // 4. Округлить объемы
             chrgCountAmountLocal.roundVol();
-            chrgCountAmountLocal.printVolAmntChrg();
+            //chrgCountAmountLocal.printVolAmntChrg();
 
             if (reqConf.getTp() == 3) {
                 // 5. Добавить в объемы по вводу
@@ -171,7 +171,7 @@ public class GenChrgProcessMngImpl implements GenChrgProcessMng {
 
             if (!Utl.in(reqConf.getTp(), 3, 4)) {
                 // 6. Сгруппировать строки начислений для записи в C_CHARGE
-                chrgCountAmountLocal.printVolAmntChrg();
+                //chrgCountAmountLocal.printVolAmntChrg();
                 chrgCountAmountLocal.groupUslVolChrg();
 
                 // 7. Умножить объем на цену (расчет в рублях), сохранить в C_CHARGE, округлить для ГИС ЖКХ
